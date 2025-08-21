@@ -18,6 +18,32 @@ const supabase = createClient(
 
 export default async (req, res) => {
   if (req.method !== 'POST') {
+    // --- START DEBUG LOGS ---
+    console.log('Webhook: SUPABASE_SERVICE_ROLE_KEY (first 5 chars):', process.env.SUPABASE_SERVICE_ROLE_KEY?.substring(0, 5));
+
+    try {
+        // This is for debugging the current role from the database perspective
+        const { data: roleData, error: roleError } = await supabase.rpc('current_setting', { setting_name: 'role' });
+        if (roleError) {
+            console.error('Webhook: Error getting current_role via RPC:', roleError);
+        } else {
+            console.log('Webhook: Current database role (via RPC):', roleData);
+        }
+    } catch (e) {
+        console.error('Webhook: Exception getting current_role via RPC:', e);
+    }
+
+    try {
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError) {
+            console.error('Webhook: Error getting auth user:', authError);
+        } else {
+            console.log('Webhook: Supabase auth user:', user);
+        }
+    } catch (e) {
+        console.error('Webhook: Exception getting auth user:', e);
+    }
+    // --- END DEBUG LOGS ---
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
