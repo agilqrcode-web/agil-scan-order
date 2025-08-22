@@ -1,4 +1,4 @@
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import { useUser, useClerk } from "@clerk/clerk-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -168,7 +168,7 @@ export default function DashboardLayout() {
         <div className="flex-1 flex flex-col">
           <DashboardHeader />
           <main className="flex-1 p-6">
-            <Outlet />
+            <Outlet key={location.pathname} />
           </main>
         </div>
       </div>
