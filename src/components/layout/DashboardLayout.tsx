@@ -52,7 +52,7 @@ const navigation = [
 ];
 
 function DashboardSidebar() {
-  const { isMobile, setOpenMobile } = useSidebar(); // Access isMobile and setOpenMobile from useSidebar
+  const { isMobile, setOpenMobile, state } = useSidebar(); // Access isMobile, setOpenMobile, and state from useSidebar
 
   return (
     <Sidebar collapsible="icon">
