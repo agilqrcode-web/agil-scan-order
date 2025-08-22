@@ -46,8 +46,8 @@ export function useUserProfile() {
       }
     },
     enabled: isLoaded && isSignedIn && !!user,
-    staleTime: 0,
-    gcTime: 0,
+    staleTime: 1000 * 60 * 5, // Data is considered fresh for 5 minutes
+    gcTime: 1000 * 60 * 10,   // Data is kept in cache for 10 minutes after becoming inactive
     retry: false,
   });
 

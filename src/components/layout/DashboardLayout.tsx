@@ -78,7 +78,7 @@ function DashboardSidebar() {
                     }}
                   >
                     <item.icon className="h-4 w-4" />
-                    <span>{item.name}</span>
+                    <span className={cn(state === "collapsed" && "hidden")}>{item.name}</span>
                   </NavLink>
                 </SidebarMenuItem>
               ))}
