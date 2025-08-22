@@ -72,14 +72,14 @@ export default function Notifications() {
             {unreadCount > 0 ? `${unreadCount} não lidas` : "Todas as notificações foram lidas"}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2 justify-end">
+        <div className="flex flex-col sm:flex-row gap-2 justify-end">
           <Button variant="outline">
-            <Settings className="mr-2 h-4 w-4" />
-            Configurar
+            <Settings className="mr-2 h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Configurar</span>
           </Button>
           <Button variant="outline">
-            <CheckCheck className="mr-2 h-4 w-4" />
-            Marcar todas como lidas
+            <CheckCheck className="mr-2 h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Marcar todas como lidas</span>
           </Button>
         </div>
       </div>
