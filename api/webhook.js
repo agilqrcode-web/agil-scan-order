@@ -49,10 +49,15 @@ export default async (req, res) => {
         // Ação: Criar o perfil inicial na sua tabela de profiles
         const { error: insertError } = await supabase
           .from('profiles')
-          .insert([{ id: clerkUserId, onboarding_completed: false }]);
+          .insert([{ id: clerkUserId, onboarding_completed: false }])
+          .onConflict('id') // Specify the primary key column
+          .ignoreDuplicates(); // Ignore the insert if a conflict occurs
         
         if (insertError) {
-          throw insertError;
+          // Log the error but don't throw it, as it might be a harmless duplicate
+          console.error(`Error inserting profile for user ${clerkUserId}:`, insertError);
+        } else {
+          console.log(`Processed initial profile for user: ${clerkUserId}`);
         }
         console.log(`Created initial profile for user: ${clerkUserId}`);
         break;
