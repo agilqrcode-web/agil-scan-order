@@ -85,7 +85,7 @@ export default function Notifications() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Card>
+        <Card className="min-w-0">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total</CardTitle>
             <Bell className="h-4 w-4 text-muted-foreground" />
@@ -98,7 +98,7 @@ export default function Notifications() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="min-w-0">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Não Lidas</CardTitle>
             <Bell className="h-4 w-4 text-orange-500" />
@@ -111,7 +111,7 @@ export default function Notifications() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="min-w-0">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Hoje</CardTitle>
             <Bell className="h-4 w-4 text-green-500" />
@@ -172,13 +172,13 @@ export default function Notifications() {
                   </p>
                 </div>
 
-                <div className="flex gap-1">
+                <div className="flex flex-col gap-1">
                   {!notification.read && (
-                    <Button size="sm" variant="ghost">
+                    <Button size="sm" variant="ghost" className="w-full">
                       <Check className="h-3 w-3" />
                     </Button>
                   )}
-                  <Button size="sm" variant="ghost">
+                  <Button size="sm" variant="ghost" className="w-full">
                     <Trash2 className="h-3 w-3" />
                   </Button>
                 </div>
