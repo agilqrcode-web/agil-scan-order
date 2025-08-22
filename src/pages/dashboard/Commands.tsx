@@ -67,7 +67,7 @@ export default function Commands() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Comandas</h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 justify-end">
           <Button variant="outline">
             <Clock className="mr-2 h-4 w-4" />
             Relatório
@@ -130,13 +130,13 @@ export default function Commands() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <div className="flex gap-4">
+            <div className="flex flex-col sm:flex-row gap-4">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input placeholder="Buscar por ID, cliente ou mesa..." className="pl-9" />
               </div>
               <Select>
-                <SelectTrigger className="w-40">
+                <SelectTrigger className="w-full sm:w-40">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -153,9 +153,9 @@ export default function Commands() {
               {mockOrders.map((order) => (
                 <Card key={order.id} className="hover:shadow-md transition-shadow">
                   <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
                       <div className="space-y-1">
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 flex-wrap">
                           <h3 className="font-semibold">#{order.id}</h3>
                           <Badge 
                             className={statusColors[order.status as keyof typeof statusColors]}
@@ -180,7 +180,7 @@ export default function Commands() {
                         </p>
                       </div>
 
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 flex-wrap mt-2 sm:mt-0">
                         <Button size="sm" variant="outline">
                           <Eye className="h-3 w-3" />
                         </Button>

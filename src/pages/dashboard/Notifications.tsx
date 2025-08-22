@@ -72,7 +72,7 @@ export default function Notifications() {
             {unreadCount > 0 ? `${unreadCount} não lidas` : "Todas as notificações foram lidas"}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 justify-end">
           <Button variant="outline">
             <Settings className="mr-2 h-4 w-4" />
             Configurar
@@ -148,8 +148,8 @@ export default function Notifications() {
                 </div>
 
                 <div className="flex-1 space-y-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className={`font-medium ${!notification.read ? 'font-semibold' : ''}`}>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className={`font-medium ${!notification.read ? 'font-semibold' : ''} min-w-0`}>
                       {notification.title}
                     </h3>
                     <Badge 

@@ -116,8 +116,8 @@ export default function PlatformGuide() {
                 </div>
                 
                 <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h3 className="font-semibold">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <h3 className="font-semibold min-w-0">
                       {index + 1}. {step.title}
                     </h3>
                     <Badge variant="outline" className="text-xs">
@@ -245,15 +245,15 @@ export default function PlatformGuide() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-4">
-            <Button>
+          <div className="flex gap-4 flex-wrap">
+            <Button className="w-full sm:w-auto">
               <BookOpen className="mr-2 h-4 w-4" />
               Central de Ajuda
             </Button>
-            <Button variant="outline">
+            <Button variant="outline" className="w-full sm:w-auto">
               Falar com Suporte
             </Button>
-            <Button variant="outline">
+            <Button variant="outline" className="w-full sm:w-auto">
               Agendar Treinamento
             </Button>
           </div>
