@@ -47,17 +47,29 @@ export default async (req, res) => {
     switch (event.type) {
       case 'user.created':
         // Ação: Criar o perfil inicial na sua tabela de profiles
-        const { error: insertError } = await supabase
+        // Check if the profile already exists
+        const { data: existingProfile, error: selectError } = await supabase
           .from('profiles')
-          .insert([{ id: clerkUserId, onboarding_completed: false }])
-          .onConflict('id') // Specify the primary key column
-          .ignoreDuplicates(); // Ignore the insert if a conflict occurs
-        
-        if (insertError) {
-          // Log the error but don't throw it, as it might be a harmless duplicate
-          console.error(`Error inserting profile for user ${clerkUserId}:`, insertError);
+          .select('id')
+          .eq('id', clerkUserId)
+          .single();
+
+        if (selectError && selectError.code !== 'PGRST116') { // PGRST116 means no rows found
+          throw selectError;
+        }
+
+        if (!existingProfile) {
+          // If profile does not exist, insert it
+          const { error: insertError } = await supabase
+            .from('profiles')
+            .insert([{ id: clerkUserId, onboarding_completed: false }]);
+          
+          if (insertError) {
+            throw insertError;
+          }
+          console.log(`Created initial profile for user: ${clerkUserId}`);
         } else {
-          console.log(`Processed initial profile for user: ${clerkUserId}`);
+          console.log(`Profile for user ${clerkUserId} already exists. Skipping creation.`);
         }
         console.log(`Created initial profile for user: ${clerkUserId}`);
         break;
