@@ -43,15 +43,17 @@ import {
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: Home },
   { name: "Perfil", href: "/dashboard/profile", icon: UserIcon },
-  { name: "Configurações", href: "/dashboard/settings", icon: Settings },
   { name: "Assinatura", href: "/dashboard/signature", icon: FileSignature },
   { name: "Mesas", href: "/dashboard/tables", icon: Table },
   { name: "Comandas", href: "/dashboard/commands", icon: Command },
   { name: "Guia da Plataforma", href: "/dashboard/platform-guide", icon: BookOpen },
   { name: "Notificações", href: "/dashboard/notifications", icon: Bell },
+  { name: "Configurações", href: "/dashboard/settings", icon: Settings }, // Moved here
 ];
 
 function DashboardSidebar() {
+  const { isMobile, setOpenMobile } = useSidebar(); // Access isMobile and setOpenMobile from useSidebar
+
   return (
     <Sidebar collapsible="icon">
       <SidebarContent>
@@ -69,6 +71,11 @@ function DashboardSidebar() {
                         isActive ? "bg-primary text-primary-foreground" : "text-sidebar-foreground"
                       )
                     }
+                    onClick={() => {
+                      if (isMobile) {
+                        setOpenMobile(false); // Close sidebar on mobile after click
+                      }
+                    }}
                   >
                     <item.icon className="h-4 w-4" />
                     <span>{item.name}</span>
