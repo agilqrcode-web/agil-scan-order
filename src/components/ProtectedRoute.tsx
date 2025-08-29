@@ -2,6 +2,7 @@ import { Navigate } from "react-router-dom";
 import { ReactNode } from "react";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useUser } from "@clerk/clerk-react"; // Import useUser from Clerk
+import { Spinner } from "./ui/spinner";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -16,7 +17,7 @@ export default function ProtectedRoute({ children, requireCompleteProfile = true
   if (!clerkLoaded) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <Spinner />
       </div>
     );
   }
@@ -35,7 +36,7 @@ export default function ProtectedRoute({ children, requireCompleteProfile = true
   if (profileLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <Spinner />
       </div>
     );
   }

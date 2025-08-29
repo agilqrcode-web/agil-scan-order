@@ -1,4 +1,4 @@
-import { AuthenticateWithRedirectCallback } from "@clerk/clerk-react";
+import SSOCallback from "./pages/SSOCallback";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -43,7 +43,7 @@ const App = () => {
               <Route path="/registro" element={<Auth />} />
               <Route path="/termos" element={<Terms />} />
               <Route path="/privacidade" element={<Privacy />} />
-              <Route path="/sso-callback" element={<AuthenticateWithRedirectCallback />} />
+              <Route path="/sso-callback" element={<SSOCallback />} />
               
               {/* Onboarding Route */}
               <Route path="/onboarding" element={
