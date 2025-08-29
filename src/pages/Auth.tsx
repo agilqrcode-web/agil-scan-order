@@ -1,96 +1,83 @@
-import { SignIn, SignUp } from "@clerk/clerk-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SignIn } from "@clerk/clerk-react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
 
 export default function Auth() {
-  const pathname = window.location.pathname;
-  const isLogin = pathname === "/login";
+  // This unified component handles both login and sign-up flows,
+  // reducing redundancy and simplifying the user experience.
+  // The <SignIn> component from Clerk is configured to manage routing
+  // between the sign-in and sign-up views.
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5 flex items-center justify-center p-4">
-      <div className="w-full max-w-md space-y-6">
-        {/* Header */}
-        <div className="text-center space-y-2">
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-            Ágil QR
-          </h1>
-          <p className="text-muted-foreground">
-            Acesse sua plataforma de pedidos
-          </p>
-        </div>
-
-        {/* Auth Components */}
-        {isLogin ? (
-          <Card>
-            <CardContent className="p-6">
-              <SignIn 
-                forceRedirectUrl="/dashboard"
-                appearance={{
-                  elements: {
-                    formButtonPrimary: 
-                      "bg-primary hover:bg-primary/90 text-primary-foreground",
-                    card: "shadow-none border-0",
-                    headerTitle: "hidden",
-                    headerSubtitle: "hidden",
-                    socialButtonsBlockButton: 
-                      "border border-border hover:bg-accent",
-                    formFieldInput: 
-                      "border border-border rounded-md focus:border-primary",
-                    footerActionLink: "text-primary hover:text-primary/80"
-                  }
-                }}
-              />
-            </CardContent>
-          </Card>
-        ) : (
-          <Card>
-            <CardContent className="p-6">
-              <SignUp 
-                fallbackRedirectUrl="/dashboard"
-                appearance={{
-                  elements: {
-                    formButtonPrimary: 
-                      "bg-primary hover:bg-primary/90 text-primary-foreground",
-                    card: "shadow-none border-0",
-                    headerTitle: "hidden",
-                    headerSubtitle: "hidden",
-                    socialButtonsBlockButton: 
-                      "border border-border hover:bg-accent",
-                    formFieldInput: 
-                      "border border-border rounded-md focus:border-primary",
-                    footerActionLink: "text-primary hover:text-primary/80"
-                  }
-                }}
-              />
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Navigation */}
-        <div className="text-center space-y-2">
-          <p className="text-sm text-muted-foreground">
-            {isLogin ? "Não tem uma conta?" : "Já tem uma conta?"}
-          </p>
-          <Button variant="ghost" asChild>
-            <Link to={isLogin ? "/registro" : "/login"}>
-              {isLogin ? "Criar conta" : "Fazer login"}
-            </Link>
-          </Button>
-        </div>
-
-        {/* Back to Home */}
-        <div className="text-center">
-          <Button variant="ghost" asChild>
-            <Link to="/">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Voltar ao início
-            </Link>
-          </Button>
-        </div>
+    <div className="relative flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-primary/5 via-background to-accent/5 p-4">
+      {/* Back to Home Button - Placed at the top for easy access */}
+      <div className="absolute top-4 left-4">
+        <Button variant="ghost" asChild>
+          <Link to="/">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Voltar ao Início
+          </Link>
+        </Button>
       </div>
+
+      {/* Main Auth Card */}
+      <Card className="w-full max-w-md border-border/50">
+        <CardHeader className="text-center">
+          <img src="/placeholder.svg" alt="Ágil QR Logo" className="mx-auto mb-4 h-12 w-auto" />
+          <CardTitle className="text-2xl font-bold">
+            Acesse a plataforma
+          </CardTitle>
+          <CardDescription>
+            Faça login ou crie uma conta para continuar.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="px-6 pb-6">
+          <SignIn
+            path="/login"
+            routing="path"
+            signUpUrl="/registro"
+            afterSignInUrl="/dashboard"
+            afterSignUpUrl="/dashboard" // ProtectedRoute handles the /onboarding redirect
+            appearance={{
+              variables: {
+                colorPrimary: "hsl(var(--primary))",
+              },
+              elements: {
+                // Hide Clerk's default card and header
+                card: "shadow-none border-0 p-0",
+                header: "hidden",
+                
+                // Style the primary button to match shadcn's <Button>
+                formButtonPrimary:
+                  "bg-primary text-primary-foreground hover:bg-primary/90 h-10 rounded-md",
+
+                // Style social buttons to match shadcn's secondary button
+                socialButtonsBlockButton:
+                  "border-border h-10 rounded-md hover:bg-accent",
+                
+                // Style input fields to match shadcn's <Input>
+                formFieldInput:
+                  "h-10 border-input bg-transparent rounded-md",
+
+                // Style the footer links for consistency
+                footerActionLink: "text-primary hover:text-primary/80 font-medium",
+                
+                // Style the "or" separator
+                dividerLine: "bg-border",
+                dividerText: "text-muted-foreground text-sm",
+              },
+            }}
+          />
+        </CardContent>
+      </Card>
     </div>
   );
 }
