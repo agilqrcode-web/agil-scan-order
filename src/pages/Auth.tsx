@@ -118,16 +118,23 @@ export default function Auth() {
               className="h-12"
               disabled={isLoading}
             />
-            <Input
-              id="password"
-              type="password"
-              placeholder="Digite sua senha"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="h-12"
-              disabled={isLoading}
-            />
+            <div>
+              <Input
+                id="password"
+                type="password"
+                placeholder="Digite sua senha"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="h-12"
+                disabled={isLoading}
+              />
+              {!isLogin && (
+                <p className="text-xs text-muted-foreground mt-2 text-left px-1">
+                  A senha deve conter no mínimo 8 caracteres.
+                </p>
+              )}
+            </div>
             <Button type="submit" className="w-full h-12 bg-primary hover:bg-primary/90" disabled={isLoading || !isLoaded}>
               {isLoading ? <Loader2 className="animate-spin" /> : (isLogin ? "Continuar" : "Criar conta")}
             </Button>
