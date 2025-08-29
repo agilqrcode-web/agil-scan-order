@@ -135,6 +135,9 @@ export default function Auth() {
                 </p>
               )}
             </div>
+            {!isLogin && (
+              <div id="clerk-captcha" className="w-full flex justify-center" />
+            )}
             <Button type="submit" className="w-full h-12 bg-primary hover:bg-primary/90" disabled={isLoading || !isLoaded}>
               {isLoading ? <Loader2 className="animate-spin" /> : (isLogin ? "Continuar" : "Criar conta")}
             </Button>
