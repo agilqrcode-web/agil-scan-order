@@ -68,7 +68,14 @@ export default function Auth() {
         }
       } catch (err: any) {
         console.error("Clerk signIn.create error:", err);
-        setError(err.errors?.[0]?.message || "Ocorreu um erro ao iniciar o login.");
+        const clerkErrorMessage = err.errors?.[0]?.message;
+        const clerkErrorCode = err.errors?.[0]?.code;
+
+        if (clerkErrorCode === "form_identifier_not_found" || clerkErrorMessage?.includes("Couldn't find your account")) {
+          setError("Conta não encontrada. Por favor, crie uma conta ou use o login com Google.");
+        } else {
+          setError(clerkErrorMessage || "Ocorreu um erro ao iniciar o login.");
+        }
       } finally {
         setIsLoading(false);
       }
