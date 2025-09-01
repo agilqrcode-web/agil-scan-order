@@ -63,10 +63,11 @@ export default function Auth() {
           await setActive({ session: result.createdSessionId });
           navigate("/dashboard");
         } else {
-          console.error(result);
+          console.error("Clerk signIn.create result:", result);
           setError("Ocorreu um erro inesperado.");
         }
       } catch (err: any) {
+        console.error("Clerk signIn.create error:", err);
         setError(err.errors?.[0]?.message || "Ocorreu um erro ao iniciar o login.");
       } finally {
         setIsLoading(false);
