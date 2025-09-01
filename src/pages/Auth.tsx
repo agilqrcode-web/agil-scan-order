@@ -57,7 +57,7 @@ export default function Auth() {
     if (isLogin) {
       try {
         const result = await signIn.create({ identifier: email, strategy: "email_code" });
-        if (result.status === "needs_second_factor" || result.status === "needs_factor_one") {
+        if (result.status === "needs_first_factor" || result.status === "needs_second_factor" || result.status === "needs_factor_one") {
           setPendingVerification(true); // Reusing pendingVerification for login as well
         } else if (result.status === "complete") {
           await setActive({ session: result.createdSessionId });
