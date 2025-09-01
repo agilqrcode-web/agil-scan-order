@@ -71,7 +71,7 @@ export default function Auth() {
       }
     } else {
       try {
-        await signUp.create({ emailAddress: email, password });
+        await signUp.create({ emailAddress: email });
         await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
         setPendingVerification(true);
       } catch (err: any) {
@@ -130,10 +130,6 @@ export default function Auth() {
               </p>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <Input id="email" type="email" placeholder="Digite seu e-mail" value={email} onChange={(e) => setEmail(e.target.value)} required className="h-12" disabled={isLoading} />
-                <div>
-                  <Input id="password" type="password" placeholder="Digite sua senha" value={password} onChange={(e) => setPassword(e.target.value)} required className="h-12" disabled={isLoading} />
-                  {!isLogin && <p className="text-xs text-muted-foreground mt-2 text-left px-1">A senha deve conter no mínimo 8 caracteres.</p>}
-                </div>
                 {!isLogin && <div id="clerk-captcha" className="w-full flex justify-center" />}
                 <Button type="submit" className="w-full h-12 bg-primary hover:bg-primary/90" disabled={isLoading || !isLoaded}>
                   {isLoading ? <Loader2 className="animate-spin" /> : (isLogin ? "Continuar" : "Criar conta")}
