@@ -56,8 +56,10 @@ export default function Auth() {
 
     if (isLogin) {
       try {
-        const result = await signIn.create({ identifier: email, password });
-        if (result.status === "complete") {
+        const result = await signIn.create({ identifier: email, strategy: "email_code" });
+        if (result.status === "needs_second_factor" || result.status === "needs_factor_one") {
+          setPendingVerification(true); // Reusing pendingVerification for login as well
+        } else if (result.status === "complete") {
           await setActive({ session: result.createdSessionId });
           navigate("/dashboard");
         } else {
@@ -65,7 +67,7 @@ export default function Auth() {
           setError("Ocorreu um erro inesperado.");
         }
       } catch (err: any) {
-        setError(err.errors?.[0]?.message || "E-mail ou senha inválidos.");
+        setError(err.errors?.[0]?.message || "Ocorreu um erro ao iniciar o login.");
       } finally {
         setIsLoading(false);
       }
@@ -90,7 +92,13 @@ export default function Auth() {
     setError("");
 
     try {
-      const result = await signUp.attemptEmailAddressVerification({ code });
+      let result;
+      if (isLogin) {
+        result = await signIn.attemptFirstFactor({ strategy: "email_code", code });
+      } else {
+        result = await signUp.attemptEmailAddressVerification({ code });
+      }
+
       if (result.status === "complete") {
         await setActive({ session: result.createdSessionId });
         navigate("/dashboard");
