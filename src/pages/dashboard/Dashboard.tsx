@@ -1,8 +1,46 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, Store, QrCode, ShoppingCart, Users } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useAuth } from "@clerk/clerk-react";
 
 export default function Dashboard() {
+  const { userId } = useAuth();
+  const [restaurantCount, setRestaurantCount] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchRestaurantCount() {
+      if (!userId) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const { count, error } = await supabase
+          .from('restaurant_users')
+          .select('restaurant_id', { count: 'exact', head: true })
+          .eq('user_id', userId);
+
+        if (error) {
+          throw error;
+        }
+
+        setRestaurantCount(count);
+      } catch (err) {
+        console.error("Error fetching restaurant count:", err);
+        setError("Failed to load restaurant count.");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchRestaurantCount();
+  }, [userId]);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -20,7 +58,13 @@ export default function Dashboard() {
             <Store className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">0</div>
+            {loading ? (
+              <Skeleton className="h-8 w-1/2" />
+            ) : error ? (
+              <div className="text-red-500 text-sm">{error}</div>
+            ) : (
+              <div className="text-2xl font-bold">{restaurantCount}</div>
+            )}
             <p className="text-xs text-muted-foreground">
               Total de restaurantes
             </p>
