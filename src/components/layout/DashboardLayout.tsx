@@ -99,6 +99,7 @@ function DashboardHeader() {
   const { setTheme, theme } = useTheme();
   const { user } = useUser();
   const { signOut } = useClerk();
+  const navigate = useNavigate();
 
   const handleSignOut = () => {
     signOut();
