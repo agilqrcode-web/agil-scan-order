@@ -44,13 +44,9 @@ import {
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: Home },
   
-  { name: "Assinatura", href: "/dashboard/signature", icon: FileSignature },
   { name: "Mesas", href: "/dashboard/tables", icon: Table },
   { name: "Comandas", href: "/dashboard/commands", icon: Command },
   { name: "Cardápio", href: "/dashboard/menus", icon: Utensils },
-  
-  
-  { name: "Configurações", href: "/dashboard/settings", icon: Settings }, // Moved here
 ];
 
 function DashboardSidebar() {
@@ -160,6 +156,14 @@ function DashboardHeader() {
               <DropdownMenuItem onClick={() => { console.log("Navigating to /dashboard/profile"); navigate("/dashboard/profile"); }}>
                 <UserIcon className="mr-2 h-4 w-4" />
                 Perfil
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { console.log("Navigating to /dashboard/signature"); navigate("/dashboard/signature"); }}>
+                <FileSignature className="mr-2 h-4 w-4" />
+                Assinatura
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { console.log("Navigating to /dashboard/settings"); navigate("/dashboard/settings"); }}>
+                <Settings className="mr-2 h-4 w-4" />
+                Configurações
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => { console.log("Navigating to /dashboard/platform-guide"); navigate("/dashboard/platform-guide"); }}>
                 <BookOpen className="mr-2 h-4 w-4" />
