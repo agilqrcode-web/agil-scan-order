@@ -37,17 +37,19 @@ import {
   LogOut,
   Sun,
   Moon,
-  Monitor
+  Monitor,
+  Utensils
 } from "lucide-react";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: Home },
-  { name: "Perfil", href: "/dashboard/profile", icon: UserIcon },
+  
   { name: "Assinatura", href: "/dashboard/signature", icon: FileSignature },
   { name: "Mesas", href: "/dashboard/tables", icon: Table },
   { name: "Comandas", href: "/dashboard/commands", icon: Command },
-  { name: "Guia da Plataforma", href: "/dashboard/platform-guide", icon: BookOpen },
-  { name: "Notificações", href: "/dashboard/notifications", icon: Bell },
+  { name: "Cardápio", href: "/dashboard/menus", icon: Utensils },
+  
+  
   { name: "Configurações", href: "/dashboard/settings", icon: Settings }, // Moved here
 ];
 
@@ -58,6 +60,9 @@ function DashboardSidebar() {
     <Sidebar collapsible="icon">
       <SidebarContent>
         <SidebarGroup>
+          <div className="flex items-center justify-center py-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-qr-code h-6 w-6 text-primary"><rect width="5" height="5" x="3" y="3" rx="1"></rect><rect width="5" height="5" x="16" y="3" rx="1"></rect><rect width="5" height="5" x="3" y="16" rx="1"></rect><path d="M21 16h-3a2 2 0 0 0-2 2v3"></path><path d="M21 21v.01"></path><path d="M12 7v3a2 2 0 0 1-2 2H7"></path><path d="M3 12h.01"></path><path d="M12 3h.01"></path><path d="M12 16v.01"></path><path d="M16 12h1"></path><path d="M21 12v.01"></path><path d="M12 21v-1"></path></svg>
+          </div>
           <SidebarGroupLabel>Ágil QR</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -104,7 +109,7 @@ function DashboardHeader() {
       <div className="flex h-full items-center justify-between px-4">
         <div className="flex items-center gap-4">
           <SidebarTrigger />
-          <h1 className="text-xl font-semibold">Dashboard</h1>
+          
         </div>
         
         <div className="flex items-center gap-4">
@@ -132,6 +137,10 @@ function DashboardHeader() {
             </DropdownMenuContent>
           </DropdownMenu>
 
+          <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard/notifications")}>
+            <Bell className="h-4 w-4" />
+          </Button>
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-8 w-8 rounded-full">
@@ -146,6 +155,14 @@ function DashboardHeader() {
             <DropdownMenuContent align="end">
               <DropdownMenuItem disabled>
                 {user?.emailAddresses[0]?.emailAddress}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate("/dashboard/profile")}>
+                <UserIcon className="mr-2 h-4 w-4" />
+                Perfil
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate("/dashboard/platform-guide")}>
+                <BookOpen className="mr-2 h-4 w-4" />
+                Guia da Plataforma
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSignOut}>
