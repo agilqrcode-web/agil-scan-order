@@ -20,16 +20,16 @@ export default function Dashboard() {
       }
 
       try {
-        const { count, error } = await supabase
+        const { data, error } = await supabase
           .from('restaurant_users')
-          .select('restaurant_id', { count: 'exact', head: true })
+          .select('restaurant_id')
           .eq('user_id', userId);
 
         if (error) {
           throw error;
         }
 
-        setRestaurantCount(count);
+        setRestaurantCount(data ? data.length : 0);
       } catch (err) {
         console.error("Error fetching restaurant count:", err);
         setError("Failed to load restaurant count.");
