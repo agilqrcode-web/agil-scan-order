@@ -156,11 +156,11 @@ function DashboardHeader() {
               <DropdownMenuItem disabled>
                 {user?.emailAddresses[0]?.emailAddress}
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate("/dashboard/profile")}>
+              <DropdownMenuItem onClick={() => { console.log("Navigating to /dashboard/profile"); navigate("/dashboard/profile"); }}>
                 <UserIcon className="mr-2 h-4 w-4" />
                 Perfil
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate("/dashboard/platform-guide")}>
+              <DropdownMenuItem onClick={() => { console.log("Navigating to /dashboard/platform-guide"); navigate("/dashboard/platform-guide"); }}>
                 <BookOpen className="mr-2 h-4 w-4" />
                 Guia da Plataforma
               </DropdownMenuItem>
