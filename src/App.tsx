@@ -23,6 +23,7 @@ import Tables from "./pages/dashboard/Tables";
 import Commands from "./pages/dashboard/Commands";
 import PlatformGuide from "./pages/dashboard/PlatformGuide";
 import Notifications from "./pages/dashboard/Notifications";
+import Menus from "./pages/dashboard/Menus";
 
 const queryClient = new QueryClient();
 
@@ -66,6 +67,7 @@ const App = () => {
                 <Route path="commands" element={<Commands />} />
                 <Route path="platform-guide" element={<PlatformGuide />} />
                 <Route path="notifications" element={<Notifications />} />
+                <Route path="menus" element={<Menus />} />
               </Route>
               
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
