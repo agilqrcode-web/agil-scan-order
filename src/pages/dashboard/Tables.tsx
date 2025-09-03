@@ -42,6 +42,9 @@ export default function Tables() {
         const { data, error } = await supabase
           .rpc('get_user_restaurant_id');
 
+        console.log("Restaurant ID RPC Data:", data);
+        console.log("Restaurant ID RPC Error:", error);
+
         if (error) {
           throw error;
         }
