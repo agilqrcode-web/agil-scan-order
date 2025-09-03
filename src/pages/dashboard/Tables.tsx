@@ -3,13 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Plus, QrCode, Download, Settings } from "lucide-react";
-
-const mockTables = [
-  { id: 1, number: 1, qrCode: "QR001", status: "available", orders: 0 },
-  { id: 2, number: 2, qrCode: "QR002", status: "occupied", orders: 2 },
-  { id: 3, number: 3, qrCode: "QR003", status: "available", orders: 0 },
-  { id: 4, number: 4, qrCode: "QR004", status: "cleaning", orders: 0 },
-];
+import React, { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@clerk/clerk-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const statusColors = {
   available: "bg-green-100 text-green-800",
@@ -24,6 +21,66 @@ const statusLabels = {
 };
 
 export default function Tables() {
+  const { userId } = useAuth();
+  const [restaurantId, setRestaurantId] = useState<string | null>(null);
+  const [tableCounts, setTableCounts] = useState({
+    total_tables: 0,
+    available_tables: 0,
+    occupied_tables: 0,
+    cleaning_tables: 0,
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchRestaurantId() {
+      if (!userId) {
+        setLoading(false);
+        return;
+      }
+      try {
+        const { data, error } = await supabase
+          .from('restaurant_users')
+          .select('restaurant_id')
+          .eq('user_id', userId)
+          .single();
+
+        if (error) {
+          throw error;
+        }
+        setRestaurantId(data.restaurant_id);
+      } catch (err) {
+        console.error("Error fetching restaurant ID:", err);
+        setError("Failed to load restaurant data.");
+        setLoading(false);
+      }
+    }
+    fetchRestaurantId();
+  }, [userId]);
+
+  useEffect(() => {
+    async function fetchTableCounts() {
+      if (!restaurantId) {
+        return;
+      }
+      try {
+        const { data, error } = await supabase
+          .rpc('get_table_counts_for_restaurant', { p_restaurant_id: restaurantId });
+
+        if (error) {
+          throw error;
+        }
+        setTableCounts(data);
+      } catch (err) {
+        console.error("Error fetching table counts:", err);
+        setError("Failed to load table counts.");
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchTableCounts();
+  }, [restaurantId]);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -40,7 +97,13 @@ export default function Tables() {
             <CardTitle className="text-sm font-medium">Total de Mesas</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{mockTables.length}</div>
+            {loading ? (
+              <Skeleton className="h-8 w-1/2" />
+            ) : error ? (
+              <div className="text-red-500 text-sm">{error}</div>
+            ) : (
+              <div className="text-2xl font-bold">{tableCounts.total_tables}</div>
+            )}
           </CardContent>
         </Card>
 
@@ -49,9 +112,15 @@ export default function Tables() {
             <CardTitle className="text-sm font-medium">Disponíveis</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {mockTables.filter(t => t.status === 'available').length}
-            </div>
+            {loading ? (
+              <Skeleton className="h-8 w-1/2" />
+            ) : error ? (
+              <div className="text-red-500 text-sm">{error}</div>
+            ) : (
+              <div className="text-2xl font-bold text-green-600">
+                {tableCounts.available_tables}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -60,9 +129,15 @@ export default function Tables() {
             <CardTitle className="text-sm font-medium">Ocupadas</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">
-              {mockTables.filter(t => t.status === 'occupied').length}
-            </div>
+            {loading ? (
+              <Skeleton className="h-8 w-1/2" />
+            ) : error ? (
+              <div className="text-red-500 text-sm">{error}</div>
+            ) : (
+              <div className="text-2xl font-bold text-red-600">
+                {tableCounts.occupied_tables}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -71,9 +146,15 @@ export default function Tables() {
             <CardTitle className="text-sm font-medium">Em Limpeza</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">
-              {mockTables.filter(t => t.status === 'cleaning').length}
-            </div>
+            {loading ? (
+              <Skeleton className="h-8 w-1/2" />
+            ) : error ? (
+              <div className="text-red-500 text-sm">{error}</div>
+            ) : (
+              <div className="text-2xl font-bold text-yellow-600">
+                {tableCounts.cleaning_tables}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -96,44 +177,8 @@ export default function Tables() {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {mockTables.map((table) => (
-                <Card key={table.id} className="hover:shadow-md transition-shadow">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-lg">Mesa {table.number}</CardTitle>
-                      <Badge 
-                        className={statusColors[table.status as keyof typeof statusColors]}
-                      >
-                        {statusLabels[table.status as keyof typeof statusLabels]}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <QrCode className="h-4 w-4" />
-                      <span className="text-sm text-muted-foreground">
-                        Código: {table.qrCode}
-                      </span>
-                    </div>
-                    
-                    {table.orders > 0 && (
-                      <p className="text-sm">
-                        <strong>{table.orders}</strong> pedido(s) ativos
-                      </p>
-                    )}
-
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline" className="flex-1">
-                        <QrCode className="mr-1 h-3 w-3" />
-                        QR Code
-                      </Button>
-                      <Button size="sm" variant="outline">
-                        <Settings className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+              {/* Table cards will be rendered here dynamically */}
+              <p className="text-muted-foreground">Carregando mesas...</p>
             </div>
           </div>
         </CardContent>
