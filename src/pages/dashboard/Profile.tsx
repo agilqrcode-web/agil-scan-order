@@ -3,18 +3,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import React, { useEffect, useState, useContext } from "react";
+import React, { useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
-
-const SupabaseContext = React.createContext(null);
-
-export const useSupabase = () => {
-  const context = useContext(SupabaseContext);
-  if (!context) {
-    throw new Error("useSupabase must be used within a SupabaseProvider");
-  }
-  return context;
-};
+import { useSupabase } from "@/contexts/SupabaseContext";
 
 export default function Profile() {
   const supabase = useSupabase();

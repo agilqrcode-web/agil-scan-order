@@ -3,19 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Plus, QrCode, Download, Settings } from "lucide-react";
-import React, { useEffect, useState, useContext } from "react";
+import React, { useEffect, useState } from "react";
 import { useAuth } from "@clerk/clerk-react";
 import { Skeleton } from "@/components/ui/skeleton";
-
-const SupabaseContext = React.createContext(null);
-
-export const useSupabase = () => {
-  const context = useContext(SupabaseContext);
-  if (!context) {
-    throw new Error("useSupabase must be used within a SupabaseProvider");
-  }
-  return context;
-};
+import { useSupabase } from "@/contexts/SupabaseContext";
 
 const statusColors = {
   available: "bg-green-100 text-green-800",

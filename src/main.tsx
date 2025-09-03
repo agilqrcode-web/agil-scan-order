@@ -4,14 +4,13 @@ import App from './App.tsx';
 import './index.css';
 import { createSupabaseClient } from "@/integrations/supabase/client";
 import React, { useEffect, useState } from 'react';
+import { SupabaseContext } from "@/contexts/SupabaseContext";
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
 if (!PUBLISHABLE_KEY) {
   throw new Error("Missing Clerk Publishable Key");
 }
-
-const SupabaseContext = React.createContext(null);
 
 function SupabaseProvider({ children }) {
   const { session } = useSession();
