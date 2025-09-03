@@ -1,33 +1,42 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, Store, QrCode, ShoppingCart, Users } from "lucide-react";
-import React, { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { Skeleton } from "@/components/ui/skeleton";
+import React, { useEffect, useState, useContext } from "react";
 import { useAuth } from "@clerk/clerk-react";
+import { Skeleton } from "@/components/ui/skeleton";
+
+const SupabaseContext = React.createContext(null);
+
+export const useSupabase = () => {
+  const context = useContext(SupabaseContext);
+  if (!context) {
+    throw new Error("useSupabase must be used within a SupabaseProvider");
+  }
+  return context;
+};
 
 export default function Dashboard() {
   const { userId } = useAuth();
+  const supabase = useSupabase();
   const [restaurantCount, setRestaurantCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchRestaurantCount() {
-      if (!userId) {
+      if (!userId || !supabase) {
         setLoading(false);
         return;
       }
-
       try {
-        const { data, error } = await supabase
+        const { count, error } = await supabase
           .rpc('get_user_restaurant_count', { p_user_id: userId });
 
         if (error) {
           throw error;
         }
 
-        setRestaurantCount(data as number);
+        setRestaurantCount(count);
       } catch (err) {
         console.error("Error fetching restaurant count:", err);
         setError("Failed to load restaurant count.");
@@ -37,7 +46,7 @@ export default function Dashboard() {
     }
 
     fetchRestaurantCount();
-  }, [userId]);
+  }, [userId, supabase]);
 
   return (
     <div className="space-y-6">

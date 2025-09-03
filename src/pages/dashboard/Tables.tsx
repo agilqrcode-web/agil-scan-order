@@ -3,10 +3,19 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Plus, QrCode, Download, Settings } from "lucide-react";
-import React, { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import React, { useEffect, useState, useContext } from "react";
 import { useAuth } from "@clerk/clerk-react";
 import { Skeleton } from "@/components/ui/skeleton";
+
+const SupabaseContext = React.createContext(null);
+
+export const useSupabase = () => {
+  const context = useContext(SupabaseContext);
+  if (!context) {
+    throw new Error("useSupabase must be used within a SupabaseProvider");
+  }
+  return context;
+};
 
 const statusColors = {
   available: "bg-green-100 text-green-800",
@@ -22,6 +31,7 @@ const statusLabels = {
 
 export default function Tables() {
   const { userId } = useAuth();
+  const supabase = useSupabase();
   const [restaurantId, setRestaurantId] = useState<string | null>(null);
   const [tableCounts, setTableCounts] = useState({
     total_tables: 0,
@@ -34,7 +44,7 @@ export default function Tables() {
 
   useEffect(() => {
     async function fetchRestaurantId() {
-      if (!userId) {
+      if (!userId || !supabase) {
         setLoading(false);
         return;
       }
@@ -56,11 +66,11 @@ export default function Tables() {
       }
     }
     fetchRestaurantId();
-  }, [userId]);
+  }, [userId, supabase]);
 
   useEffect(() => {
     async function fetchTableCounts() {
-      if (!restaurantId) {
+      if (!restaurantId || !supabase) {
         return;
       }
       try {
@@ -86,7 +96,7 @@ export default function Tables() {
       }
     }
     fetchTableCounts();
-  }, [restaurantId]);
+  }, [restaurantId, supabase]);
 
   return (
     <div className="space-y-6">
