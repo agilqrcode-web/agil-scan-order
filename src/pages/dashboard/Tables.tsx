@@ -64,6 +64,9 @@ export default function Tables() {
         const { data, error } = await supabase
           .rpc('get_table_counts_for_restaurant', { p_restaurant_id: restaurantId });
 
+        console.log("RPC Data:", data);
+        console.log("RPC Error:", error);
+
         if (error) {
           throw error;
         }
