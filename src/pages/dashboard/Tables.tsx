@@ -40,15 +40,12 @@ export default function Tables() {
       }
       try {
         const { data, error } = await supabase
-          .from('restaurant_users')
-          .select('restaurant_id')
-          .eq('user_id', userId)
-          .single();
+          .rpc('get_user_restaurant_id');
 
         if (error) {
           throw error;
         }
-        setRestaurantId(data.restaurant_id);
+        setRestaurantId(data as string);
       } catch (err) {
         console.error("Error fetching restaurant ID:", err);
         setError("Failed to load restaurant data.");
