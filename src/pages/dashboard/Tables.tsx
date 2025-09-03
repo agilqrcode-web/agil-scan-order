@@ -67,7 +67,11 @@ export default function Tables() {
         if (error) {
           throw error;
         }
-        setTableCounts(data);
+        if (data && data.length > 0) {
+          setTableCounts(data[0]);
+        } else {
+          setTableCounts({ total_tables: 0, available_tables: 0, occupied_tables: 0, cleaning_tables: 0 });
+        }
       } catch (err) {
         console.error("Error fetching table counts:", err);
         setError("Failed to load table counts.");
