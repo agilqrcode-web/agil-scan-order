@@ -19,7 +19,7 @@ function SupabaseProvider({ children }) {
   useEffect(() => {
     async function createClient() {
       if (session) {
-        const clerkToken = await session.getToken({ template: 'supabase' });
+        const clerkToken = await session.getToken({ template: 'agilqrcode' });
         const newSupabaseClient = createSupabaseClient(clerkToken);
         setSupabase(newSupabaseClient);
       } else {
