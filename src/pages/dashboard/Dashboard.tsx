@@ -23,14 +23,14 @@ export default function Dashboard() {
 
       console.log("Dashboard: Attempting to fetch restaurant count for userId:", userId);
       try {
-        const { count, error } = await supabase
+        const { data, error } = await supabase
           .rpc('get_user_restaurant_count', { p_user_id: userId });
 
         if (error) {
           throw error;
         }
 
-        setRestaurantCount(count);
+        setRestaurantCount(data as number);
       } catch (err) {
         console.error("Error fetching restaurant count:", err);
         setError("Failed to load restaurant count.");
