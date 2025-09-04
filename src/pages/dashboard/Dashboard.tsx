@@ -16,9 +16,12 @@ export default function Dashboard() {
   useEffect(() => {
     async function fetchRestaurantCount() {
       if (!userId || !supabase) {
+        console.log("Dashboard: userId or supabase not ready. userId:", userId, "supabase:", supabase);
         setLoading(false);
         return;
       }
+
+      console.log("Dashboard: Attempting to fetch restaurant count for userId:", userId);
       try {
         const { count, error } = await supabase
           .rpc('get_user_restaurant_count', { p_user_id: userId });
