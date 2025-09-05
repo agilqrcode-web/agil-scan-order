@@ -38,12 +38,16 @@ export default function Tables() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAddTableModalOpen, setIsAddTableModalOpen] = useState(false);
+  const [existingTableNumbers, setExistingTableNumbers] = useState<number[]>([]);
 
   const addTableSchema = z.object({
     table_number: z.preprocess(
       (val) => Number(val),
       z.number().int().positive("Número da mesa deve ser um número inteiro positivo.")
-    ),
+    ).refine((val) => !existingTableNumbers.includes(val), {
+      message: "Este número de mesa já está em uso.",
+      path: ["table_number"],
+    }),
     qr_code_identifier: z.string().min(1, "Identificador do QR Code é obrigatório."),
   });
 
@@ -56,6 +60,33 @@ export default function Tables() {
       qr_code_identifier: "",
     },
   });
+
+  const fetchTableCounts = async () => {
+    if (!restaurantId || !supabase) {
+      return;
+    }
+    try {
+      const { data, error } = await supabase
+        .rpc('get_table_counts_for_restaurant', { p_restaurant_id: restaurantId });
+
+      console.log("RPC Data:", data);
+      console.log("RPC Error:", error);
+
+      if (error) {
+        throw error;
+      }
+      if (data && data.length > 0) {
+        setTableCounts(data[0]);
+      } else {
+        setTableCounts({ total_tables: 0, available_tables: 0, occupied_tables: 0, cleaning_tables: 0 });
+      }
+    } catch (err) {
+      console.error("Error fetching table counts:", err);
+      setError("Failed to load table counts.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const onSubmit = async (values: AddTableFormValues) => {
     if (!restaurantId) {
@@ -119,33 +150,32 @@ export default function Tables() {
   }, [userId, supabase]);
 
   useEffect(() => {
-    async function fetchTableCounts() {
+    if (restaurantId && supabase) {
+      fetchTableCounts();
+    }
+  }, [restaurantId, supabase]);
+
+  useEffect(() => {
+    async function fetchExistingTableNumbers() {
       if (!restaurantId || !supabase) {
         return;
       }
       try {
         const { data, error } = await supabase
-          .rpc('get_table_counts_for_restaurant', { p_restaurant_id: restaurantId });
-
-        console.log("RPC Data:", data);
-        console.log("RPC Error:", error);
+          .rpc('get_existing_table_numbers_for_restaurant', { p_restaurant_id: restaurantId });
 
         if (error) {
           throw error;
         }
-        if (data && data.length > 0) {
-          setTableCounts(data[0]);
-        } else {
-          setTableCounts({ total_tables: 0, available_tables: 0, occupied_tables: 0, cleaning_tables: 0 });
+        if (data) {
+          setExistingTableNumbers(data as number[]);
         }
       } catch (err) {
-        console.error("Error fetching table counts:", err);
-        setError("Failed to load table counts.");
-      } finally {
-        setLoading(false);
+        console.error("Error fetching existing table numbers:", err);
+        // Optionally set an error state for this specific fetch
       }
     }
-    fetchTableCounts();
+    fetchExistingTableNumbers();
   }, [restaurantId, supabase]);
 
   return (
@@ -183,6 +213,11 @@ export default function Tables() {
                 </p>
               )}
             </div>
+            {existingTableNumbers.length > 0 && (
+              <div className="col-span-4 text-sm text-muted-foreground text-right">
+                Números de mesa já em uso: {existingTableNumbers.join(', ')}
+              </div>
+            )}
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="qr_code_identifier" className="text-right">
                 Identificador QR Code
