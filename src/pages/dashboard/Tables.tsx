@@ -39,6 +39,28 @@ export default function Tables() {
   const [error, setError] = useState<string | null>(null);
   const [isAddTableModalOpen, setIsAddTableModalOpen] = useState(false);
   const [existingTableNumbers, setExistingTableNumbers] = useState<number[]>([]);
+  const [tables, setTables] = useState<any[]>([]); // State to store fetched tables
+
+  const fetchTables = async () => {
+    if (!restaurantId || !supabase) {
+      return;
+    }
+    try {
+      const { data, error } = await supabase
+        .from('restaurant_tables')
+        .select('*')
+        .eq('restaurant_id', restaurantId)
+        .order('table_number', { ascending: true });
+
+      if (error) {
+        throw error;
+      }
+      setTables(data || []);
+    } catch (err) {
+      console.error("Error fetching tables:", err);
+      setError("Failed to load tables.");
+    }
+  };
 
   const addTableSchema = z.object({
     table_number: z.preprocess(
@@ -112,11 +134,11 @@ export default function Tables() {
         throw new Error(errorData.error || "Failed to add table");
       }
 
-      // Table added successfully, close modal and refresh counts
+      // Table added successfully, close modal and refresh counts and tables
       setIsAddTableModalOpen(false);
       form.reset();
-      // Re-fetch counts to update the display
       fetchTableCounts(); 
+      fetchTables(); // Re-fetch tables to update the display 
     } catch (err) {
       console.error("Error adding table:", err);
       setError(err.message || "Failed to add table.");
@@ -152,6 +174,7 @@ export default function Tables() {
   useEffect(() => {
     if (restaurantId && supabase) {
       fetchTableCounts();
+      fetchTables(); // Call fetchTables here
     }
   }, [restaurantId, supabase]);
 
@@ -328,8 +351,53 @@ export default function Tables() {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {/* Table cards will be rendered here dynamically */}
-              <p className="text-muted-foreground">Carregando mesas...</p>
+              {loading ? (
+                <p className="text-muted-foreground">Carregando mesas...</p>
+              ) : error ? (
+                <div className="text-red-500 text-sm">{error}</div>
+              ) : tables.length === 0 ? (
+                <p className="text-muted-foreground col-span-3">Nenhuma mesa encontrada. Adicione uma nova mesa para começar!</p>
+              ) : (
+                tables.map((table) => (
+                  <Card key={table.id} className="hover:shadow-md transition-shadow">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-lg">Mesa {table.table_number}</CardTitle>
+                        <Badge
+                          className={statusColors[table.status as keyof typeof statusColors]}
+                        >
+                          {statusLabels[table.status as keyof typeof statusLabels]}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <QrCode className="h-4 w-4" />
+                        <span className="text-sm text-muted-foreground">
+                          Código: {table.qr_code_identifier}
+                        </span>
+                      </div>
+
+                      {/* Assuming 'orders' is a property on the table object, if not, this part needs adjustment */}
+                      {/* {table.orders > 0 && (
+                        <p className="text-sm">
+                          <strong>{table.orders}</strong> pedido(s) ativos
+                        </p>
+                      )} */}
+
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" className="flex-1">
+                          <QrCode className="mr-1 h-3 w-3" />
+                          QR Code
+                        </Button>
+                        <Button size="sm" variant="outline">
+                          <Settings className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
             </div>
           </div>
         </CardContent>
