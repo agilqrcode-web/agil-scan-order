@@ -326,13 +326,14 @@ export default function Tables() {
               const qrCodeValue = `https://agil-scan-order-neon.vercel.app/order/${selectedTableQrCodeIdentifier.qr_code_identifier}`;
               console.log("QR Code Value for PDF:", qrCodeValue); // Debugging line
 
-              // Generate QR code as a canvas element, then get its data URL
+              // Create a temporary canvas element for QR code rendering
               const tempCanvas = document.createElement('canvas');
-              const qrCodeSize = 80; // Smaller size for QR code in PDF (e.g., 80x80 pixels)
-              tempCanvas.width = qrCodeSize;
-              tempCanvas.height = qrCodeSize;
+              tempCanvas.width = 128; // Desired size
+              tempCanvas.height = 128;
 
+              // Render QR code to canvas
               await new Promise<void>((resolve, reject) => {
+                // Get the SVG element from the modal
                 const qrCodeSvgElement = document.querySelector('.p-4 > svg');
                 if (!qrCodeSvgElement) {
                   console.error("QR Code SVG element not found for canvas conversion.");
@@ -340,6 +341,7 @@ export default function Tables() {
                   return;
                 }
 
+                // Convert SVG to canvas
                 const svgString = new XMLSerializer().serializeToString(qrCodeSvgElement);
                 const img = new Image();
                 const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
@@ -349,55 +351,13 @@ export default function Tables() {
                   const ctx = tempCanvas.getContext('2d');
                   if (ctx) {
                     ctx.drawImage(img, 0, 0, tempCanvas.width, tempCanvas.height);
-                    URL.revokeObjectURL(url);
+                    URL.revokeObjectURL(url); // Clean up the URL
                     resolve();
                   } else {
                     reject(new Error("Could not get 2D context for canvas."));
                   }
                 };
                 img.onerror = (err) => {
-                  console.error("Error loading SVG for canvas conversion:", err);
-                  URL.revokeObjectURL(url);
-                  reject(new Error("Failed to load SVG for canvas conversion."));
-                };
-                img.src = url;
-              });
-
-              const qrCodeDataUrl = tempCanvas.toDataURL('image/png');
-
-              // Direct PDF generation with jsPDF
-              // Define a custom page size suitable for a small totem/table (e.g., 100mm x 150mm)
-              // jsPDF units are 'mm' by default, or 'pt', 'px', 'in', 'cm'
-              const pdfWidth = 100; // mm
-              const pdfHeight = 150; // mm
-              const pdf = new jsPDF({
-                orientation: 'portrait',
-                unit: 'mm',
-                format: [pdfWidth, pdfHeight],
-              });
-
-              // Calculate center position for QR code
-              const qrCodeX = (pdfWidth - qrCodeSize / pdf.internal.scaleFactor) / 2; // Convert px to mm
-              const qrCodeY = 20; // Starting Y position from top
-
-              // Add QR Code image
-              pdf.addImage(qrCodeDataUrl, 'PNG', qrCodeX, qrCodeY, qrCodeSize / pdf.internal.scaleFactor, qrCodeSize / pdf.internal.scaleFactor);
-
-              // Add Restaurant Name
-              pdf.setFontSize(10);
-              pdf.text(restaurantName || 'Nome do Restaurante', pdfWidth / 2, qrCodeY + qrCodeSize / pdf.internal.scaleFactor + 5, { align: 'center' });
-
-              // Add Table Name
-              pdf.setFontSize(14);
-              pdf.text(`Mesa ${selectedTableQrCodeIdentifier.table_number}`, pdfWidth / 2, qrCodeY + qrCodeSize / pdf.internal.scaleFactor + 12, { align: 'center' });
-
-              // Add Instructions
-              pdf.setFontSize(8);
-              const instructionsText = 'Aponte a câmera do seu celular para este QR Code para acessar o cardápio digital e fazer seu pedido.';
-              const splitInstructions = pdf.splitTextToSize(instructionsText, pdfWidth - 20); // Wrap text
-              pdf.text(splitInstructions, pdfWidth / 2, qrCodeY + qrCodeSize / pdf.internal.scaleFactor + 20, { align: 'center' });
-
-              pdf.save(`mesa-${selectedTableQrCodeIdentifier.table_number}.pdf`);
                   console.error("Error loading SVG for canvas conversion:", err);
                   URL.revokeObjectURL(url);
                   reject(new Error("Failed to load SVG for canvas conversion."));
