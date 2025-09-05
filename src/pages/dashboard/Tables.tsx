@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Plus, QrCode, Download, Settings, Eye, EyeOff } from "lucide-react";
-import { QRCode } from "qrcode.react";
+import * as QRCode from "qrcode.react";
 import React, { useEffect, useState } from "react";
 import { useAuth } from "@clerk/clerk-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -266,7 +266,7 @@ export default function Tables() {
           </DialogHeader>
           {selectedTableQrCodeIdentifier && (
             <div className="p-4 border border-gray-200 rounded-lg">
-              <QRCode
+              <QRCode.default
                 value={`https://agil-scan-order-neon.vercel.app/order/${selectedTableQrCodeIdentifier}`}
                 size={256}
                 level="H"
