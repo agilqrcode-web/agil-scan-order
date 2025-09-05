@@ -47,10 +47,7 @@ export default function Tables() {
     }
     try {
       const { data, error } = await supabase
-        .from('restaurant_tables')
-        .select('*')
-        .eq('restaurant_id', restaurantId)
-        .order('table_number', { ascending: true });
+        .rpc('get_all_restaurant_tables', { p_restaurant_id: restaurantId }); // Use the new RPC
 
       if (error) {
         throw error;
