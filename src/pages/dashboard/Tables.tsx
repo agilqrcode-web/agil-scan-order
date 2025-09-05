@@ -335,6 +335,7 @@ export default function Tables() {
               const qrCodeSvgElement = document.querySelector('.p-4 > svg');
               if (!qrCodeSvgElement) {
                 console.error("QR Code SVG element not found for canvas conversion.");
+                // No need to reject a promise here, just return
                 return;
               }
 
@@ -342,7 +343,6 @@ export default function Tables() {
               const img = new Image();
               const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
               const url = URL.createObjectURL(svgBlob);
-              img.src = url; // Start loading the image immediately
 
               await new Promise<void>((resolve, reject) => {
                 img.onload = () => {
@@ -361,6 +361,7 @@ export default function Tables() {
                   reject(new Error("Failed to load SVG for canvas conversion."));
                 };
               });
+              img.src = url; // Moved to here, after the Promise is created
 
               const qrCodeDataUrl = tempCanvas.toDataURL('image/png');
 
