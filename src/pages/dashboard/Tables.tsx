@@ -67,7 +67,7 @@ export default function Tables() {
       message: "Este número de mesa já está em uso.",
       path: ["table_number"],
     }),
-    qr_code_identifier: z.string().min(1, "Identificador do QR Code é obrigatório."),
+    
   });
 
   type AddTableFormValues = z.infer<typeof addTableSchema>;
@@ -76,7 +76,7 @@ export default function Tables() {
     resolver: zodResolver(addTableSchema),
     defaultValues: {
       table_number: undefined,
-      qr_code_identifier: "",
+      
     },
   });
 
@@ -122,7 +122,7 @@ export default function Tables() {
         body: JSON.stringify({
           restaurant_id: restaurantId,
           table_number: values.table_number,
-          qr_code_identifier: values.qr_code_identifier,
+          qr_code_identifier: crypto.randomUUID(),
         }),
       });
 
@@ -238,21 +238,7 @@ export default function Tables() {
                 Números de mesa já em uso: {existingTableNumbers.join(', ')}
               </div>
             )}
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="qr_code_identifier" className="text-right">
-                Identificador QR Code
-              </Label>
-              <Input
-                id="qr_code_identifier"
-                {...form.register("qr_code_identifier")}
-                className="col-span-3"
-              />
-              {form.formState.errors.qr_code_identifier && (
-                <p className="col-span-4 text-right text-red-500 text-sm">
-                  {form.formState.errors.qr_code_identifier.message}
-                </p>
-              )}
-            </div>
+            
           </form>
           <DialogFooter>
             <Button type="submit" form="add-table-form" disabled={form.formState.isSubmitting}>
