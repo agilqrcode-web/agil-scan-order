@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Plus, QrCode, Download, Settings } from "lucide-react";
+import { Plus, QrCode, Download, Settings, Eye, EyeOff } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { useAuth } from "@clerk/clerk-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -40,6 +40,7 @@ export default function Tables() {
   const [isAddTableModalOpen, setIsAddTableModalOpen] = useState(false);
   const [existingTableNumbers, setExistingTableNumbers] = useState<number[]>([]);
   const [tables, setTables] = useState<any[]>([]); // State to store fetched tables
+  const [visibleQrCodeId, setVisibleQrCodeId] = useState<string | null>(null);
 
   const fetchTables = async () => {
     if (!restaurantId || !supabase) {
@@ -136,6 +137,7 @@ export default function Tables() {
       form.reset();
       fetchTableCounts(); 
       fetchTables(); // Re-fetch tables to update the display 
+      fetchExistingTableNumbers(); // Re-fetch existing table numbers 
     } catch (err) {
       console.error("Error adding table:", err);
       setError(err.message || "Failed to add table.");
@@ -355,10 +357,22 @@ export default function Tables() {
                     </CardHeader>
                     <CardContent className="space-y-3">
                       <div className="flex items-center gap-2">
-                        <QrCode className="h-4 w-4" />
                         <span className="text-sm text-muted-foreground">
-                          Código: {table.qr_code_identifier}
+                          Código: {visibleQrCodeId === table.id ? table.qr_code_identifier : '********'}
                         </span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() =>
+                            setVisibleQrCodeId(visibleQrCodeId === table.id ? null : table.id)
+                          }
+                        >
+                          {visibleQrCodeId === table.id ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </Button>
                       </div>
 
                       {/* Assuming 'orders' is a property on the table object, if not, this part needs adjustment */}
