@@ -166,7 +166,7 @@ export default function Tables() {
               Preencha os detalhes para adicionar uma nova mesa ao seu restaurante.
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 py-4">
+          <form id="add-table-form" onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="table_number" className="text-right">
                 Número da Mesa
