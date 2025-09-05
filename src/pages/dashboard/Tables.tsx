@@ -178,27 +178,30 @@ export default function Tables() {
   }, [restaurantId, supabase]);
 
   useEffect(() => {
-    async function fetchExistingTableNumbers() {
-      if (!restaurantId || !supabase) {
-        return;
-      }
-      try {
-        const { data, error } = await supabase
-          .rpc('get_existing_table_numbers_for_restaurant', { p_restaurant_id: restaurantId });
-
-        if (error) {
-          throw error;
-        }
-        if (data) {
-          setExistingTableNumbers(data as number[]);
-        }
-      } catch (err) {
-        console.error("Error fetching existing table numbers:", err);
-        // Optionally set an error state for this specific fetch
-      }
+    if (restaurantId && supabase) {
+      fetchExistingTableNumbers();
     }
-    fetchExistingTableNumbers();
   }, [restaurantId, supabase]);
+
+  const fetchExistingTableNumbers = async () => {
+    if (!restaurantId || !supabase) {
+      return;
+    }
+    try {
+      const { data, error } = await supabase
+        .rpc('get_existing_table_numbers_for_restaurant', { p_restaurant_id: restaurantId });
+
+      if (error) {
+        throw error;
+      }
+      if (data) {
+        setExistingTableNumbers(data as number[]);
+      }
+    } catch (err) {
+      console.error("Error fetching existing table numbers:", err);
+      // Optionally set an error state for this specific fetch
+    }
+  };
 
   return (
     <div className="space-y-6">
