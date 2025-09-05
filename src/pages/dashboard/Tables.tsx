@@ -326,11 +326,24 @@ export default function Tables() {
               const qrCodeValue = `https://agil-scan-order-neon.vercel.app/order/${selectedTableQrCodeIdentifier.qr_code_identifier}`;
               console.log("QR Code Value for PDF:", qrCodeValue); // Debugging line
 
-              const qrCodeImg = document.createElement('img');
-              qrCodeImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=128x128&data=${encodeURIComponent(qrCodeValue)}`; // Using a QR code API for direct image
-              qrCodeImg.style.display = 'block';
-              qrCodeImg.style.margin = '0 auto 10px auto'; // Center and add margin
-              input.appendChild(qrCodeImg);
+              // Let's try to get the SVG from the modal and then use it.
+              // The QR code is already rendered in the modal.
+              // We need to clone it and append it to the 'input' div.
+              const qrCodeElementFromModal = document.querySelector('.p-4 > svg'); // Assuming react-qr-code renders SVG
+
+              if (!qrCodeElementFromModal) {
+                console.error("QR Code SVG element not found in modal for PDF generation.");
+                document.body.removeChild(input); // Clean up temporary div
+                return;
+              }
+
+              // Clone the SVG element and set its size for the PDF
+              const clonedQrCodeSvg = qrCodeElementFromModal.cloneNode(true) as SVGElement;
+              clonedQrCodeSvg.setAttribute('width', '128'); // Set desired size
+              clonedQrCodeSvg.setAttribute('height', '128');
+              clonedQrCodeSvg.style.display = 'block';
+              clonedQrCodeSvg.style.margin = '0 auto 10px auto'; // Center and add margin
+              input.appendChild(clonedQrCodeSvg);
 
               // Add instructions
               const instructionsElement = document.createElement('p');
@@ -340,30 +353,22 @@ export default function Tables() {
               instructionsElement.style.marginTop = '5px';
               input.appendChild(instructionsElement);
 
-              // Only proceed with html2canvas after the image has loaded
-              qrCodeImg.onload = async () => {
-                document.body.appendChild(input); // Append to body to capture
+              // No need for Promise.all or onload/onerror for SVG, html2canvas should handle it directly
+              document.body.appendChild(input); // Append to body to capture
 
-                const canvas = await html2canvas(input, { scale: 1.5 }); // Adjusted scale for better quality at smaller size
-                const imgData = canvas.toDataURL('image/png');
+              const canvas = await html2canvas(input, { scale: 1.5 }); // Adjusted scale for better quality at smaller size
+              const imgData = canvas.toDataURL('image/png');
 
-                const pdf = new jsPDF({
-                  orientation: 'portrait',
-                  unit: 'px',
-                  format: [canvas.width, canvas.height], // Use canvas dimensions for PDF
-                });
+              const pdf = new jsPDF({
+                orientation: 'portrait',
+                unit: 'px',
+                format: [canvas.width, canvas.height], // Use canvas dimensions for PDF
+              });
 
-                pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
-                pdf.save(`mesa-${selectedTableQrCodeIdentifier.table_number}.pdf`);
+              pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+              pdf.save(`mesa-${selectedTableQrCodeIdentifier.table_number}.pdf`);
 
-                document.body.removeChild(input); // Clean up temporary div
-              };
-
-              // Handle image loading errors
-              qrCodeImg.onerror = () => {
-                console.error("Failed to load QR Code image from API.");
-                document.body.removeChild(input); // Clean up temporary div if image fails to load
-              };
+              document.body.removeChild(input); // Clean up temporary div
             }}>
               <Download className="mr-2 h-4 w-4" />
               Baixar QR Code
