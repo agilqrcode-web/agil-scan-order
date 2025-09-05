@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Plus, QrCode, Download, Settings, Eye, EyeOff } from "lucide-react";
-import QRCode from "qrcode.react";
+import { QRCode } from "qrcode.react";
 import React, { useEffect, useState } from "react";
 import { useAuth } from "@clerk/clerk-react";
 import { Skeleton } from "@/components/ui/skeleton";
