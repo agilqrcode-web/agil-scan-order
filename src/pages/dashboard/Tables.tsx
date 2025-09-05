@@ -4,6 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Plus, QrCode, Download, Settings, Eye, EyeOff } from "lucide-react";
 import QRCode from "react-qr-code";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 import React, { useEffect, useState } from "react";
 import { useAuth } from "@clerk/clerk-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -43,7 +45,7 @@ export default function Tables() {
   const [tables, setTables] = useState<any[]>([]); // State to store fetched tables
   const [visibleQrCodeId, setVisibleQrCodeId] = useState<string | null>(null);
   const [isQrCodeModalOpen, setIsQrCodeModalOpen] = useState(false);
-  const [selectedTableQrCodeIdentifier, setSelectedTableQrCodeIdentifier] = useState<string | null>(null);
+  const [selectedTableQrCodeIdentifier, setSelectedTableQrCodeIdentifier] = useState<{ qr_code_identifier: string; table_number: number } | null>(null);
 
   const fetchTables = async () => {
     if (!restaurantId || !supabase) {
@@ -259,9 +261,9 @@ export default function Tables() {
       <Dialog open={isQrCodeModalOpen} onOpenChange={setIsQrCodeModalOpen}>
         <DialogContent className="sm:max-w-[425px] flex flex-col items-center">
           <DialogHeader>
-            <DialogTitle>QR Code da Mesa</DialogTitle>
+            <DialogTitle>QR Code da Mesa {selectedTableQrCodeIdentifier?.table_number}</DialogTitle>
             <DialogDescription>
-              Escaneie este QR Code para acessar o cardápio da mesa.
+              Este QR Code deve ficar visível para seus clientes.
             </DialogDescription>
           </DialogHeader>
           {selectedTableQrCodeIdentifier && (
@@ -275,18 +277,62 @@ export default function Tables() {
             </div>
           )}
           <div className="flex gap-2 mt-4">
-            <Button onClick={() => {
-              // Download functionality will go here
-              const canvas = document.querySelector('canvas');
-              if (canvas) {
-                const url = canvas.toDataURL('image/png');
-                const link = document.createElement('a');
-                link.download = `qrcode-${selectedTableQrCodeIdentifier}.png`;
-                link.href = url;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
+            <Button onClick={async () => {
+              if (!selectedTableQrCodeIdentifier) return;
+
+              const input = document.createElement('div');
+              input.style.background = 'white';
+              input.style.padding = '20px';
+              input.style.display = 'inline-block'; // To wrap content
+
+              // Add table number
+              const tableNumberElement = document.createElement('h2');
+              tableNumberElement.innerText = `Mesa ${selectedTableQrCodeIdentifier.table_number}`;
+              tableNumberElement.style.textAlign = 'center';
+              tableNumberElement.style.marginBottom = '10px';
+              input.appendChild(tableNumberElement);
+
+              // Add QR Code
+              const qrCodeContainer = document.createElement('div');
+              // Render QR code into a temporary div to capture it
+              // react-qr-code renders to SVG or Canvas, we need a canvas for html2canvas
+              // A simpler way is to render the QRCode component directly into the input div
+              // and let html2canvas handle it.
+              // However, react-qr-code renders SVG by default, html2canvas works better with canvas.
+              // Let's try to render it as a canvas directly.
+              const tempQrCode = document.createElement('canvas');
+              const qrCodeValue = `https://agil-scan-order-neon.vercel.app/order/${selectedTableQrCodeIdentifier.qr_code_identifier}`;
+              // This part is tricky as react-qr-code doesn't directly expose a way to render to a specific canvas element.
+              // It renders its own SVG or Canvas.
+              // The easiest way is to let react-qr-code render its SVG, then use html2canvas on the parent div.
+
+              // Let's get the already rendered QR code element from the modal.
+              const qrCodeElement = document.querySelector('.p-4 > svg'); // Assuming react-qr-code renders SVG
+
+              if (!qrCodeElement) {
+                console.error("QR Code element not found for PDF generation.");
+                return;
               }
+
+              // Clone the QR code element to avoid modifying the live DOM
+              const clonedQrCodeElement = qrCodeElement.cloneNode(true) as HTMLElement;
+              input.appendChild(clonedQrCodeElement);
+
+              document.body.appendChild(input); // Append to body to capture
+
+              const canvas = await html2canvas(input, { scale: 2 }); // Scale for better quality
+              const imgData = canvas.toDataURL('image/png');
+
+              const pdf = new jsPDF({
+                orientation: 'portrait',
+                unit: 'px',
+                format: [canvas.width, canvas.height], // Use canvas dimensions for PDF
+              });
+
+              pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+              pdf.save(`mesa-${selectedTableQrCodeIdentifier.table_number}.pdf`);
+
+              document.body.removeChild(input); // Clean up temporary div
             }}>
               <Download className="mr-2 h-4 w-4" />
               Baixar QR Code
@@ -436,7 +482,7 @@ export default function Tables() {
                           variant="outline"
                           className="flex-1"
                           onClick={() => {
-                            setSelectedTableQrCodeIdentifier(table.qr_code_identifier);
+                            setSelectedTableQrCodeIdentifier({ qr_code_identifier: table.qr_code_identifier, table_number: table.table_number });
                             setIsQrCodeModalOpen(true);
                           }}
                         >
