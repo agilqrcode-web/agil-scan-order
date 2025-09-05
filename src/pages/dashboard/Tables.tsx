@@ -326,24 +326,52 @@ export default function Tables() {
               const qrCodeValue = `https://agil-scan-order-neon.vercel.app/order/${selectedTableQrCodeIdentifier.qr_code_identifier}`;
               console.log("QR Code Value for PDF:", qrCodeValue); // Debugging line
 
-              // Let's try to get the SVG from the modal and then use it.
-              // The QR code is already rendered in the modal.
-              // We need to clone it and append it to the 'input' div.
-              const qrCodeElementFromModal = document.querySelector('.p-4 > svg'); // Assuming react-qr-code renders SVG
+              // Create a temporary canvas element for QR code rendering
+              const tempCanvas = document.createElement('canvas');
+              tempCanvas.width = 128; // Desired size
+              tempCanvas.height = 128;
 
-              if (!qrCodeElementFromModal) {
-                console.error("QR Code SVG element not found in modal for PDF generation.");
-                document.body.removeChild(input); // Clean up temporary div
-                return;
-              }
+              // Render QR code to canvas
+              await new Promise<void>((resolve, reject) => {
+                // Get the SVG element from the modal
+                const qrCodeSvgElement = document.querySelector('.p-4 > svg');
+                if (!qrCodeSvgElement) {
+                  console.error("QR Code SVG element not found for canvas conversion.");
+                  reject(new Error("QR Code SVG not found."));
+                  return;
+                }
 
-              // Clone the SVG element and set its size for the PDF
-              const clonedQrCodeSvg = qrCodeElementFromModal.cloneNode(true) as SVGElement;
-              clonedQrCodeSvg.setAttribute('width', '128'); // Set desired size
-              clonedQrCodeSvg.setAttribute('height', '128');
-              clonedQrCodeSvg.style.display = 'block';
-              clonedQrCodeSvg.style.margin = '0 auto 10px auto'; // Center and add margin
-              input.appendChild(clonedQrCodeSvg);
+                // Convert SVG to canvas
+                const svgString = new XMLSerializer().serializeToString(qrCodeSvgElement);
+                const img = new Image();
+                const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+                const url = URL.createObjectURL(svgBlob);
+
+                img.onload = () => {
+                  const ctx = tempCanvas.getContext('2d');
+                  if (ctx) {
+                    ctx.drawImage(img, 0, 0, tempCanvas.width, tempCanvas.height);
+                    URL.revokeObjectURL(url); // Clean up the URL
+                    resolve();
+                  } else {
+                    reject(new Error("Could not get 2D context for canvas."));
+                  }
+                };
+                img.onerror = (err) => {
+                  console.error("Error loading SVG for canvas conversion:", err);
+                  URL.revokeObjectURL(url);
+                  reject(new Error("Failed to load SVG for canvas conversion."));
+                };
+                img.src = url;
+              });
+
+              const qrCodeDataUrl = tempCanvas.toDataURL('image/png');
+
+              const qrCodeImgElement = document.createElement('img');
+              qrCodeImgElement.src = qrCodeDataUrl;
+              qrCodeImgElement.style.display = 'block';
+              qrCodeImgElement.style.margin = '0 auto 10px auto'; // Center and add margin
+              input.appendChild(qrCodeImgElement);
 
               // Add instructions
               const instructionsElement = document.createElement('p');
@@ -353,7 +381,6 @@ export default function Tables() {
               instructionsElement.style.marginTop = '5px';
               input.appendChild(instructionsElement);
 
-              // No need for Promise.all or onload/onerror for SVG, html2canvas should handle it directly
               document.body.appendChild(input); // Append to body to capture
 
               const canvas = await html2canvas(input, { scale: 1.5 }); // Adjusted scale for better quality at smaller size
