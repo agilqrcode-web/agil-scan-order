@@ -333,7 +333,7 @@ export default function Tables() {
               tempCanvas.height = qrCodeSize;
 
               // New helper function to get QR Code PNG Data URL from SVG
-              const getQrCodePngDataUrl = async (svgElement: SVGElement, size: number): Promise<string> => {
+              const getQrCodePngDataUrl = (svgElement: SVGElement, size: number): Promise<string> => { // Removed 'async'
                 const tempCanvas = document.createElement('canvas');
                 tempCanvas.width = size;
                 tempCanvas.height = size;
@@ -343,7 +343,6 @@ export default function Tables() {
                   const img = new Image();
                   const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
                   const url = URL.createObjectURL(svgBlob);
-                  img.src = url; // Start loading the image
 
                   img.onload = () => {
                     const ctx = tempCanvas.getContext('2d');
@@ -361,6 +360,7 @@ export default function Tables() {
                     URL.revokeObjectURL(url);
                     reject(new Error("Failed to load SVG for canvas conversion."));
                   };
+                  img.src = url; // This line is crucial to start loading the image
                 });
               };
 
@@ -370,7 +370,7 @@ export default function Tables() {
                 return;
               }
 
-              const qrCodeDataUrl = await getQrCodePngDataUrl(qrCodeSvgElement as SVGElement, qrCodeSize);
+              const qrCodeDataUrl = await getQrCodePngDataUrl(qrCodeSvgElement as SVGElement, qrCodeSize); // 'await' is still here for the call to the helper
 
               const qrCodeDataUrl = tempCanvas.toDataURL('image/png');
 
