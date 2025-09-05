@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Plus, QrCode, Download, Settings, Eye, EyeOff } from "lucide-react";
+import QRCode from "qrcode.react";
 import React, { useEffect, useState } from "react";
 import { useAuth } from "@clerk/clerk-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -41,6 +42,8 @@ export default function Tables() {
   const [existingTableNumbers, setExistingTableNumbers] = useState<number[]>([]);
   const [tables, setTables] = useState<any[]>([]); // State to store fetched tables
   const [visibleQrCodeId, setVisibleQrCodeId] = useState<string | null>(null);
+  const [isQrCodeModalOpen, setIsQrCodeModalOpen] = useState(false);
+  const [selectedTableQrCodeIdentifier, setSelectedTableQrCodeIdentifier] = useState<string | null>(null);
 
   const fetchTables = async () => {
     if (!restaurantId || !supabase) {
@@ -253,6 +256,48 @@ export default function Tables() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={isQrCodeModalOpen} onOpenChange={setIsQrCodeModalOpen}>
+        <DialogContent className="sm:max-w-[425px] flex flex-col items-center">
+          <DialogHeader>
+            <DialogTitle>QR Code da Mesa</DialogTitle>
+            <DialogDescription>
+              Escaneie este QR Code para acessar o cardápio da mesa.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedTableQrCodeIdentifier && (
+            <div className="p-4 border border-gray-200 rounded-lg">
+              <QRCode
+                value={`https://agil-scan-order-neon.vercel.app/order/${selectedTableQrCodeIdentifier}`}
+                size={256}
+                level="H"
+                includeMargin={true}
+              />
+            </div>
+          )}
+          <div className="flex gap-2 mt-4">
+            <Button onClick={() => {
+              // Download functionality will go here
+              const canvas = document.querySelector('canvas');
+              if (canvas) {
+                const url = canvas.toDataURL('image/png');
+                const link = document.createElement('a');
+                link.download = `qrcode-${selectedTableQrCodeIdentifier}.png`;
+                link.href = url;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+              }
+            }}>
+              <Download className="mr-2 h-4 w-4" />
+              Baixar QR Code
+            </Button>
+            <Button variant="outline" onClick={() => setIsQrCodeModalOpen(false)}>
+              Fechar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -386,7 +431,15 @@ export default function Tables() {
                       )} */}
 
                       <div className="flex gap-2">
-                        <Button size="sm" variant="outline" className="flex-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1"
+                          onClick={() => {
+                            setSelectedTableQrCodeIdentifier(table.qr_code_identifier);
+                            setIsQrCodeModalOpen(true);
+                          }}
+                        >
                           <QrCode className="mr-1 h-3 w-3" />
                           QR Code
                         </Button>
