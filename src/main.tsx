@@ -28,7 +28,15 @@ function SupabaseProvider({ children }) {
       }
     }
 
-    createAndSetSupabaseClient();
+    createAndSetSupabaseClient(); // Initial call
+
+    // Periodically re-create the Supabase client with a fresh Clerk token
+    const intervalId = setInterval(() => {
+      console.log("Attempting to refresh Supabase client with new Clerk token...");
+      createAndSetSupabaseClient();
+    }, 5 * 60 * 1000); // Every 5 minutes (adjust as needed)
+
+    return () => clearInterval(intervalId); // Cleanup on unmount
   }, [isSignedIn, getToken]); // Depend on isSignedIn and getToken
 
   return (
