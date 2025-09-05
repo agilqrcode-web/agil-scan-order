@@ -1,5 +1,5 @@
 import { createRoot } from 'react-dom/client';
-import { ClerkProvider, useSession } from "@clerk/clerk-react";
+import { ClerkProvider, useAuth } from "@clerk/clerk-react"; // Use useAuth
 import App from './App.tsx';
 import './index.css';
 import { createSupabaseClient } from "@/integrations/supabase/client";
@@ -13,22 +13,23 @@ if (!PUBLISHABLE_KEY) {
 }
 
 function SupabaseProvider({ children }) {
-  const { session } = useSession();
+  const { isSignedIn, getToken } = useAuth(); // Use useAuth
   const [supabase, setSupabase] = useState(null);
 
   useEffect(() => {
-    async function createClient() {
-      if (session) {
-        const clerkToken = await session.getToken({ template: 'agilqrcode' });
+    async function createAndSetSupabaseClient() {
+      if (isSignedIn) {
+        const clerkToken = await getToken({ template: 'agilqrcode' }); // Get the latest token
         const newSupabaseClient = createSupabaseClient(clerkToken);
         setSupabase(newSupabaseClient);
       } else {
-        // If no session, create a public client
+        // If not signed in, create a public client
         setSupabase(createSupabaseClient());
       }
     }
-    createClient();
-  }, [session]);
+
+    createAndSetSupabaseClient();
+  }, [isSignedIn, getToken]); // Depend on isSignedIn and getToken
 
   return (
     <SupabaseContext.Provider value={supabase}>
