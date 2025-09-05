@@ -332,45 +332,35 @@ export default function Tables() {
               tempCanvas.width = qrCodeSize;
               tempCanvas.height = qrCodeSize;
 
-              // New helper function to get QR Code PNG Data URL from SVG
-              const getQrCodePngDataUrl = async (svgElement: SVGElement, size: number): Promise<string> => {
-                const tempCanvas = document.createElement('canvas');
-                tempCanvas.width = size;
-                tempCanvas.height = size;
-
-                return new Promise<string>((resolve, reject) => {
-                  const svgString = new XMLSerializer().serializeToString(svgElement);
-                  const img = new Image();
-                  const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
-                  const url = URL.createObjectURL(svgBlob);
-                  img.src = url; // Start loading the image
-
-                  img.onload = () => {
-                    const ctx = tempCanvas.getContext('2d');
-                    if (ctx) {
-                      ctx.drawImage(img, 0, 0, tempCanvas.width, tempCanvas.height);
-                      URL.revokeObjectURL(url);
-                      resolve(tempCanvas.toDataURL('image/png'));
-                    } else {
-                      URL.revokeObjectURL(url);
-                      reject(new Error("Could not get 2D context for canvas."));
-                    }
-                  };
-                  img.onerror = (err) => {
-                    console.error("Error loading SVG for canvas conversion:", err);
-                    URL.revokeObjectURL(url);
-                    reject(new Error("Failed to load SVG for canvas conversion."));
-                  };
-                });
-              };
-
               const qrCodeSvgElement = document.querySelector('.p-4 > svg');
               if (!qrCodeSvgElement) {
-                console.error("QR Code SVG element not found for PDF generation.");
+                console.error("QR Code SVG element not found for canvas conversion.");
                 return;
               }
 
-              const qrCodeDataUrl = await getQrCodePngDataUrl(qrCodeSvgElement as SVGElement, qrCodeSize);
+              const svgString = new XMLSerializer().serializeToString(qrCodeSvgElement);
+              const img = new Image();
+              const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+              const url = URL.createObjectURL(svgBlob);
+              img.src = url; // Start loading the image immediately
+
+              await new Promise<void>((resolve, reject) => {
+                img.onload = () => {
+                  const ctx = tempCanvas.getContext('2d');
+                  if (ctx) {
+                    ctx.drawImage(img, 0, 0, tempCanvas.width, tempCanvas.height);
+                    URL.revokeObjectURL(url);
+                    resolve();
+                  } else {
+                    reject(new Error("Could not get 2D context for canvas."));
+                  }
+                };
+                img.onerror = (err) => {
+                  console.error("Error loading SVG for canvas conversion:", err);
+                  URL.revokeObjectURL(url);
+                  reject(new Error("Failed to load SVG for canvas conversion."));
+                };
+              });
 
               const qrCodeDataUrl = tempCanvas.toDataURL('image/png');
 
