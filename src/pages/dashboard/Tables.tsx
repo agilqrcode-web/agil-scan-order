@@ -167,17 +167,14 @@ export default function Tables() {
         const fetchedRestaurantId = restaurantIdData as string;
         setRestaurantId(fetchedRestaurantId);
 
-        // Fetch restaurant name using the fetched restaurant ID
+        // Fetch restaurant name using the new RPC function
         const { data: restaurantNameData, error: restaurantNameError } = await supabase
-          .from('restaurants')
-          .select('name')
-          .eq('id', fetchedRestaurantId)
-          .single();
+          .rpc('get_restaurant_name_by_id', { p_restaurant_id: fetchedRestaurantId });
 
         if (restaurantNameError) {
           throw restaurantNameError;
         }
-        setRestaurantName(restaurantNameData.name);
+        setRestaurantName(restaurantNameData as string);
 
       } catch (err) {
         console.error("Error fetching restaurant data:", err);
