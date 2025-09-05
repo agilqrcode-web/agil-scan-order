@@ -32,6 +32,7 @@ export default function Tables() {
   const { userId } = useAuth();
   const supabase = useSupabase();
   const [restaurantId, setRestaurantId] = useState<string | null>(null);
+  const [restaurantName, setRestaurantName] = useState<string | null>(null);
   const [tableCounts, setTableCounts] = useState({
     total_tables: 0,
     available_tables: 0,
@@ -150,29 +151,41 @@ export default function Tables() {
   };
 
   useEffect(() => {
-    async function fetchRestaurantId() {
+    async function fetchRestaurantData() { // Renamed function for clarity
       if (!userId || !supabase) {
         setLoading(false);
         return;
       }
       try {
-        const { data, error } = await supabase
+        // Fetch restaurant ID
+        const { data: restaurantIdData, error: restaurantIdError } = await supabase
           .rpc('get_user_restaurant_id');
 
-        console.log("Restaurant ID RPC Data:", data);
-        console.log("Restaurant ID RPC Error:", error);
-
-        if (error) {
-          throw error;
+        if (restaurantIdError) {
+          throw restaurantIdError;
         }
-        setRestaurantId(data as string);
+        const fetchedRestaurantId = restaurantIdData as string;
+        setRestaurantId(fetchedRestaurantId);
+
+        // Fetch restaurant name using the fetched restaurant ID
+        const { data: restaurantNameData, error: restaurantNameError } = await supabase
+          .from('restaurants')
+          .select('name')
+          .eq('id', fetchedRestaurantId)
+          .single();
+
+        if (restaurantNameError) {
+          throw restaurantNameError;
+        }
+        setRestaurantName(restaurantNameData.name);
+
       } catch (err) {
-        console.error("Error fetching restaurant ID:", err);
+        console.error("Error fetching restaurant data:", err);
         setError("Failed to load restaurant data.");
         setLoading(false);
       }
     }
-    fetchRestaurantId();
+    fetchRestaurantData();
   }, [userId, supabase]);
 
   useEffect(() => {
@@ -282,13 +295,23 @@ export default function Tables() {
 
               const input = document.createElement('div');
               input.style.background = 'white';
-              input.style.padding = '20px';
+              input.style.padding = '10px'; // Reduced padding
               input.style.display = 'inline-block'; // To wrap content
+              input.style.fontFamily = 'sans-serif'; // Ensure a readable font
+
+              // Add restaurant name
+              const restaurantNameElement = document.createElement('p');
+              restaurantNameElement.innerText = restaurantName || 'Nome do Restaurante'; // Use actual restaurantName
+              restaurantNameElement.style.textAlign = 'center';
+              restaurantNameElement.style.fontSize = '10px';
+              restaurantNameElement.style.marginBottom = '5px';
+              input.appendChild(restaurantNameElement);
 
               // Add table number
               const tableNumberElement = document.createElement('h2');
               tableNumberElement.innerText = `Mesa ${selectedTableQrCodeIdentifier.table_number}`;
               tableNumberElement.style.textAlign = 'center';
+              tableNumberElement.style.fontSize = '18px'; // Adjusted font size
               tableNumberElement.style.marginBottom = '10px';
               input.appendChild(tableNumberElement);
 
@@ -300,27 +323,27 @@ export default function Tables() {
               // and let html2canvas handle it.
               // However, react-qr-code renders SVG by default, html2canvas works better with canvas.
               // Let's try to render it as a canvas directly.
-              const tempQrCode = document.createElement('canvas');
-              const qrCodeValue = `https://agil-scan-order-neon.vercel.app/order/${selectedTableQrCodeIdentifier.qr_code_identifier}`;
-              // This part is tricky as react-qr-code doesn't directly expose a way to render to a specific canvas element.
-              // It renders its own SVG or Canvas.
-              // The easiest way is to let react-qr-code render its SVG, then use html2canvas on the parent div.
 
               // Let's get the already rendered QR code element from the modal.
-              const qrCodeElement = document.querySelector('.p-4 > svg'); // Assuming react-qr-code renders SVG
+              // We will render a smaller QR code directly into the input div for PDF generation
+              const qrCodeValue = `https://agil-scan-order-neon.vercel.app/order/${selectedTableQrCodeIdentifier.qr_code_identifier}`;
+              const qrCodeImg = document.createElement('img');
+              qrCodeImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=128x128&data=${encodeURIComponent(qrCodeValue)}`; // Using a QR code API for direct image
+              qrCodeImg.style.display = 'block';
+              qrCodeImg.style.margin = '0 auto 10px auto'; // Center and add margin
+              input.appendChild(qrCodeImg);
 
-              if (!qrCodeElement) {
-                console.error("QR Code element not found for PDF generation.");
-                return;
-              }
-
-              // Clone the QR code element to avoid modifying the live DOM
-              const clonedQrCodeElement = qrCodeElement.cloneNode(true) as HTMLElement;
-              input.appendChild(clonedQrCodeElement);
+              // Add instructions
+              const instructionsElement = document.createElement('p');
+              instructionsElement.innerText = 'Aponte a câmera do seu celular para este QR Code para acessar o cardápio digital e fazer seu pedido.';
+              instructionsElement.style.textAlign = 'center';
+              instructionsElement.style.fontSize = '8px';
+              instructionsElement.style.marginTop = '5px';
+              input.appendChild(instructionsElement);
 
               document.body.appendChild(input); // Append to body to capture
 
-              const canvas = await html2canvas(input, { scale: 2 }); // Scale for better quality
+              const canvas = await html2canvas(input, { scale: 1.5 }); // Adjusted scale for better quality at smaller size
               const imgData = canvas.toDataURL('image/png');
 
               const pdf = new jsPDF({
