@@ -324,6 +324,8 @@ export default function Tables() {
               // Let's get the already rendered QR code element from the modal.
               // We will render a smaller QR code directly into the input div for PDF generation
               const qrCodeValue = `https://agil-scan-order-neon.vercel.app/order/${selectedTableQrCodeIdentifier.qr_code_identifier}`;
+              console.log("QR Code Value for PDF:", qrCodeValue); // Debugging line
+
               const qrCodeImg = document.createElement('img');
               qrCodeImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=128x128&data=${encodeURIComponent(qrCodeValue)}`; // Using a QR code API for direct image
               qrCodeImg.style.display = 'block';
@@ -338,21 +340,30 @@ export default function Tables() {
               instructionsElement.style.marginTop = '5px';
               input.appendChild(instructionsElement);
 
-              document.body.appendChild(input); // Append to body to capture
+              // Only proceed with html2canvas after the image has loaded
+              qrCodeImg.onload = async () => {
+                document.body.appendChild(input); // Append to body to capture
 
-              const canvas = await html2canvas(input, { scale: 1.5 }); // Adjusted scale for better quality at smaller size
-              const imgData = canvas.toDataURL('image/png');
+                const canvas = await html2canvas(input, { scale: 1.5 }); // Adjusted scale for better quality at smaller size
+                const imgData = canvas.toDataURL('image/png');
 
-              const pdf = new jsPDF({
-                orientation: 'portrait',
-                unit: 'px',
-                format: [canvas.width, canvas.height], // Use canvas dimensions for PDF
-              });
+                const pdf = new jsPDF({
+                  orientation: 'portrait',
+                  unit: 'px',
+                  format: [canvas.width, canvas.height], // Use canvas dimensions for PDF
+                });
 
-              pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
-              pdf.save(`mesa-${selectedTableQrCodeIdentifier.table_number}.pdf`);
+                pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+                pdf.save(`mesa-${selectedTableQrCodeIdentifier.table_number}.pdf`);
 
-              document.body.removeChild(input); // Clean up temporary div
+                document.body.removeChild(input); // Clean up temporary div
+              };
+
+              // Handle image loading errors
+              qrCodeImg.onerror = () => {
+                console.error("Failed to load QR Code image from API.");
+                document.body.removeChild(input); // Clean up temporary div if image fails to load
+              };
             }}>
               <Download className="mr-2 h-4 w-4" />
               Baixar QR Code
