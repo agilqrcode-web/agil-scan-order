@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Plus, QrCode, Download, Settings, Eye, EyeOff } from "lucide-react";
 import QRCode from "react-qr-code";
+import QRCodeGenerator from 'qrcode';
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import React, { useEffect, useState } from "react";
@@ -301,7 +302,7 @@ export default function Tables() {
               qrCodeCanvas.height = qrCodeSize;
 
               await new Promise<void>((resolve, reject) => {
-                QRCode.toCanvas(qrCodeCanvas, qrCodeValue, {
+                QRCodeGenerator.toCanvas(qrCodeCanvas, qrCodeValue, {
                   width: qrCodeSize,
                   margin: 1, // Small margin around QR code
                   color: {
