@@ -55,8 +55,6 @@ export default function Menus() {
     } catch (err) {
       console.error("Error fetching menus:", err);
       setError("Failed to load menus.");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -208,55 +206,45 @@ export default function Menus() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {/* Search input and "Baixar QR Codes" button (placeholder for now) */}
-            <div className="flex gap-4">
-              <Input placeholder="Buscar cardápio..." className="max-w-sm" />
-              <Button variant="outline">
-                <QrCode className="mr-2 h-4 w-4" />
-                Baixar QR Codes
-              </Button>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {loading ? (
-                <p className="text-muted-foreground">Carregando cardápios...</p>
-              ) : error ? (
-                <div className="text-red-500 text-sm">{error}</div>
-              ) : menus.length === 0 ? (
-                <p className="text-muted-foreground col-span-3">Nenhum cardápio encontrado. Adicione um novo cardápio para começar!</p>
-              ) : (
-                menus.map((menu) => (
-                  <Card key={menu.id} className="hover:shadow-md transition-shadow">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-lg">{menu.name}</CardTitle>
-                        {/* <Badge variant={menu.is_active ? "default" : "secondary"}>
-                          {menu.is_active ? "Ativo" : "Inativo"}
-                        </Badge> */}
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <p className="text-sm text-muted-foreground">
-                        {menu.is_active ? "Cardápio ativo" : "Cardápio inativo"}
-                      </p>
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="outline" className="flex-1">
-                          <Edit className="mr-1 h-3 w-3" />
-                          Editar
-                        </Button>
-                        <Button size="sm" variant="outline">
-                          <QrCode className="h-3 w-3" />
-                        </Button>
-                        <Button size="sm" variant="outline">
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
-              )}
-            </div>
+          {/* The problematic block is removed here */}
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {loading ? (
+              <p className="text-muted-foreground">Carregando cardápios...</p>
+            ) : error ? (
+              <div className="text-red-500 text-sm">{error}</div>
+            ) : menus.length === 0 ? (
+              <p className="text-muted-foreground col-span-3">Nenhum cardápio encontrado. Adicione um novo cardápio para começar!</p>
+            ) : (
+              menus.map((menu) => (
+                <Card key={menu.id} className="hover:shadow-md transition-shadow">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg">{menu.name}</CardTitle>
+                      {/* <Badge variant={menu.is_active ? "default" : "secondary"}>
+                        {menu.is_active ? "Ativo" : "Inativo"}
+                      </Badge> */}
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                      {menu.is_active ? "Cardápio ativo" : "Cardápio inativo"}
+                    </p>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" className="flex-1">
+                        <Edit className="mr-1 h-3 w-3" />
+                        Editar
+                      </Button>
+                      <Button size="sm" variant="outline">
+                        <QrCode className="h-3 w-3" />
+                      </Button>
+                      <Button size="sm" variant="outline">
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
           </div>
         </CardContent>
       </Card>
