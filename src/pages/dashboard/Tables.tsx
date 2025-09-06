@@ -290,113 +290,72 @@ export default function Tables() {
             <Button onClick={async () => {
               if (!selectedTableQrCodeIdentifier) return;
 
-              const input = document.createElement('div');
-              input.style.background = 'white';
-              input.style.padding = '10px'; // Reduced padding
-              input.style.display = 'inline-block'; // To wrap content
-              input.style.fontFamily = 'sans-serif'; // Ensure a readable font
-
-              // Add restaurant name
-              const restaurantNameElement = document.createElement('p');
-              restaurantNameElement.innerText = restaurantName || 'Nome do Restaurante'; // Use actual restaurantName
-              restaurantNameElement.style.textAlign = 'center';
-              restaurantNameElement.style.fontSize = '10px';
-              restaurantNameElement.style.marginBottom = '5px';
-              input.appendChild(restaurantNameElement);
-
-              // Add table number
-              const tableNumberElement = document.createElement('h2');
-              tableNumberElement.innerText = `Mesa ${selectedTableQrCodeIdentifier.table_number}`;
-              tableNumberElement.style.textAlign = 'center';
-              tableNumberElement.style.fontSize = '18px'; // Adjusted font size
-              tableNumberElement.style.marginBottom = '10px';
-              input.appendChild(tableNumberElement);
-
-              // Add QR Code
-              const qrCodeContainer = document.createElement('div');
-              // Render QR code into a temporary div to capture it
-              // react-qr-code renders to SVG or Canvas, we need a canvas for html2canvas
-              // A simpler way is to render the QRCode component directly into the input div
-              // and let html2canvas handle it.
-              // However, react-qr-code renders SVG by default, html2canvas works better with canvas.
-              // Let's try to render it as a canvas directly.
-
-              // Let's get the already rendered QR code element from the modal.
-              // We will render a smaller QR code directly into the input div for PDF generation
               const qrCodeValue = `https://agil-scan-order-neon.vercel.app/order/${selectedTableQrCodeIdentifier.qr_code_identifier}`;
-              console.log("QR Code Value for PDF:", qrCodeValue); // Debugging line
+              const instructionsText = 'Aponte a câmera do seu celular para este QR Code para acessar o cardápio digital e fazer seu pedido.';
 
               // Create a temporary canvas element for QR code rendering
-              const tempCanvas = document.createElement('canvas');
-              tempCanvas.width = 128; // Desired size
-              tempCanvas.height = 128;
+              const qrCodeCanvas = document.createElement('canvas');
+              // Set a higher resolution for better print quality
+              const qrCodeSize = 200; // px
+              qrCodeCanvas.width = qrCodeSize;
+              qrCodeCanvas.height = qrCodeSize;
 
-              // Render QR code to canvas
               await new Promise<void>((resolve, reject) => {
-                // Get the SVG element from the modal
-                const qrCodeSvgElement = document.querySelector('.p-4 > svg');
-                if (!qrCodeSvgElement) {
-                  console.error("QR Code SVG element not found for canvas conversion.");
-                  reject(new Error("QR Code SVG not found."));
-                  return;
-                }
-
-                // Convert SVG to canvas
-                const svgString = new XMLSerializer().serializeToString(qrCodeSvgElement);
-                const img = new Image();
-                const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
-                const url = URL.createObjectURL(svgBlob);
-
-                img.onload = () => {
-                  const ctx = tempCanvas.getContext('2d');
-                  if (ctx) {
-                    ctx.drawImage(img, 0, 0, tempCanvas.width, tempCanvas.height);
-                    URL.revokeObjectURL(url); // Clean up the URL
-                    resolve();
-                  } else {
-                    reject(new Error("Could not get 2D context for canvas."));
+                QRCode.toCanvas(qrCodeCanvas, qrCodeValue, {
+                  width: qrCodeSize,
+                  margin: 1, // Small margin around QR code
+                  color: {
+                    dark: '#000000FF', // Black dots
+                    light: '#FFFFFFFF' // White background
                   }
-                };
-                img.onerror = (err) => {
-                  console.error("Error loading SVG for canvas conversion:", err);
-                  URL.revokeObjectURL(url);
-                  reject(new Error("Failed to load SVG for canvas conversion."));
-                };
-                img.src = url;
+                }, (error) => {
+                  if (error) {
+                    console.error("Error rendering QR code to canvas:", error);
+                    reject(error);
+                  } else {
+                    resolve();
+                  }
+                });
               });
 
-              const qrCodeDataUrl = tempCanvas.toDataURL('image/png');
+              const qrCodeDataUrl = qrCodeCanvas.toDataURL('image/png');
 
-              const qrCodeImgElement = document.createElement('img');
-              qrCodeImgElement.src = qrCodeDataUrl;
-              qrCodeImgElement.style.display = 'block';
-              qrCodeImgElement.style.margin = '0 auto 10px auto'; // Center and add margin
-              input.appendChild(qrCodeImgElement);
-
-              // Add instructions
-              const instructionsElement = document.createElement('p');
-              instructionsElement.innerText = 'Aponte a câmera do seu celular para este QR Code para acessar o cardápio digital e fazer seu pedido.';
-              instructionsElement.style.textAlign = 'center';
-              instructionsElement.style.fontSize = '8px';
-              instructionsElement.style.marginTop = '5px';
-              input.appendChild(instructionsElement);
-
-              document.body.appendChild(input); // Append to body to capture
-
-              const canvas = await html2canvas(input, { scale: 1.5 }); // Adjusted scale for better quality at smaller size
-              const imgData = canvas.toDataURL('image/png');
-
-              const pdf = new jsPDF({
+              const doc = new jsPDF({
                 orientation: 'portrait',
-                unit: 'px',
-                format: [canvas.width, canvas.height], // Use canvas dimensions for PDF
+                unit: 'mm', // Use millimeters for better control over print layout
+                format: 'a4' // Standard A4 size
               });
 
-              pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
-              pdf.save(`mesa-${selectedTableQrCodeIdentifier.table_number}.pdf`);
+              const pageWidth = doc.internal.pageSize.getWidth();
+              let yOffset = 20; // Initial Y offset from top
 
-              document.body.removeChild(input); // Clean up temporary div
+              // 1. QR Code (centralized, medium to small)
+              const qrCodeImageWidth = 50; // mm
+              const qrCodeImageHeight = 50; // mm
+              const qrCodeX = (pageWidth - qrCodeImageWidth) / 2;
+              doc.addImage(qrCodeDataUrl, 'PNG', qrCodeX, yOffset, qrCodeImageWidth, qrCodeImageHeight);
+              yOffset += qrCodeImageHeight + 10; // Move Y offset down
+
+              // 2. Restaurant Name
+              doc.setFontSize(18);
+              doc.text(restaurantName || 'Nome do Restaurante', pageWidth / 2, yOffset, { align: 'center' });
+              yOffset += 10;
+
+              // 3. Table Name
+              doc.setFontSize(14);
+              doc.text(`Mesa ${selectedTableQrCodeIdentifier.table_number}`, pageWidth / 2, yOffset, { align: 'center' });
+              yOffset += 15;
+
+              // 4. Instructions
+              doc.setFontSize(10);
+              const splitInstructions = doc.splitTextToSize(instructionsText, pageWidth - 40); // 20mm margin on each side
+              doc.text(splitInstructions, pageWidth / 2, yOffset, { align: 'center' });
+
+              doc.save(`mesa-${selectedTableQrCodeIdentifier.table_number}.pdf`);
             }}>
+              <Download className="mr-2 h-4 w-4" />
+              Baixar QR Code
+            </Button>
               <Download className="mr-2 h-4 w-4" />
               Baixar QR Code
             </Button>
