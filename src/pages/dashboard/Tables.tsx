@@ -12,6 +12,8 @@ import { useAuth } from "@clerk/clerk-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSupabase } from "@/contexts/SupabaseContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -48,6 +50,8 @@ export default function Tables() {
   const [visibleQrCodeId, setVisibleQrCodeId] = useState<string | null>(null);
   const [isQrCodeModalOpen, setIsQrCodeModalOpen] = useState(false);
   const [selectedTableQrCodeIdentifier, setSelectedTableQrCodeIdentifier] = useState<{ qr_code_identifier: string; table_number: number } | null>(null);
+  const [isDeleteConfirmModalOpen, setIsDeleteConfirmModalOpen] = useState(false);
+  const [tableToDeleteId, setTableToDeleteId] = useState<string | null>(null);
 
   const fetchTables = async () => {
     if (!restaurantId || !supabase) {
@@ -148,6 +152,30 @@ export default function Tables() {
     } catch (err) {
       console.error("Error adding table:", err);
       setError(err.message || "Failed to add table.");
+    }
+  };
+
+  const handleDeleteTable = async () => {
+    if (!tableToDeleteId) return;
+
+    try {
+      const response = await fetch(`/api/delete-table?table_id=${tableToDeleteId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to delete table");
+      }
+
+      // Table deleted successfully, refresh tables and counts
+      fetchTables();
+      fetchTableCounts();
+      setIsDeleteConfirmModalOpen(false); // Close the confirmation modal
+      setTableToDeleteId(null); // Clear the ID of the table to delete
+    } catch (err) {
+      console.error("Error deleting table:", err);
+      setError(err.message || "Failed to delete table.");
     }
   };
 
@@ -364,6 +392,24 @@ export default function Tables() {
         </DialogContent>
       </Dialog>
 
+      <AlertDialog open={isDeleteConfirmModalOpen} onOpenChange={setIsDeleteConfirmModalOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. Isso excluirá permanentemente a mesa e todos os dados associados a ela.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setIsDeleteConfirmModalOpen(false);
+              setTableToDeleteId(null);
+            }}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteTable}>Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -509,9 +555,23 @@ export default function Tables() {
                           <QrCode className="mr-1 h-3 w-3" />
                           QR Code
                         </Button>
-                        <Button size="sm" variant="outline">
-                          <Settings className="h-3 w-3" />
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button size="sm" variant="outline">
+                              <Settings className="h-3 w-3" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setTableToDeleteId(table.id);
+                                setIsDeleteConfirmModalOpen(true);
+                              }}
+                            >
+                              Excluir Mesa
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </CardContent>
                   </Card>
