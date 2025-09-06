@@ -356,9 +356,6 @@ export default function Tables() {
               <Download className="mr-2 h-4 w-4" />
               Baixar QR Code
             </Button>
-              <Download className="mr-2 h-4 w-4" />
-              Baixar QR Code
-            </Button>
             <Button variant="outline" onClick={() => setIsQrCodeModalOpen(false)}>
               Fechar
             </Button>
