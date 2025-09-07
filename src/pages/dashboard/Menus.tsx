@@ -30,6 +30,8 @@ export default function Menus() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAddMenuModalOpen, setIsAddMenuModalOpen] = useState(false);
+  const [isDeleteMenuModalOpen, setIsDeleteMenuModalOpen] = useState(false);
+  const [menuToDelete, setMenuToDelete] = useState<any | null>(null);
 
   // States for summary counts (will be dynamic later)
   const [totalMenus, setTotalMenus] = useState(0);
@@ -110,6 +112,33 @@ export default function Menus() {
     }
   };
 
+  const handleDeleteMenu = async () => {
+    if (!menuToDelete) return;
+
+    try {
+      const response = await fetch("/api/menus/delete", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ menu_id: menuToDelete.id }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to delete menu");
+      }
+
+      setIsDeleteMenuModalOpen(false);
+      setMenuToDelete(null);
+      fetchMenus(); // Refresh the list of menus
+      fetchSummaryCounts(); // Refresh summary counts
+    } catch (err) {
+      console.error("Error deleting menu:", err);
+      setError(err.message || "Failed to delete menu.");
+    }
+  };
+
   useEffect(() => {
     async function getRestaurantId() {
       if (!userId || !supabase) {
@@ -180,6 +209,25 @@ export default function Menus() {
           <DialogFooter>
             <Button type="submit" form="add-menu-form" disabled={form.formState.isSubmitting}>
               {form.formState.isSubmitting ? "Adicionando..." : "Adicionar Cardápio"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isDeleteMenuModalOpen} onOpenChange={setIsDeleteMenuModalOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Confirmar Exclusão</DialogTitle>
+            <DialogDescription>
+              Tem certeza de que deseja excluir o cardápio "{menuToDelete?.name}"? Esta ação não pode ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeleteMenuModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteMenu}>
+              Excluir
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -275,13 +323,16 @@ export default function Menus() {
                       {menu.is_active ? "Cardápio ativo" : "Cardápio inativo"}
                     </p>
                     <div className="flex gap-2">
-                      <Button size="sm" variant="outline">
+                      <Button size="sm" variant="outline" onClick={() => navigate(`/dashboard/menus/${menu.id}/edit`)}>
                         <Edit className="h-3 w-3" />
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => navigate(`/menus/${menu.id}`)}>
                         <Eye className="h-3 w-3" />
                       </Button>
-                      <Button size="sm" variant="outline">
+                      <Button size="sm" variant="outline" onClick={() => {
+                        setMenuToDelete(menu);
+                        setIsDeleteMenuModalOpen(true);
+                      }}>
                         <Trash2 className="h-3 w-3" />
                       </Button>
                     </div>

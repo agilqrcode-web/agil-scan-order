@@ -24,6 +24,7 @@ import Commands from "./pages/dashboard/Commands";
 import PlatformGuide from "./pages/dashboard/PlatformGuide";
 import Notifications from "./pages/dashboard/Notifications";
 import Menus from "./pages/dashboard/Menus";
+import MenuEditor from "./pages/dashboard/MenuEditor";
 import PublicMenu from "./pages/PublicMenu";
 
 const queryClient = new QueryClient();
@@ -69,6 +70,7 @@ const App = () => {
                 <Route path="platform-guide" element={<PlatformGuide />} />
                 <Route path="notifications" element={<Notifications />} />
                 <Route path="menus" element={<Menus />} />
+                <Route path="menus/:menuId/edit" element={<MenuEditor />} />
               </Route>
               
               <Route path="/menus/:menuId" element={<PublicMenu />} />

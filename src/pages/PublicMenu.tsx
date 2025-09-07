@@ -7,9 +7,9 @@ export default function PublicMenu() {
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-4xl font-bold text-center mb-8">Cardápio Público</h1>
-      <div className="bg-white shadow-lg rounded-lg p-6">
+      <div className="shadow-lg rounded-lg p-6">
         <h2 className="text-2xl font-semibold mb-4">Detalhes do Cardápio (ID: {menuId})</h2>
-        <p className="text-lg text-gray-700">Este é um cardápio de exemplo com dados estáticos.</p>
+        <p className="text-lg">Este é um cardápio de exemplo com dados estáticos.</p>
         <div className="mt-6">
           <h3 className="text-xl font-bold mb-3">Categorias</h3>
           <ul className="list-disc list-inside">
