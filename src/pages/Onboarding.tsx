@@ -38,7 +38,7 @@ export default function Onboarding() {
 
     try {
       const token = await getToken();
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/onboard-user`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/profile?action=onboard-user`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -21,7 +21,7 @@ export function useUserProfile() {
           throw new Error('Failed to get authentication token.');
         }
 
-        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/check-profile`, {
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/profile?action=check-profile`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
