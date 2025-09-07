@@ -126,7 +126,7 @@ export default function Tables() {
     }
 
     try {
-      const response = await fetch("/api/add-table", {
+      const response = await fetch("/api/tables", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -159,7 +159,7 @@ export default function Tables() {
     if (!tableToDeleteId) return;
 
     try {
-      const response = await fetch(`/api/delete-table?table_id=${tableToDeleteId}`, {
+      const response = await fetch(`/api/tables?table_id=${tableToDeleteId}`, {
         method: "DELETE",
       });
 
