@@ -74,7 +74,7 @@ export default function MenuEditor() {
       const { data: categoriesData, error: categoriesError } = await supabase
         .from('categories')
         .select('*')
-        .eq('menu_id', menuId);
+        .eq('restaurant_id', menuData.restaurant_id);
       if (categoriesError) throw categoriesError;
       setCategories(categoriesData || []);
 
