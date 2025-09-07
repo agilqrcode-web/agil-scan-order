@@ -24,6 +24,7 @@ import Commands from "./pages/dashboard/Commands";
 import PlatformGuide from "./pages/dashboard/PlatformGuide";
 import Notifications from "./pages/dashboard/Notifications";
 import Menus from "./pages/dashboard/Menus";
+import PublicMenu from "./pages/PublicMenu";
 
 const queryClient = new QueryClient();
 
@@ -70,6 +71,7 @@ const App = () => {
                 <Route path="menus" element={<Menus />} />
               </Route>
               
+              <Route path="/menus/:menuId" element={<PublicMenu />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { useNavigate } from "react-router-dom";
 
 // Define schema for menu form
 const menuSchema = z.object({
@@ -23,6 +24,7 @@ type MenuFormValues = z.infer<typeof menuSchema>;
 export default function Menus() {
   const { userId } = useAuth();
   const supabase = useSupabase();
+  const navigate = useNavigate();
   const [restaurantId, setRestaurantId] = useState<string | null>(null);
   const [menus, setMenus] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -273,12 +275,11 @@ export default function Menus() {
                       {menu.is_active ? "Cardápio ativo" : "Cardápio inativo"}
                     </p>
                     <div className="flex gap-2">
-                      <Button size="sm" variant="outline" className="flex-1">
-                        <Edit className="mr-1 h-3 w-3" />
-                        Editar
-                      </Button>
                       <Button size="sm" variant="outline">
-                        <QrCode className="h-3 w-3" />
+                        <Edit className="h-3 w-3" />
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => navigate(`/menus/${menu.id}`)}>
+                        <Eye className="h-3 w-3" />
                       </Button>
                       <Button size="sm" variant="outline">
                         <Trash2 className="h-3 w-3" />
