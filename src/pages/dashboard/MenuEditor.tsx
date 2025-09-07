@@ -62,7 +62,7 @@ export default function MenuEditor() {
     }
     try {
       // Fetch menu details
-      const menuResponse = await fetch(`/api/menus/read?id=${menuId}`);
+      const menuResponse = await fetch(`/api/menus?id=${menuId}`);
       if (!menuResponse.ok) {
         throw new Error("Failed to fetch menu details.");
       }
@@ -101,7 +101,7 @@ export default function MenuEditor() {
   const handleSaveMenu = async (values: MenuFormValues) => {
     if (!menuId) return;
     try {
-      const response = await fetch("/api/menus/update", {
+      const response = await fetch("/api/menus", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: menuId, ...values }),
@@ -123,11 +123,44 @@ export default function MenuEditor() {
   };
 
   const handleSaveCategory = async (category: CategoryFormValues) => {
-    // Logic to save/update category via API
+    if (!menuId) return;
+    try {
+      const method = category.id ? "PUT" : "POST";
+      const url = "/api/categories";
+      const body = category.id ? { ...category, id: category.id } : { ...category, menu_id: menuId };
+
+      const response = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to save category.");
+      }
+      fetchMenuData(); // Refresh data after save
+    } catch (err: any) {
+      console.error("Error saving category:", err);
+      setError(err.message || "Failed to save category.");
+    }
   };
 
   const handleDeleteCategory = async (categoryId: string) => {
-    // Logic to delete category via API
+    try {
+      const response = await fetch("/api/categories", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: categoryId }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to delete category.");
+      }
+      fetchMenuData(); // Refresh data after delete
+    } catch (err: any) {
+      console.error("Error deleting category:", err);
+      setError(err.message || "Failed to delete category.");
+    }
   };
 
   const handleAddMenuItem = (categoryId: string) => {
@@ -135,11 +168,44 @@ export default function MenuEditor() {
   };
 
   const handleSaveMenuItem = async (item: MenuItemFormValues) => {
-    // Logic to save/update menu item via API
+    if (!menuId) return;
+    try {
+      const method = item.id ? "PUT" : "POST";
+      const url = "/api/menu-items";
+      const body = item.id ? { ...item, id: item.id } : { ...item, menu_id: menuId };
+
+      const response = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to save menu item.");
+      }
+      fetchMenuData(); // Refresh data after save
+    } catch (err: any) {
+      console.error("Error saving menu item:", err);
+      setError(err.message || "Failed to save menu item.");
+    }
   };
 
   const handleDeleteMenuItem = async (itemId: string) => {
-    // Logic to delete menu item via API
+    try {
+      const response = await fetch("/api/menu-items", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: itemId }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to delete menu item.");
+      }
+      fetchMenuData(); // Refresh data after delete
+    } catch (err: any) {
+      console.error("Error deleting menu item:", err);
+      setError(err.message || "Failed to delete menu item.");
+    }
   };
 
   if (loading) {

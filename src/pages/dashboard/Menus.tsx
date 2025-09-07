@@ -85,7 +85,7 @@ export default function Menus() {
     }
 
     try {
-      const response = await fetch("/api/menus/create", {
+      const response = await fetch("/api/menus", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -116,7 +116,7 @@ export default function Menus() {
     if (!menuToDelete) return;
 
     try {
-      const response = await fetch("/api/menus/delete", {
+      const response = await fetch("/api/menus", {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
