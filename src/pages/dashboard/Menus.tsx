@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Edit, Trash2, QrCode } from "lucide-react";
+import { Plus, Edit, Trash2, QrCode, UtensilsCrossed, LayoutList, Package } from "lucide-react"; // Added icons
 import React, { useEffect, useState } from "react";
 import { useAuth } from "@clerk/clerk-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -15,7 +15,7 @@ import * as z from "zod";
 // Define schema for menu form
 const menuSchema = z.object({
   name: z.string().min(1, "Nome do cardápio é obrigatório."),
-  is_active: z.boolean().default(true),
+  is_active: z.boolean().default(true), // is_active will be handled by default in API for now
 });
 
 type MenuFormValues = z.infer<typeof menuSchema>;
@@ -28,6 +28,11 @@ export default function Menus() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAddMenuModalOpen, setIsAddMenuModalOpen] = useState(false);
+
+  // States for summary counts (will be dynamic later)
+  const [totalMenus, setTotalMenus] = useState(0);
+  const [totalCategories, setTotalCategories] = useState(0);
+  const [totalItems, setTotalItems] = useState(0);
 
   const form = useForm<MenuFormValues>({
     resolver: zodResolver(menuSchema),
@@ -52,10 +57,21 @@ export default function Menus() {
         throw error;
       }
       setMenus(data || []);
+      setTotalMenus(data?.length || 0); // Update total menus count
     } catch (err) {
       console.error("Error fetching menus:", err);
       setError("Failed to load menus.");
+    } finally {
+      setLoading(false);
     }
+  };
+
+  // Function to fetch summary counts (will be implemented later)
+  const fetchSummaryCounts = async () => {
+    // For now, these are static or derived from fetched menus
+    // Later, we might use RPCs or other queries for accurate counts
+    // setTotalCategories(someRpcResult.total_categories);
+    // setTotalItems(someRpcResult.total_items);
   };
 
   const onSubmit = async (values: MenuFormValues) => {
@@ -65,18 +81,27 @@ export default function Menus() {
     }
 
     try {
-      const { data, error } = await supabase
-        .from('menus')
-        .insert([{ ...values, restaurant_id: restaurantId }])
-        .select();
+      const response = await fetch("/api/menus/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          restaurant_id: restaurantId,
+          name: values.name,
+          is_active: values.is_active,
+        }),
+      });
 
-      if (error) {
-        throw error;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to add menu");
       }
 
       setIsAddMenuModalOpen(false);
       form.reset();
       fetchMenus(); // Refresh the list of menus
+      fetchSummaryCounts(); // Refresh summary counts
     } catch (err) {
       console.error("Error adding menu:", err);
       setError(err.message || "Failed to add menu.");
@@ -110,6 +135,7 @@ export default function Menus() {
   useEffect(() => {
     if (restaurantId) {
       fetchMenus();
+      fetchSummaryCounts(); // Fetch summary counts when restaurantId is available
     }
   }, [restaurantId]);
 
@@ -147,7 +173,7 @@ export default function Menus() {
                 </p>
               )}
             </div>
-            {/* Add is_active toggle if needed, for now default to true */}
+            {/* is_active toggle can be added here later if needed */}
           </form>
           <DialogFooter>
             <Button type="submit" form="add-menu-form" disabled={form.formState.isSubmitting}>
@@ -161,10 +187,16 @@ export default function Menus() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total de Cardápios</CardTitle>
-            {/* Icon for Menus */}
+            <UtensilsCrossed className="h-4 w-4 text-muted-foreground" /> {/* Icon for Menus */}
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">0</div> {/* Static for now */}
+            {loading ? (
+              <Skeleton className="h-8 w-1/2" />
+            ) : error ? (
+              <div className="text-red-500 text-sm">{error}</div>
+            ) : (
+              <div className="text-2xl font-bold">{totalMenus}</div>
+            )}
             <p className="text-xs text-muted-foreground">
               Cardápios cadastrados
             </p>
@@ -174,10 +206,16 @@ export default function Menus() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total de Categorias</CardTitle>
-            {/* Icon for Categories */}
+            <LayoutList className="h-4 w-4 text-muted-foreground" /> {/* Icon for Categories */}
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">0</div> {/* Static for now */}
+            {loading ? (
+              <Skeleton className="h-8 w-1/2" />
+            ) : error ? (
+              <div className="text-red-500 text-sm">{error}</div>
+            ) : (
+              <div className="text-2xl font-bold">{totalCategories}</div>
+            )}
             <p className="text-xs text-muted-foreground">
               Categorias em todos os cardápios
             </p>
@@ -187,10 +225,16 @@ export default function Menus() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total de Itens</CardTitle>
-            {/* Icon for Menu Items */}
+            <Package className="h-4 w-4 text-muted-foreground" /> {/* Icon for Menu Items */}
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">0</div> {/* Static for now */}
+            {loading ? (
+              <Skeleton className="h-8 w-1/2" />
+            ) : error ? (
+              <div className="text-red-500 text-sm">{error}</div>
+            ) : (
+              <div className="text-2xl font-bold">{totalItems}</div>
+            )}
             <p className="text-xs text-muted-foreground">
               Itens em todos os cardápios
             </p>
@@ -206,7 +250,6 @@ export default function Menus() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {/* The problematic block is removed here */}
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {loading ? (
               <p className="text-muted-foreground">Carregando cardápios...</p>
