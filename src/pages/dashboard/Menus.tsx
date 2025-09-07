@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Edit, Trash2, QrCode, UtensilsCrossed, LayoutList, Package } from "lucide-react"; // Added icons
+import { Plus, Edit, Trash2, QrCode, UtensilsCrossed, LayoutList, Package, Eye } from "lucide-react"; // Added icons
 import React, { useEffect, useState } from "react";
 import { useAuth } from "@clerk/clerk-react";
 import { Skeleton } from "@/components/ui/skeleton";
