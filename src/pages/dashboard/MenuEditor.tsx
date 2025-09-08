@@ -580,3 +580,5 @@ export default function MenuEditor() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
