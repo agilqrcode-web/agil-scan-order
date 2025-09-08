@@ -579,3 +579,4 @@ export default function MenuEditor() {
           </form>
         </DialogContent>
       </Dialog>
+    </div>
