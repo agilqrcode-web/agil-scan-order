@@ -104,10 +104,7 @@ export default async function handler(request, response) {
           return response.status(400).json({ error: 'Missing required field: menu_id' });
         }
         try {
-          const { error } = await supabase
-            .from('menus')
-            .delete()
-            .eq('id', menu_id);
+          const { error } = await supabase.rpc('delete_menu_and_cleanup_categories', { p_menu_id: menu_id });
           if (error) {
             console.error("[API/Menus] Supabase delete error:", error);
             return response.status(500).json({ error: error.message });
