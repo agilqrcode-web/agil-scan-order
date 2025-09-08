@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Save, X, ChevronDown, ChevronUp, Trash2, UtensilsCrossed, LayoutList, Package } from "lucide-react";
+import { Plus, Save, X, ChevronDown, ChevronUp, Trash2, UtensilsCrossed, LayoutList, Package, Edit } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -54,6 +54,9 @@ export default function MenuEditor() {
   const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newCategoryError, setNewCategoryError] = useState<string | null>(null);
+  const [isAddMenuItemModalOpen, setIsAddMenuItemModalOpen] = useState(false);
+  const [selectedCategoryIdForMenuItem, setSelectedCategoryIdForMenuItem] = useState<string | null>(null);
+  const [itemSuggestions, setItemSuggestions] = useState<string[]>([]);
 
   const usedCategoryNames = React.useMemo(() => {
     return categories.map(cat => cat.name.toLowerCase());
@@ -85,8 +88,32 @@ export default function MenuEditor() {
     "Promoções / Ofertas Especiais",
   ];
 
+  const PREDEFINED_MENU_ITEMS = [
+    "Bruschetta", "Carpaccio", "Batata frita", "Polenta frita", "Isca de peixe", "Anéis de cebola", "Coxinha", "Bolinho de bacalhau", "Pastéis sortidos", "Tábua de frios",
+    "Sopa de legumes", "Caldo verde", "Canja de galinha", "Creme de abóbora", "Sopa de cebola gratinada", "Caldo de feijão",
+    "Salada Caesar", "Salada Caprese", "Salada grega", "Salada tropical (frutas + verdes)", "Salada de grão-de-bico", "Salada de frango",
+    "Bife à parmegiana", "Filé mignon grelhado", "Picanha na chapa", "Costela assada", "Frango grelhado", "Strogonoff de carne", "Feijoada", "Churrasco misto",
+    "Espaguete à bolonhesa", "Lasanha à bolonhesa", "Nhoque ao sugo", "Ravioli de queijo", "Fettuccine Alfredo", "Penne quatro queijos",
+    "Bacalhau à portuguesa", "Filé de salmão grelhado", "Moqueca de peixe", "Camarão na moranga", "Risoto de frutos do mar", "Lula à dorê",
+    "Frango à passarinho", "Galeto assado", "Peito de frango grelhado", "Frango xadrez", "Frango à milanesa",
+    "Hambúrguer clássico", "Cheeseburger", "X-bacon", "Hambúrguer vegano", "Sanduíche natural de frango", "Bauru",
+    "Mussarela", "Calabresa", "Margherita", "Portuguesa", "Quatro queijos", "Frango com catupiry", "Pepperoni", "Vegetariana",
+    "Hambúrguer de grão-de-bico", "Strogonoff de cogumelos", "Risoto de legumes", "Tofu grelhado", "Espaguete de abobrinha",
+    "Arroz branco", "Arroz à grega", "Feijão carioca", "Purê de batata", "Legumes grelhados", "Farofa", "Vinagrete",
+    "Pudim de leite", "Mousse de chocolate", "Torta de limão", "Petit gâteau", "Brownie", "Cheesecake", "Sorvete", "Frutas da estação",
+    "Refrigerante (lata)", "Água mineral (com e sem gás)", "Suco natural de laranja", "Suco de maracujá", "Suco de uva integral", "Vitamina de frutas",
+    "Café expresso", "Café coado", "Cappuccino", "Latte", "Chá de camomila", "Chá mate",
+    "Caipirinha (limão, morango, maracujá)", "Mojito", "Piña colada", "Aperol Spritz", "Gin tônica",
+    "Cerveja pilsen (long neck)", "Cerveja artesanal IPA", "Cerveja de trigo", "Chopp claro", "Chopp escuro",
+    "Vinho tinto seco (taça)", "Vinho branco seco (taça)", "Vinho rosé", "Espumante brut"
+  ];
+
   const menuForm = useForm<MenuFormValues>({
     resolver: zodResolver(menuSchema),
+  });
+
+  const menuItemForm = useForm<MenuItemFormValues>({
+    resolver: zodResolver(menuItemSchema),
   });
 
   const fetchMenuData = async () => {
@@ -198,7 +225,13 @@ export default function MenuEditor() {
   };
 
   const handleAddMenuItem = (categoryId: string) => {
-    // Logic to add a new menu item form field under a category
+    setSelectedCategoryIdForMenuItem(categoryId);
+    setIsAddMenuItemModalOpen(true);
+  };
+
+  const handleEditMenuItem = (item: any) => {
+    // TODO: Implement edit functionality
+    console.log("Edit item:", item);
   };
 
   const handleSaveMenuItem = async (item: MenuItemFormValues) => {
@@ -239,6 +272,19 @@ export default function MenuEditor() {
     } catch (err: any) {
       console.error("Error deleting menu item:", err);
       setError(err.message || "Failed to delete menu item.");
+    }
+  };
+
+  const handleItemNameInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    menuItemForm.setValue("name", value); // Update react-hook-form value
+    if (value.length > 0) {
+      const filteredSuggestions = PREDEFINED_MENU_ITEMS.filter(item =>
+        item.toLowerCase().includes(value.toLowerCase())
+      ).slice(0, 10); // Limit to 10 suggestions
+      setItemSuggestions(filteredSuggestions);
+    } else {
+      setItemSuggestions([]);
     }
   };
 
@@ -420,6 +466,116 @@ export default function MenuEditor() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
-  );
-}
+
+      <Dialog open={isAddMenuItemModalOpen} onOpenChange={setIsAddMenuItemModalOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Adicionar Item ao Cardápio</DialogTitle>
+            <DialogDescription>
+              Preencha os detalhes do novo item para esta categoria.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={menuItemForm.handleSubmit(async (values) => {
+            if (!selectedCategoryIdForMenuItem || !menuId) return;
+            await handleSaveMenuItem({
+              ...values,
+              menu_id: menuId,
+              category_id: selectedCategoryIdForMenuItem,
+            });
+            setIsAddMenuItemModalOpen(false);
+            menuItemForm.reset(); // Reset form after submission
+          })} className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="itemName" className="text-right">
+                Nome
+              </Label>
+              <Input
+                id="itemName"
+                {...menuItemForm.register("name")}
+                className="col-span-3"
+                placeholder="Ex: Pizza Calabresa"
+                onChange={handleItemNameInputChange}
+                value={menuItemForm.watch("name") || ""} // Ensure controlled component
+              />
+              {itemSuggestions.length > 0 && (
+                <div className="col-span-4 mt-1 max-h-40 overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md">
+                  {itemSuggestions.map((suggestion) => (
+                    <div
+                      key={suggestion}
+                      className="cursor-pointer p-2 hover:bg-accent hover:text-accent-foreground"
+                      onClick={() => {
+                        menuItemForm.setValue("name", suggestion);
+                        setItemSuggestions([]); // Clear suggestions after selection
+                      }}
+                    >
+                      {suggestion}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {menuItemForm.formState.errors.name && (
+                <p className="col-span-4 text-right text-sm text-red-500">
+                  {menuItemForm.formState.errors.name.message}
+                </p>
+              )}
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="itemDescription" className="text-right">
+                Descrição
+              </Label>
+              <Input
+                id="itemDescription"
+                {...menuItemForm.register("description")}
+                className="col-span-3"
+                placeholder="Ex: Com molho de tomate, calabresa e cebola"
+              />
+              {menuItemForm.formState.errors.description && (
+                <p className="col-span-4 text-right text-sm text-red-500">
+                  {menuItemForm.formState.errors.description.message}
+                </p>
+              )}
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="itemPrice" className="text-right">
+                Preço
+              </Label>
+              <Input
+                id="itemPrice"
+                type="number"
+                step="0.01"
+                {...menuItemForm.register("price")}
+                className="col-span-3"
+                placeholder="Ex: 35.90"
+              />
+              {menuItemForm.formState.errors.price && (
+                <p className="col-span-4 text-right text-sm text-red-500">
+                  {menuItemForm.formState.errors.price.message}
+                </p>
+              )}
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="itemImageUrl" className="text-right">
+                URL da Imagem
+              </Label>
+              <Input
+                id="itemImageUrl"
+                {...menuItemForm.register("image_url")}
+                className="col-span-3"
+                placeholder="Ex: https://example.com/pizza.jpg"
+              />
+              {menuItemForm.formState.errors.image_url && (
+                <p className="col-span-4 text-right text-sm text-red-500">
+                  {menuItemForm.formState.errors.image_url.message}
+                </p>
+              )}
+            </div>
+            <DialogFooter>
+              <Button type="submit">Adicionar Item</Button>
+              <Button variant="outline" onClick={() => {
+                setIsAddMenuItemModalOpen(false);
+                menuItemForm.reset(); // Reset form on cancel
+              }}>Cancelar</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>

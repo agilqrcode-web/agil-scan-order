@@ -20,12 +20,15 @@ function SupabaseProvider({ children }) {
     console.log("SupabaseProvider useEffect triggered.");
     console.log("isSignedIn:", isSignedIn, "sessionId:", sessionId);
 
+    let intervalId: NodeJS.Timeout; // Declare intervalId here
+
     async function initializeSupabaseClient() {
       console.log("initializeSupabaseClient called.");
       if (isSignedIn) {
         try {
           console.log("Attempting to get Clerk token...");
-          const clerkToken = await getToken({ template: 'agilqrcode' });
+          // Force a refresh of the token if it's near expiration or expired
+          const clerkToken = await getToken({ template: 'agilqrcode', force: true });
           console.log("Clerk token obtained (or refreshed). Length:", clerkToken?.length);
           const newSupabaseClient = createSupabaseClient(clerkToken);
           setSupabase(newSupabaseClient);
@@ -42,6 +45,22 @@ function SupabaseProvider({ children }) {
     }
 
     initializeSupabaseClient();
+
+    // Set up a timer to re-initialize the Supabase client before the token expires
+    // Clerk JWT lifetime is 3600 seconds (1 hour). Refresh every 55 minutes (3300 seconds).
+    if (isSignedIn) {
+      intervalId = setInterval(() => {
+        console.log("Proactively refreshing Supabase client due to timer.");
+        initializeSupabaseClient();
+      }, 3300 * 1000); // 3300 seconds * 1000 ms/s
+    }
+
+    // Cleanup function for useEffect
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
 
   }, [isSignedIn, getToken, sessionId]);
 
