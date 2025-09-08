@@ -64,6 +64,7 @@ export default function Menus() {
       setTotalMenus(data?.length || 0); // Update total menus count
     } catch (err) {
       console.error("Error fetching menus:", err);
+      console.error("Raw error object for menus:", JSON.stringify(err, null, 2));
       setError("Failed to load menus.");
     } finally {
       setLoading(false);
@@ -98,8 +99,16 @@ export default function Menus() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to add menu");
+        let errorMessage = "Ocorreu um erro desconhecido.";
+        const contentType = response.headers.get("content-type");
+
+        if (contentType && contentType.includes("application/json")) {
+          const errorData = await response.json();
+          errorMessage = errorData.error || JSON.stringify(errorData);
+        } else {
+          errorMessage = await response.text(); // Read as text if not JSON
+        }
+        throw new Error(errorMessage);
       }
 
       setIsAddMenuModalOpen(false);
@@ -125,8 +134,16 @@ export default function Menus() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to delete menu");
+        let errorMessage = "Ocorreu um erro desconhecido.";
+        const contentType = response.headers.get("content-type");
+
+        if (contentType && contentType.includes("application/json")) {
+          const errorData = await response.json();
+          errorMessage = errorData.error || JSON.stringify(errorData);
+        } else {
+          errorMessage = await response.text(); // Read as text if not JSON
+        }
+        throw new Error(errorMessage);
       }
 
       setIsDeleteMenuModalOpen(false);

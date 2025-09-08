@@ -10,8 +10,8 @@ export default async function handler(request, response) {
     case 'POST':
       // Add Table
       {
-        console.log(`[API/Tables] Received POST request to add table for restaurant_id: ${restaurant_id}, table_number: ${table_number}`);
         const { restaurant_id, table_number, qr_code_identifier } = request.body;
+        console.log(`[API/Tables] Received POST request to add table for restaurant_id: ${restaurant_id}, table_number: ${table_number}`);
         if (!restaurant_id || !table_number || !qr_code_identifier) {
           console.error("[API/Tables] Missing required fields for POST request.");
           return response.status(400).json({ error: 'Missing required fields' });
@@ -37,8 +37,8 @@ export default async function handler(request, response) {
     case 'DELETE':
       // Delete Table
       {
-        console.log(`[API/Tables] Received DELETE request for table_id: ${table_id}`);
         const { table_id } = request.query;
+        console.log(`[API/Tables] Received DELETE request for table_id: ${table_id}`);
         if (!table_id) {
           console.error("[API/Tables] Missing table_id for DELETE request.");
           return response.status(400).json({ error: 'Missing table_id' });

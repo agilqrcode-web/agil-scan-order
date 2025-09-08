@@ -10,8 +10,8 @@ export default async function handler(request, response) {
     case 'POST':
       // Create Menu
       {
-        console.log(`[API/Menus] Received POST request to create menu for restaurant_id: ${restaurant_id}`);
         const { restaurant_id, name, is_active } = request.body;
+        console.log(`[API/Menus] Received POST request to create menu for restaurant_id: ${restaurant_id}`);
         if (!restaurant_id || !name) {
           console.error("[API/Menus] Missing required fields for POST request.");
           return response.status(400).json({ error: 'Missing required fields: restaurant_id, name' });
@@ -37,8 +37,8 @@ export default async function handler(request, response) {
     case 'GET':
       // Read Menu
       {
-        console.log(`[API/Menus] Received GET request for menu ID: ${id}`);
         const { id } = request.query;
+        console.log(`[API/Menus] Received GET request for menu ID: ${id}`);
         if (!id) {
           console.error("[API/Menus] Missing required query parameter: id for GET request.");
           return response.status(400).json({ error: 'Missing required query parameter: id' });
@@ -67,8 +67,8 @@ export default async function handler(request, response) {
     case 'PUT':
       // Update Menu
       {
-        console.log(`[API/Menus] Received PUT request to update menu ID: ${id}`);
         const { id, name, is_active } = request.body;
+        console.log(`[API/Menus] Received PUT request to update menu ID: ${id}`);
         if (!id || !name) {
           console.error("[API/Menus] Missing required fields for PUT request.");
           return response.status(400).json({ error: 'Missing required fields: id, name' });
@@ -97,8 +97,8 @@ export default async function handler(request, response) {
     case 'DELETE':
       // Delete Menu
       {
-        console.log(`[API/Menus] Received DELETE request for menu ID: ${menu_id}`);
         const { menu_id } = request.body;
+        console.log(`[API/Menus] Received DELETE request for menu ID: ${menu_id}`);
         if (!menu_id) {
           console.error("[API/Menus] Missing required field: menu_id for DELETE request.");
           return response.status(400).json({ error: 'Missing required field: menu_id' });

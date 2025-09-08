@@ -113,6 +113,7 @@ export default function Tables() {
       }
     } catch (err) {
       console.error("Error fetching table counts:", err);
+      console.error("Raw error object for table counts:", JSON.stringify(err, null, 2));
       setError("Failed to load table counts.");
     } finally {
       setLoading(false);
@@ -139,8 +140,16 @@ export default function Tables() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to add table");
+        let errorMessage = "Ocorreu um erro desconhecido.";
+        const contentType = response.headers.get("content-type");
+
+        if (contentType && contentType.includes("application/json")) {
+          const errorData = await response.json();
+          errorMessage = errorData.error || JSON.stringify(errorData);
+        } else {
+          errorMessage = await response.text(); // Read as text if not JSON
+        }
+        throw new Error(errorMessage);
       }
 
       // Table added successfully, close modal and refresh counts and tables
@@ -164,8 +173,16 @@ export default function Tables() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to delete table");
+        let errorMessage = "Ocorreu um erro desconhecido.";
+        const contentType = response.headers.get("content-type");
+
+        if (contentType && contentType.includes("application/json")) {
+          const errorData = await response.json();
+          errorMessage = errorData.error || JSON.stringify(errorData);
+        } else {
+          errorMessage = await response.text(); // Read as text if not JSON
+        }
+        throw new Error(errorMessage);
       }
 
       // Table deleted successfully, refresh tables and counts
