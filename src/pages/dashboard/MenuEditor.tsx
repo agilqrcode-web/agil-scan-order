@@ -56,11 +56,8 @@ export default function MenuEditor() {
   const [newCategoryError, setNewCategoryError] = useState<string | null>(null);
 
   const usedCategoryNames = React.useMemo(() => {
-    const usedIds = new Set(menuItems.map(item => item.category_id));
-    return categories
-      .filter(cat => usedIds.has(cat.id))
-      .map(cat => cat.name.toLowerCase());
-  }, [categories, menuItems]);
+    return categories.map(cat => cat.name.toLowerCase());
+  }, [categories]);
 
   const PREDEFINED_CATEGORIES = [
     "Entradas / Aperitivos",
