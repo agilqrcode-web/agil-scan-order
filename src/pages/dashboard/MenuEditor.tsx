@@ -53,6 +53,7 @@ export default function MenuEditor() {
   const [menuItems, setMenuItems] = useState<any[]>([]);
   const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
+  const [newCategoryError, setNewCategoryError] = useState<string | null>(null);
 
   const PREDEFINED_CATEGORIES = [
     "Entradas / Aperitivos",
@@ -375,16 +376,36 @@ export default function MenuEditor() {
               <Input
                 id="newCategory"
                 value={newCategoryName}
-                onChange={(e) => setNewCategoryName(e.target.value)}
+                onChange={(e) => {
+                  setNewCategoryName(e.target.value);
+                  setNewCategoryError(null); // Clear error on change
+                }}
                 placeholder="Ex: Culinária Japonesa"
               />
+              {newCategoryError && (
+                <p className="text-red-500 text-sm col-span-2">{newCategoryError}</p>
+              )}
               <Button
                 onClick={() => {
-                  if (newCategoryName.trim()) {
-                    handleSaveCategory({ name: newCategoryName.trim(), restaurant_id: menu.restaurant_id });
-                    setNewCategoryName("");
-                    setIsAddCategoryModalOpen(false);
+                  const trimmedName = newCategoryName.trim();
+                  if (!trimmedName) {
+                    setNewCategoryError("O nome da categoria não pode ser vazio.");
+                    return;
                   }
+
+                  const isDuplicate = categories.some(
+                    (cat) => cat.name.toLowerCase() === trimmedName.toLowerCase()
+                  );
+
+                  if (isDuplicate) {
+                    setNewCategoryError("Esta categoria já existe.");
+                    return;
+                  }
+
+                  handleSaveCategory({ name: trimmedName, restaurant_id: menu.restaurant_id });
+                  setNewCategoryName("");
+                  setNewCategoryError(null); // Clear error on success
+                  setIsAddCategoryModalOpen(false);
                 }}
                 disabled={!newCategoryName.trim()}
               >
