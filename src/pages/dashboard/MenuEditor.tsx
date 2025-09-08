@@ -50,6 +50,34 @@ export default function MenuEditor() {
   const [menu, setMenu] = useState<any | null>(null);
   const [categories, setCategories] = useState<any[]>([]);
   const [menuItems, setMenuItems] = useState<any[]>([]);
+  const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+
+  const PREDEFINED_CATEGORIES = [
+    "Entradas / Aperitivos",
+    "Sopas & Caldos",
+    "Saladas",
+    "Pratos Principais",
+    "Massas",
+    "Carnes",
+    "Peixes & Frutos do Mar",
+    "Aves",
+    "Sanduíches & Hambúrgueres",
+    "Pizzas",
+    "Comida Vegetariana / Vegana",
+    "Guarnições / Acompanhamentos",
+    "Sobremesas",
+    "Bebidas Não Alcoólicas",
+    "Sucos & Vitaminas",
+    "Cafés & Chás",
+    "Drinks & Coquetéis",
+    "Cervejas",
+    "Vinhos",
+    "Executivo / Combo do Dia",
+    "Infantil",
+    "Fit / Saudável",
+    "Promoções / Ofertas Especiais",
+  ];
 
   const menuForm = useForm<MenuFormValues>({
     resolver: zodResolver(menuSchema),
@@ -119,7 +147,7 @@ export default function MenuEditor() {
 
   // Placeholder for category and menu item actions
   const handleAddCategory = () => {
-    // Logic to add a new category form field
+    setIsAddCategoryModalOpen(true);
   };
 
   const handleSaveCategory = async (category: CategoryFormValues) => {
@@ -127,7 +155,7 @@ export default function MenuEditor() {
     try {
       const method = category.id ? "PUT" : "POST";
       const url = "/api/categories";
-      const body = category.id ? { ...category, id: category.id } : { ...category, menu_id: menuId };
+      const body = category.id ? { ...category, id: category.id } : { ...category, restaurant_id: menu.restaurant_id };
 
       const response = await fetch(url, {
         method,
@@ -316,6 +344,58 @@ export default function MenuEditor() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={isAddCategoryModalOpen} onOpenChange={setIsAddCategoryModalOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Adicionar Categoria</DialogTitle>
+            <DialogDescription>
+              Escolha uma categoria comum ou crie uma nova.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <Label className="text-lg">Categorias Comuns:</Label>
+            <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto border p-2 rounded-md">
+              {PREDEFINED_CATEGORIES.map((cat) => (
+                <Button
+                  key={cat}
+                  variant="outline"
+                  onClick={() => {
+                    handleSaveCategory({ name: cat, restaurant_id: menu.restaurant_id });
+                    setIsAddCategoryModalOpen(false);
+                  }}
+                >
+                  {cat}
+                </Button>
+              ))}
+            </div>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="newCategory" className="shrink-0">Nova Categoria:</Label>
+              <Input
+                id="newCategory"
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                placeholder="Ex: Culinária Japonesa"
+              />
+              <Button
+                onClick={() => {
+                  if (newCategoryName.trim()) {
+                    handleSaveCategory({ name: newCategoryName.trim(), restaurant_id: menu.restaurant_id });
+                    setNewCategoryName("");
+                    setIsAddCategoryModalOpen(false);
+                  }
+                }}
+                disabled={!newCategoryName.trim()}
+              >
+                Criar
+              </Button>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddCategoryModalOpen(false)}>Cancelar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

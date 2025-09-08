@@ -1,5 +1,5 @@
 import { createRoot } from 'react-dom/client';
-import { ClerkProvider, useAuth } from "@clerk/clerk-react"; // Use useAuth
+import { ClerkProvider, useAuth } from "@clerk/clerk-react";
 import App from './App.tsx';
 import './index.css';
 import { createSupabaseClient } from "@/integrations/supabase/client";
@@ -13,31 +13,37 @@ if (!PUBLISHABLE_KEY) {
 }
 
 function SupabaseProvider({ children }) {
-  const { isSignedIn, getToken } = useAuth(); // Use useAuth
+  const { isSignedIn, getToken, sessionId } = useAuth();
   const [supabase, setSupabase] = useState(null);
 
   useEffect(() => {
-    async function createAndSetSupabaseClient() {
+    console.log("SupabaseProvider useEffect triggered.");
+    console.log("isSignedIn:", isSignedIn, "sessionId:", sessionId);
+
+    async function initializeSupabaseClient() {
+      console.log("initializeSupabaseClient called.");
       if (isSignedIn) {
-        const clerkToken = await getToken({ template: 'agilqrcode' }); // Get the latest token
-        const newSupabaseClient = createSupabaseClient(clerkToken);
-        setSupabase(newSupabaseClient);
+        try {
+          console.log("Attempting to get Clerk token...");
+          const clerkToken = await getToken({ template: 'agilqrcode' });
+          console.log("Clerk token obtained (or refreshed). Length:", clerkToken?.length);
+          const newSupabaseClient = createSupabaseClient(clerkToken);
+          setSupabase(newSupabaseClient);
+          console.log("Supabase client initialized/refreshed with Clerk token.");
+        } catch (error) {
+          console.error("Error getting Clerk token or initializing Supabase client:", error);
+          setSupabase(createSupabaseClient());
+          console.log("Supabase client initialized as public due to error.");
+        }
       } else {
-        // If not signed in, create a public client
         setSupabase(createSupabaseClient());
+        console.log("Supabase client initialized as public (not signed in).");
       }
     }
 
-    createAndSetSupabaseClient(); // Initial call
+    initializeSupabaseClient();
 
-    // Periodically re-create the Supabase client with a fresh Clerk token
-    const intervalId = setInterval(() => {
-      console.log("Attempting to refresh Supabase client with new Clerk token...");
-      createAndSetSupabaseClient();
-    }, 5 * 60 * 1000); // Every 5 minutes (adjust as needed)
-
-    return () => clearInterval(intervalId); // Cleanup on unmount
-  }, [isSignedIn, getToken]); // Depend on isSignedIn and getToken
+  }, [isSignedIn, getToken, sessionId]);
 
   return (
     <SupabaseContext.Provider value={supabase}>
