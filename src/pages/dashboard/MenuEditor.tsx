@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Save, X, ChevronDown, ChevronUp, Trash2, UtensilsCrossed, LayoutList, Package, Edit } from "lucide-react";
+import { Plus, Save, X, ChevronDown, ChevronUp, Trash2, Edit } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -29,7 +30,7 @@ const menuItemSchema = z.object({
   name: z.string().min(1, "Nome do item é obrigatório."),
   description: z.string().optional(),
   price: z.preprocess(
-    (val) => Number(val),
+    (val) => Number(String(val).replace(",", ".")),
     z.number().min(0.01, "Preço deve ser maior que zero.")
   ),
   image_url: z.string().url("URL da imagem inválida.").optional().or(z.literal("")),
@@ -114,6 +115,12 @@ export default function MenuEditor() {
 
   const menuItemForm = useForm<MenuItemFormValues>({
     resolver: zodResolver(menuItemSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      price: 0,
+      image_url: "",
+    }
   });
 
   const fetchMenuData = async () => {
@@ -178,7 +185,6 @@ export default function MenuEditor() {
     }
   };
 
-  // Placeholder for category and menu item actions
   const handleAddCategory = () => {
     setIsAddCategoryModalOpen(true);
   };
@@ -278,10 +284,10 @@ export default function MenuEditor() {
   const handleItemNameInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     menuItemForm.setValue("name", value); // Update react-hook-form value
-    if (value.length > 0) {
+    if (value.length > 1) {
       const filteredSuggestions = PREDEFINED_MENU_ITEMS.filter(item =>
         item.toLowerCase().includes(value.toLowerCase())
-      ).slice(0, 10); // Limit to 10 suggestions
+      ).slice(0, 10);
       setItemSuggestions(filteredSuggestions);
     } else {
       setItemSuggestions([]);
@@ -290,7 +296,7 @@ export default function MenuEditor() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 p-4">
         <Skeleton className="h-10 w-1/3" />
         <Skeleton className="h-48 w-full" />
         <Skeleton className="h-32 w-full" />
@@ -299,11 +305,11 @@ export default function MenuEditor() {
   }
 
   if (error) {
-    return <div className="text-red-500">Erro: {error}</div>;
+    return <div className="text-red-500 p-4">Erro: {error}</div>;
   }
 
   if (!menu) {
-    return <div className="text-muted-foreground">Cardápio não encontrado.</div>;
+    return <div className="text-muted-foreground p-4">Cardápio não encontrado.</div>;
   }
 
   return (
@@ -330,7 +336,6 @@ export default function MenuEditor() {
                 <p className="text-red-500 text-sm">{menuForm.formState.errors.name.message}</p>
               )}
             </div>
-            {/* is_active toggle can be added here */}
             <Button type="submit">
               <Save className="mr-2 h-4 w-4" />
               Salvar Cardápio
@@ -374,9 +379,9 @@ export default function MenuEditor() {
                   ) : (
                     menuItems.filter(item => item.category_id === category.id).map(item => (
                       <div key={item.id} className="flex items-center justify-between border p-2 rounded-md">
-                        <span>{item.name} - R$ {item.price.toFixed(2)}</span>
+                        <span>{item.name} - R$ {Number(item.price).toFixed(2)}</span>
                         <div className="flex gap-2">
-                          <Button variant="outline" size="sm">
+                          <Button variant="outline" size="sm" onClick={() => handleEditMenuItem(item)}>
                             <Edit className="h-4 w-4" />
                           </Button>
                           <Button variant="destructive" size="sm" onClick={() => handleDeleteMenuItem(item.id)}>
@@ -428,13 +433,10 @@ export default function MenuEditor() {
                 value={newCategoryName}
                 onChange={(e) => {
                   setNewCategoryName(e.target.value);
-                  setNewCategoryError(null); // Clear error on change
+                  setNewCategoryError(null);
                 }}
                 placeholder="Ex: Culinária Japonesa"
               />
-              {newCategoryError && (
-                <p className="text-red-500 text-sm col-span-2">{newCategoryError}</p>
-              )}
               <Button
                 onClick={() => {
                   const trimmedName = newCategoryName.trim();
@@ -442,17 +444,13 @@ export default function MenuEditor() {
                     setNewCategoryError("O nome da categoria não pode ser vazio.");
                     return;
                   }
-
-                  const isDuplicate = usedCategoryNames.includes(trimmedName.toLowerCase());
-
-                  if (isDuplicate) {
+                  if (usedCategoryNames.includes(trimmedName.toLowerCase())) {
                     setNewCategoryError("Esta categoria já existe.");
                     return;
                   }
-
                   handleSaveCategory({ name: trimmedName, restaurant_id: menu.restaurant_id });
                   setNewCategoryName("");
-                  setNewCategoryError(null); // Clear error on success
+                  setNewCategoryError(null);
                   setIsAddCategoryModalOpen(false);
                 }}
                 disabled={!newCategoryName.trim()}
@@ -460,6 +458,9 @@ export default function MenuEditor() {
                 Criar
               </Button>
             </div>
+             {newCategoryError && (
+                <p className="text-red-500 text-sm col-span-2">{newCategoryError}</p>
+              )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddCategoryModalOpen(false)}>Cancelar</Button>
@@ -467,12 +468,18 @@ export default function MenuEditor() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isAddMenuItemModalOpen} onOpenChange={setIsAddMenuItemModalOpen}>
+      <Dialog open={isAddMenuItemModalOpen} onOpenChange={(isOpen) => {
+        setIsAddMenuItemModalOpen(isOpen);
+        if (!isOpen) {
+          menuItemForm.reset();
+          setItemSuggestions([]);
+        }
+      }}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>Adicionar Item ao Cardápio</DialogTitle>
+            <DialogTitle>Adicionar Item à Categoria</DialogTitle>
             <DialogDescription>
-              Preencha os detalhes do novo item para esta categoria.
+              Use uma sugestão para preencher rapidamente ou crie um item do zero.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={menuItemForm.handleSubmit(async (values) => {
@@ -483,98 +490,161 @@ export default function MenuEditor() {
               category_id: selectedCategoryIdForMenuItem,
             });
             setIsAddMenuItemModalOpen(false);
-            menuItemForm.reset(); // Reset form after submission
-          })} className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="itemName" className="text-right">
-                Nome
-              </Label>
-              <Input
-                id="itemName"
-                {...menuItemForm.register("name")}
-                className="col-span-3"
-                placeholder="Ex: Pizza Calabresa"
-                onChange={handleItemNameInputChange}
-                value={menuItemForm.watch("name") || ""} // Ensure controlled component
-              />
-              {itemSuggestions.length > 0 && (
-                <div className="col-span-4 mt-1 max-h-40 overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md">
-                  {itemSuggestions.map((suggestion) => (
-                    <div
-                      key={suggestion}
-                      className="cursor-pointer p-2 hover:bg-accent hover:text-accent-foreground"
-                      onClick={() => {
-                        menuItemForm.setValue("name", suggestion);
-                        setItemSuggestions([]); // Clear suggestions after selection
-                      }}
-                    >
-                      {suggestion}
-                    </div>
-                  ))}
+            menuItemForm.reset();
+            setItemSuggestions([]);
+          })}>
+            <Tabs defaultValue="sugerido" className="w-full pt-4" onValueChange={() => {
+              menuItemForm.reset();
+              setItemSuggestions([]);
+            }}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="sugerido">Item Sugerido</TabsTrigger>
+                <TabsTrigger value="personalizado">Item Personalizado</TabsTrigger>
+              </TabsList>
+              <TabsContent value="sugerido" className="py-4 space-y-4">
+                <div className="grid grid-cols-4 items-start gap-4 relative">
+                  <Label htmlFor="itemNameSuggested" className="text-right pt-2">
+                    Nome
+                  </Label>
+                  <div className="col-span-3">
+                    <Input
+                      id="itemNameSuggested"
+                      {...menuItemForm.register("name")}
+                      className="w-full"
+                      placeholder="Digite para buscar uma sugestão..."
+                      onChange={handleItemNameInputChange}
+                      value={menuItemForm.watch("name") || ""}
+                      autoComplete="off"
+                    />
+                    {itemSuggestions.length > 0 && (
+                      <div className="absolute z-10 top-full mt-1 w-full max-h-40 overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md">
+                        {itemSuggestions.map((suggestion) => (
+                          <div
+                            key={suggestion}
+                            className="cursor-pointer p-2 hover:bg-accent hover:text-accent-foreground"
+                            onClick={() => {
+                              menuItemForm.setValue("name", suggestion);
+                              setItemSuggestions([]);
+                            }}
+                          >
+                            {suggestion}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {menuItemForm.formState.errors.name && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {menuItemForm.formState.errors.name.message}
+                      </p>
+                    )}
+                  </div>
                 </div>
-              )}
-              {menuItemForm.formState.errors.name && (
-                <p className="col-span-4 text-right text-sm text-red-500">
-                  {menuItemForm.formState.errors.name.message}
-                </p>
-              )}
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="itemDescription" className="text-right">
-                Descrição
-              </Label>
-              <Input
-                id="itemDescription"
-                {...menuItemForm.register("description")}
-                className="col-span-3"
-                placeholder="Ex: Com molho de tomate, calabresa e cebola"
-              />
-              {menuItemForm.formState.errors.description && (
-                <p className="col-span-4 text-right text-sm text-red-500">
-                  {menuItemForm.formState.errors.description.message}
-                </p>
-              )}
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="itemPrice" className="text-right">
-                Preço
-              </Label>
-              <Input
-                id="itemPrice"
-                type="number"
-                step="0.01"
-                {...menuItemForm.register("price")}
-                className="col-span-3"
-                placeholder="Ex: 35.90"
-              />
-              {menuItemForm.formState.errors.price && (
-                <p className="col-span-4 text-right text-sm text-red-500">
-                  {menuItemForm.formState.errors.price.message}
-                </p>
-              )}
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="itemImageUrl" className="text-right">
-                URL da Imagem
-              </Label>
-              <Input
-                id="itemImageUrl"
-                {...menuItemForm.register("image_url")}
-                className="col-span-3"
-                placeholder="Ex: https://example.com/pizza.jpg"
-              />
-              {menuItemForm.formState.errors.image_url && (
-                <p className="col-span-4 text-right text-sm text-red-500">
-                  {menuItemForm.formState.errors.image_url.message}
-                </p>
-              )}
-            </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="itemDescriptionSuggested" className="text-right">
+                    Descrição
+                  </Label>
+                  <Input
+                    id="itemDescriptionSuggested"
+                    {...menuItemForm.register("description")}
+                    className="col-span-3"
+                    placeholder="(Opcional)"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="itemPriceSuggested" className="text-right">
+                    Preço
+                  </Label>
+                  <Input
+                    id="itemPriceSuggested"
+                    type="number"
+                    step="0.01"
+                    {...menuItemForm.register("price")}
+                    className="col-span-3"
+                    placeholder="Ex: 35.90"
+                  />
+                  {menuItemForm.formState.errors.price && (
+                    <p className="col-span-4 text-right text-sm text-red-500">
+                      {menuItemForm.formState.errors.price.message}
+                    </p>
+                  )}
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="itemImageUrlSuggested" className="text-right">
+                    URL da Imagem
+                  </Label>
+                  <Input
+                    id="itemImageUrlSuggested"
+                    {...menuItemForm.register("image_url")}
+                    className="col-span-3"
+                    placeholder="(Opcional)"
+                  />
+                </div>
+              </TabsContent>
+              <TabsContent value="personalizado" className="py-4 space-y-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="itemNameCustom" className="text-right">
+                    Nome
+                  </Label>
+                  <Input
+                    id="itemNameCustom"
+                    {...menuItemForm.register("name")}
+                    className="col-span-3"
+                    placeholder="Ex: Prato da Casa"
+                    autoComplete="off"
+                  />
+                   {menuItemForm.formState.errors.name && (
+                    <p className="col-span-4 text-right text-sm text-red-500">
+                      {menuItemForm.formState.errors.name.message}
+                    </p>
+                  )}
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="itemDescriptionCustom" className="text-right">
+                    Descrição
+                  </Label>
+                  <Input
+                    id="itemDescriptionCustom"
+                    {...menuItemForm.register("description")}
+                    className="col-span-3"
+                    placeholder="Ex: Ingredientes especiais..."
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="itemPriceCustom" className="text-right">
+                    Preço
+                  </Label>
+                  <Input
+                    id="itemPriceCustom"
+                    type="number"
+                    step="0.01"
+                    {...menuItemForm.register("price")}
+                    className="col-span-3"
+                    placeholder="Ex: 42.00"
+                  />
+                   {menuItemForm.formState.errors.price && (
+                    <p className="col-span-4 text-right text-sm text-red-500">
+                      {menuItemForm.formState.errors.price.message}
+                    </p>
+                  )}
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="itemImageUrlCustom" className="text-right">
+                    URL da Imagem
+                  </Label>
+                  <Input
+                    id="itemImageUrlCustom"
+                    {...menuItemForm.register("image_url")}
+                    className="col-span-3"
+                    placeholder="(Opcional)"
+                  />
+                </div>
+              </TabsContent>
+            </Tabs>
             <DialogFooter>
               <Button type="submit">Adicionar Item</Button>
-              <Button variant="outline" onClick={() => {
-                setIsAddMenuItemModalOpen(false);
-                menuItemForm.reset(); // Reset form on cancel
-              }}>Cancelar</Button>
+              <Button variant="outline" type="button" onClick={() => setIsAddMenuItemModalOpen(false)}>
+                Cancelar
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
