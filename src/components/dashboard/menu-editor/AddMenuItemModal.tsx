@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -40,6 +41,14 @@ export function AddMenuItemModal({
   itemSuggestions,
   setItemSuggestions,
 }: AddMenuItemModalProps) {
+
+  useEffect(() => {
+    if (isOpen) {
+      addMenuItemForm.reset();
+      setItemSuggestions([]); // Também limpa sugestões ao abrir o modal
+    }
+  }, [isOpen, addMenuItemForm, setItemSuggestions]); // Dependências
+
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px]">
