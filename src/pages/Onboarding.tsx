@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { SignedIn, SignedOut, SignUp, useUser, useAuth } from "@clerk/clerk-react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
@@ -17,13 +17,7 @@ export default function Onboarding() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const queryClient = useQueryClient();
-  const { refetch: refetchUserProfile, profileComplete } = useUserProfile();
-
-  useEffect(() => {
-    if (profileComplete && !loading) { // Ensure profile is complete and not still loading from the API call
-      navigate("/dashboard", { replace: true });
-    }
-  }, [profileComplete, loading, navigate]);
+  const { refetch: refetchUserProfile } = useUserProfile();
 
   console.log("Onboarding.tsx: Onboarding component rendering.");
   console.log("Onboarding.tsx: Clerk user data - isLoaded:", isLoaded, "isSignedIn:", isSignedIn, "user:", user);
@@ -69,6 +63,7 @@ export default function Onboarding() {
       });
       await queryClient.invalidateQueries({ queryKey: ["userProfile"] });
       await refetchUserProfile(); // Explicitly refetch and wait for user profile to update
+      navigate("/dashboard");
 
     } catch (error) {
       console.error("Erro no onboarding:", error);
