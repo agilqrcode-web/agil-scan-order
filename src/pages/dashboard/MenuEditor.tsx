@@ -1,18 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSupabase } from '@/contexts/SupabaseContext';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Save, X, ChevronDown, ChevronUp, Trash2, Edit } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { X } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+
+// Import extracted components
+import { MenuDetailsCard } from '@/components/dashboard/menu-editor/MenuDetailsCard';
+import { CategoriesList } from '@/components/dashboard/menu-editor/CategoriesList';
+import { AddCategoryModal } from '@/components/dashboard/menu-editor/AddCategoryModal';
+import { AddMenuItemModal } from '@/components/dashboard/menu-editor/AddMenuItemModal';
+import { EditMenuItemModal } from '@/components/dashboard/menu-editor/EditMenuItemModal';
+import { DeleteConfirmationDialog } from '@/components/dashboard/menu-editor/DeleteConfirmationDialog';
 
 // Define schemas for validation
 const menuSchema = z.object({
@@ -40,34 +42,57 @@ const menuItemSchema = z.object({
   category_id: z.string().optional(),
 });
 
-type MenuFormValues = z.infer<typeof menuSchema>;
-type CategoryFormValues = z.infer<typeof categorySchema>;
-type MenuItemFormValues = z.infer<typeof menuItemSchema>;
+export type MenuFormValues = z.infer<typeof menuSchema>;
+export type CategoryFormValues = z.infer<typeof categorySchema>;
+export type MenuItemFormValues = z.infer<typeof menuItemSchema>;
 
 export default function MenuEditor() {
   const { menuId } = useParams();
   const navigate = useNavigate();
   const supabase = useSupabase();
 
+  // State management
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [menu, setMenu] = useState<any | null>(null);
   const [categories, setCategories] = useState<any[]>([]);
   const [menuItems, setMenuItems] = useState<any[]>([]);
-  const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
-  const [newCategoryName, setNewCategoryName] = useState("");
-  const [newCategoryError, setNewCategoryError] = useState<string | null>(null);
   
+  // Modal states
+  const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
   const [isAddMenuItemModalOpen, setIsAddMenuItemModalOpen] = useState(false);
+  const [isEditMenuItemModalOpen, setIsEditMenuItemModalOpen] = useState(false);
+  
+  // State for actions
   const [selectedCategoryIdForMenuItem, setSelectedCategoryIdForMenuItem] = useState<string | null>(null);
   const [itemSuggestions, setItemSuggestions] = useState<string[]>([]);
+  const [categoryToDelete, setCategoryToDelete] = useState<string | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
 
-  const [isEditMenuItemModalOpen, setIsEditMenuItemModalOpen] = useState(false);
+  // Form hooks
+  const menuForm = useForm<MenuFormValues>({ resolver: zodResolver(menuSchema) });
+  const addMenuItemForm = useForm<MenuItemFormValues>({ resolver: zodResolver(menuItemSchema), defaultValues: { name: "", description: "", price: undefined, image_url: "" } });
+  const editMenuItemForm = useForm<MenuItemFormValues>({ resolver: zodResolver(menuItemSchema) });
 
-  const usedCategoryNames = React.useMemo(() => {
-    return categories.map(cat => cat.name.toLowerCase());
-  }, [categories]);
-
+  const PREDEFINED_MENU_ITEMS = [
+    "Bruschetta", "Carpaccio", "Batata frita", "Polenta frita", "Isca de peixe", "Anéis de cebola", "Coxinha", "Bolinho de bacalhau", "Pastéis sortidos", "Tábua de frios",
+    "Sopa de legumes", "Caldo verde", "Canja de galinha", "Creme de abóbora", "Sopa de cebola gratinada", "Caldo de feijão",
+    "Salada Caesar", "Salada Caprese", "Salada grega", "Salada tropical (frutas + verdes)", "Salada de grão-de-bico", "Salada de frango",
+    "Bife à parmegiana", "Filé mignon grelhado", "Picanha na chapa", "Costela assada", "Frango grelhado", "Strogonoff de carne", "Feijoada", "Churrasco misto",
+    "Espaguete à bolonhesa", "Lasanha à bolonhesa", "Nhoque ao sugo", "Ravioli de queijo", "Fettuccine Alfredo", "Penne quatro queijos",
+    "Bacalhau à portuguesa", "Filé de salmão grelhado", "Moqueca de peixe", "Camarão na moranga", "Risoto de frutos do mar", "Lula à dorê",
+    "Frango à passarinho", "Galeto assado", "Peito de frango grelhado", "Frango xadrez", "Frango à milanesa",
+    "Hambúrguer clássico", "Cheeseburger", "X-bacon", "Hambúrguer vegano", "Sanduíche natural de frango", "Bauru",
+    "Mussarela", "Calabresa", "Margherita", "Portuguesa", "Quatro queijos", "Frango com catupiry", "Pepperoni", "Vegetariana",
+    "Hambúrguer de grão-de-bico", "Strogonoff de cogumelos", "Risoto de legumes", "Tofu grelhado", "Espaguete de abobrinha",
+    "Arroz branco", "Arroz à grega", "Feijão carioca", "Purê de batata", "Legumes grelhados", "Farofa", "Vinagrete",
+    "Pudim de leite", "Mousse de chocolate", "Torta de limão", "Petit gâteau", "Brownie", "Cheesecake", "Sorvete", "Frutas da estação",
+    "Refrigerante (lata)", "Água mineral (com e sem gás)", "Suco natural de laranja", "Suco de maracujá", "Suco de uva integral", "Vitamina de frutas",
+    "Café expresso", "Café coado", "Cappuccino", "Latte", "Chá de camomila", "Chá mate",
+    "Caipirinha (limão, morango, maracujá)", "Mojito", "Piña colada", "Aperol Spritz", "Gin tônica",
+    "Cerveja pilsen (long neck)", "Cerveja artesanal IPA", "Cerveja de trigo", "Chopp claro", "Chopp escuro",
+    "Vinho tinto seco (taça)", "Vinho branco seco (taça)", "Vinho rosé", "Espumante brut"
+  ];
   const PREDEFINED_CATEGORIES = [
     "Entradas / Aperitivos",
     "Sopas & Caldos",
@@ -93,33 +118,14 @@ export default function MenuEditor() {
     "Fit / Saudável",
     "Promoções / Ofertas Especiais",
   ];
+  const usedCategoryNames = React.useMemo(() => {
+    return categories.map(cat => cat.name.toLowerCase());
+  }, [categories]);
 
-  const PREDEFINED_MENU_ITEMS = [
-    "Bruschetta", "Carpaccio", "Batata frita", "Polenta frita", "Isca de peixe", "Anéis de cebola", "Coxinha", "Bolinho de bacalhau", "Pastéis sortidos", "Tábua de frios",
-    "Sopa de legumes", "Caldo verde", "Canja de galinha", "Creme de abóbora", "Sopa de cebola gratinada", "Caldo de feijão",
-    "Salada Caesar", "Salada Caprese", "Salada grega", "Salada tropical (frutas + verdes)", "Salada de grão-de-bico", "Salada de frango",
-    "Bife à parmegiana", "Filé mignon grelhado", "Picanha na chapa", "Costela assada", "Frango grelhado", "Strogonoff de carne", "Feijoada", "Churrasco misto",
-    "Espaguete à bolonhesa", "Lasanha à bolonhesa", "Nhoque ao sugo", "Ravioli de queijo", "Fettuccine Alfredo", "Penne quatro queijos",
-    "Bacalhau à portuguesa", "Filé de salmão grelhado", "Moqueca de peixe", "Camarão na moranga", "Risoto de frutos do mar", "Lula à dorê",
-    "Frango à passarinho", "Galeto assado", "Peito de frango grelhado", "Frango xadrez", "Frango à milanesa",
-    "Hambúrguer clássico", "Cheeseburger", "X-bacon", "Hambúrguer vegano", "Sanduíche natural de frango", "Bauru",
-    "Mussarela", "Calabresa", "Margherita", "Portuguesa", "Quatro queijos", "Frango com catupiry", "Pepperoni", "Vegetariana",
-    "Hambúrguer de grão-de-bico", "Strogonoff de cogumelos", "Risoto de legumes", "Tofu grelhado", "Espaguete de abobrinha",
-    "Arroz branco", "Arroz à grega", "Feijão carioca", "Purê de batata", "Legumes grelhados", "Farofa", "Vinagrete",
-    "Pudim de leite", "Mousse de chocolate", "Torta de limão", "Petit gâteau", "Brownie", "Cheesecake", "Sorvete", "Frutas da estação",
-    "Refrigerante (lata)", "Água mineral (com e sem gás)", "Suco natural de laranja", "Suco de maracujá", "Suco de uva integral", "Vitamina de frutas",
-    "Café expresso", "Café coado", "Cappuccino", "Latte", "Chá de camomila", "Chá mate",
-    "Caipirinha (limão, morango, maracujá)", "Mojito", "Piña colada", "Aperol Spritz", "Gin tônica",
-    "Cerveja pilsen (long neck)", "Cerveja artesanal IPA", "Cerveja de trigo", "Chopp claro", "Chopp escuro",
-    "Vinho tinto seco (taça)", "Vinho branco seco (taça)", "Vinho rosé", "Espumante brut"
-  ];
-
-  const menuForm = useForm<MenuFormValues>({ resolver: zodResolver(menuSchema) });
-  const addMenuItemForm = useForm<MenuItemFormValues>({ resolver: zodResolver(menuItemSchema), defaultValues: { name: "", description: "", price: undefined, image_url: "" } });
-  const editMenuItemForm = useForm<MenuItemFormValues>({ resolver: zodResolver(menuItemSchema) });
-
+  // Data fetching and handlers
   const fetchMenuData = async () => {
     if (!menuId || !supabase) { setLoading(false); return; }
+    setLoading(true);
     try {
       const menuResponse = await fetch(`/api/menus?id=${menuId}`);
       if (!menuResponse.ok) throw new Error("Failed to fetch menu details.");
@@ -155,16 +161,16 @@ export default function MenuEditor() {
     }
   };
 
-  const handleAddCategory = () => { setIsAddCategoryModalOpen(true); };
-
-  const handleSaveCategory = async (category: CategoryFormValues) => {
+  const handleSaveCategory = async (category: Partial<CategoryFormValues>) => {
     if (!menuId) return;
     try {
       const isNew = !category.id;
       const body = isNew ? { ...category, restaurant_id: menu.restaurant_id, position: categories.length } : { ...category };
       const response = await fetch("/api/categories", { method: isNew ? "POST" : "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       if (!response.ok) throw new Error("Failed to save category.");
-      if (isNew) fetchMenuData();
+      if (isNew) {
+        await fetchMenuData();
+      }
     } catch (err: any) {
       console.error("Error saving category:", err);
       setError(err.message || "Failed to save category.");
@@ -173,16 +179,17 @@ export default function MenuEditor() {
 
   const handleMoveCategory = async (index: number, direction: 'up' | 'down') => {
     const newCategories = [...categories];
-    const [movedCategory] = newCategories.splice(index, 1);
-    const newIndex = direction === 'up' ? index - 1 : index + 1;
-    newCategories.splice(newIndex, 0, movedCategory);
+    const to = direction === 'up' ? index - 1 : index + 1;
+    const from = index;
+    const [movedCategory] = newCategories.splice(from, 1);
+    newCategories.splice(to, 0, movedCategory);
 
     const updatedCategories = newCategories.map((cat, idx) => ({ ...cat, position: idx }));
     setCategories(updatedCategories);
 
     const updatePromises = [
-      handleSaveCategory(updatedCategories[index]),
-      handleSaveCategory(updatedCategories[newIndex])
+      handleSaveCategory(updatedCategories[from]),
+      handleSaveCategory(updatedCategories[to])
     ];
     await Promise.all(updatePromises);
   };
@@ -198,25 +205,12 @@ export default function MenuEditor() {
     }
   };
 
-  const handleAddMenuItem = (categoryId: string) => {
-    setSelectedCategoryIdForMenuItem(categoryId);
-    addMenuItemForm.reset();
-    setItemSuggestions([]);
-    setIsAddMenuItemModalOpen(true);
-  };
-
-  const handleEditMenuItem = (item: MenuItemFormValues) => {
-    editMenuItemForm.reset(item);
-    setIsEditMenuItemModalOpen(true);
-  };
-
   const handleSaveMenuItem = async (item: MenuItemFormValues) => {
     if (!menuId) return;
     try {
       const method = item.id ? "PUT" : "POST";
-      const url = "/api/menu-items";
       const body = item.id ? item : { ...item, menu_id: menuId, category_id: selectedCategoryIdForMenuItem };
-      const response = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const response = await fetch("/api/menu-items", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       if (!response.ok) throw new Error("Failed to save menu item.");
       fetchMenuData();
     } catch (err: any) {
@@ -248,7 +242,7 @@ export default function MenuEditor() {
   };
 
   if (loading) return <div className="space-y-6 p-4"><Skeleton className="h-10 w-1/3" /><Skeleton className="h-48 w-full" /><Skeleton className="h-32 w-full" /></div>;
-  if (error) return <div className="text-red-500 p-4">Erro: {error}</div>;
+  if (error) return <div className="text-red-500 p-4">{error}</div>;
   if (!menu) return <div className="text-muted-foreground p-4">Cardápio não encontrado.</div>;
 
   return (
@@ -258,158 +252,74 @@ export default function MenuEditor() {
         <Button onClick={() => navigate(-1)} variant="outline"><X className="mr-2 h-4 w-4" />Voltar</Button>
       </div>
 
-      <Card>
-        <CardHeader><CardTitle>Detalhes do Cardápio</CardTitle><CardDescription>Edite o nome e status do seu cardápio.</CardDescription></CardHeader>
-        <CardContent>
-          <form onSubmit={menuForm.handleSubmit(handleSaveMenu)} className="space-y-4">
-            <div className="grid gap-2"><Label htmlFor="menuName">Nome do Cardápio</Label><Input id="menuName" {...menuForm.register("name")} />{menuForm.formState.errors.name && <p className="text-red-500 text-sm">{menuForm.formState.errors.name.message}</p>}</div>
-            <Button type="submit"><Save className="mr-2 h-4 w-4" />Salvar Cardápio</Button>
-          </form>
-        </CardContent>
-      </Card>
+      <MenuDetailsCard menuForm={menuForm} handleSaveMenu={handleSaveMenu} />
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between"><CardTitle>Categorias</CardTitle><Button onClick={handleAddCategory}><Plus className="mr-2 h-4 w-4" />Adicionar Categoria</Button></CardHeader>
-        <CardContent className="space-y-4">
-          {categories.length === 0 ? <p className="text-muted-foreground">Nenhuma categoria encontrada. Adicione uma para começar.</p> : (
-            categories.map((category, index) => (
-              <Card key={category.id} className="p-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold">{category.name}</h3>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={() => handleMoveCategory(index, 'up')} disabled={index === 0}><ChevronUp className="h-4 w-4" /></Button>
-                    <Button variant="outline" size="sm" onClick={() => handleMoveCategory(index, 'down')} disabled={index === categories.length - 1}><ChevronDown className="h-4 w-4" /></Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="destructive" size="sm"><Trash2 className="h-4 w-4" /></Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-                          <AlertDialogDescription>Esta ação não pode ser desfeita. Isso excluirá permanentemente a categoria e **todos os itens dentro dela**.</AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => handleDeleteCategory(category.id)}>Excluir</AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                </div>
-                <div className="mt-4 space-y-2">
-                  <h4 className="text-md font-medium">Itens da Categoria</h4>
-                  {menuItems.filter(item => item.category_id === category.id).length === 0 ? <p className="text-muted-foreground text-sm">Nenhum item nesta categoria.</p> : (
-                    menuItems.filter(item => item.category_id === category.id).map(item => (
-                      <div key={item.id} className="flex items-center justify-between border p-2 rounded-md">
-                        <span>{item.name} - R$ {Number(item.price).toFixed(2)}</span>
-                        <div className="flex gap-2">
-                          <Button variant="outline" size="sm" onClick={() => handleEditMenuItem(item)}><Edit className="h-4 w-4" /></Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="destructive" size="sm"><Trash2 className="h-4 w-4" /></Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-                                <AlertDialogDescription>Esta ação não pode ser desfeita. Isso excluirá permanentemente o item do cardápio.</AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDeleteMenuItem(item.id)}>Excluir</AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                  <Button size="sm" onClick={() => handleAddMenuItem(category.id)}><Plus className="mr-2 h-4 w-4" />Adicionar Item</Button>
-                </div>
-              </Card>
-            ))
-          )}
-        </CardContent>
-      </Card>
+      <CategoriesList
+        categories={categories}
+        menuItems={menuItems}
+        handleMoveCategory={handleMoveCategory}
+        handleDeleteCategory={(id) => setCategoryToDelete(id)}
+        handleEditMenuItem={(item) => {
+          editMenuItemForm.reset(item);
+          setIsEditMenuItemModalOpen(true);
+        }}
+        handleDeleteMenuItem={(id) => setItemToDelete(id)}
+        handleAddMenuItem={(categoryId) => {
+          setSelectedCategoryIdForMenuItem(categoryId);
+          setIsAddMenuItemModalOpen(true);
+        }}
+        handleAddCategory={() => setIsAddCategoryModalOpen(true)}
+      />
 
-      {/* Modals */}
-      <Dialog open={isAddCategoryModalOpen} onOpenChange={setIsAddCategoryModalOpen}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader><DialogTitle>Adicionar Categoria</DialogTitle><DialogDescription>Escolha uma categoria comum ou crie uma nova.</DialogDescription></DialogHeader>
-          <div className="grid gap-4 py-4">
-            <Label className="text-lg">Categorias Comuns:</Label>
-            <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto border p-2 rounded-md">
-              {PREDEFINED_CATEGORIES.filter(cat => !usedCategoryNames.includes(cat.toLowerCase())).map((cat) => (
-                <Button key={cat} variant="outline" onClick={() => { handleSaveCategory({ name: cat }); setIsAddCategoryModalOpen(false); }}>{cat}</Button>
-              ))}
-            </div>
-            <div className="flex items-center gap-2">
-              <Label htmlFor="newCategory" className="shrink-0">Nova Categoria:</Label>
-              <Input id="newCategory" value={newCategoryName} onChange={(e) => { setNewCategoryName(e.target.value); setNewCategoryError(null); }} placeholder="Ex: Culinária Japonesa" />
-              <Button onClick={() => {
-                const trimmedName = newCategoryName.trim();
-                if (!trimmedName) { setNewCategoryError("O nome da categoria não pode ser vazio."); return; }
-                if (usedCategoryNames.includes(trimmedName.toLowerCase())) { setNewCategoryError("Esta categoria já existe."); return; }
-                handleSaveCategory({ name: trimmedName });
-                setNewCategoryName("");
-                setNewCategoryError(null);
-                setIsAddCategoryModalOpen(false);
-              }} disabled={!newCategoryName.trim()}>Criar</Button>
-            </div>
-            {newCategoryError && <p className="text-red-500 text-sm col-span-2">{newCategoryError}</p>}
-          </div>
-          <DialogFooter><Button variant="outline" onClick={() => setIsAddCategoryModalOpen(false)}>Cancelar</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Modals and Dialogs */}
+      <AddCategoryModal
+        isOpen={isAddCategoryModalOpen}
+        onOpenChange={setIsAddCategoryModalOpen}
+        handleSaveCategory={handleSaveCategory}
+        PREDEFINED_CATEGORIES={PREDEFINED_CATEGORIES}
+        usedCategoryNames={usedCategoryNames}
+        menu={menu}
+      />
 
-      <Dialog open={isAddMenuItemModalOpen} onOpenChange={(isOpen) => { if (!isOpen) { addMenuItemForm.reset(); setItemSuggestions([]); } setIsAddMenuItemModalOpen(isOpen); }}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader><DialogTitle>Adicionar Item à Categoria</DialogTitle><DialogDescription>Use uma sugestão para preencher rapidamente ou crie um item do zero.</DialogDescription></DialogHeader>
-          <form onSubmit={addMenuItemForm.handleSubmit(async (values) => { await handleSaveMenuItem(values); setIsAddMenuItemModalOpen(false); })}>
-            <Tabs defaultValue="sugerido" className="w-full pt-4" onValueChange={() => { addMenuItemForm.reset(); setItemSuggestions([]); }}>
-              <TabsList className="grid w-full grid-cols-2"><TabsTrigger value="sugerido">Item Sugerido</TabsTrigger><TabsTrigger value="personalizado">Item Personalizado</TabsTrigger></TabsList>
-              <TabsContent value="sugerido" className="py-4 space-y-4">
-                <div className="grid grid-cols-4 items-center gap-4 relative">
-                  <Label htmlFor="itemNameSuggested" className="text-right">Nome</Label>
-                  <div className="col-span-3">
-                    <Input id="itemNameSuggested" {...addMenuItemForm.register("name")} className="w-full" placeholder="Digite para buscar uma sugestão..." onChange={handleItemNameInputChange} value={addMenuItemForm.watch("name") || ""} autoComplete="off" />
-                    {itemSuggestions.length > 0 && (
-                      <div className="absolute z-10 top-full mt-1 w-full max-h-40 overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md">
-                        {itemSuggestions.map((suggestion) => (
-                          <div key={suggestion} className="cursor-pointer p-2 hover:bg-accent hover:text-accent-foreground" onClick={() => { addMenuItemForm.setValue("name", suggestion); setItemSuggestions([]); }}>{suggestion}</div>
-                        ))}
-                      </div>
-                    )}
-                    {addMenuItemForm.formState.errors.name && <p className="text-sm text-red-500 mt-1">{addMenuItemForm.formState.errors.name.message}</p>}
-                  </div>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="itemDescriptionSuggested" className="text-right">Descrição</Label><Input id="itemDescriptionSuggested" {...addMenuItemForm.register("description")} className="col-span-3" placeholder="(Opcional)" /></div>
-                <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="itemPriceSuggested" className="text-right">Preço</Label><Input id="itemPriceSuggested" type="number" step="0.01" {...addMenuItemForm.register("price")} className="col-span-3" placeholder="Ex: 35.90" />{addMenuItemForm.formState.errors.price && <p className="col-span-4 text-right text-sm text-red-500">{addMenuItemForm.formState.errors.price.message}</p>}</div>
-                <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="itemImageUrlSuggested" className="text-right">URL da Imagem</Label><Input id="itemImageUrlSuggested" {...addMenuItemForm.register("image_url")} className="col-span-3" placeholder="(Opcional)" /></div>
-              </TabsContent>
-              <TabsContent value="personalizado" className="py-4 space-y-4">
-                <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="itemNameCustom" className="text-right">Nome</Label><Input id="itemNameCustom" {...addMenuItemForm.register("name")} className="col-span-3" placeholder="Ex: Prato da Casa" autoComplete="off" />{addMenuItemForm.formState.errors.name && <p className="col-span-4 text-right text-sm text-red-500">{addMenuItemForm.formState.errors.name.message}</p>}</div>
-                <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="itemDescriptionCustom" className="text-right">Descrição</Label><Input id="itemDescriptionCustom" {...addMenuItemForm.register("description")} className="col-span-3" placeholder="Ex: Ingredientes especiais..." /></div>
-                <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="itemPriceCustom" className="text-right">Preço</Label><Input id="itemPriceCustom" type="number" step="0.01" {...addMenuItemForm.register("price")} className="col-span-3" placeholder="Ex: 42.00" />{addMenuItemForm.formState.errors.price && <p className="col-span-4 text-right text-sm text-red-500">{addMenuItemForm.formState.errors.price.message}</p>}</div>
-                <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="itemImageUrlCustom" className="text-right">URL da Imagem</Label><Input id="itemImageUrlCustom" {...addMenuItemForm.register("image_url")} className="col-span-3" placeholder="(Opcional)" /></div>
-              </TabsContent>
-            </Tabs>
-            <DialogFooter><Button type="submit">Adicionar Item</Button><Button variant="outline" type="button" onClick={() => setIsAddMenuItemModalOpen(false)}>Cancelar</Button></DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <AddMenuItemModal
+        isOpen={isAddMenuItemModalOpen}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) { setItemSuggestions([]); }
+          setIsAddMenuItemModalOpen(isOpen);
+        }}
+        addMenuItemForm={addMenuItemForm}
+        handleSaveMenuItem={handleSaveMenuItem}
+        handleItemNameInputChange={handleItemNameInputChange}
+        itemSuggestions={itemSuggestions}
+        setItemSuggestions={setItemSuggestions}
+      />
 
-      <Dialog open={isEditMenuItemModalOpen} onOpenChange={setIsEditMenuItemModalOpen}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader><DialogTitle>Editar Item do Cardápio</DialogTitle><DialogDescription>Altere os detalhes do item selecionado.</DialogDescription></DialogHeader>
-          <form onSubmit={editMenuItemForm.handleSubmit(async (values) => { await handleSaveMenuItem(values); setIsEditMenuItemModalOpen(false); })} className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="itemNameEdit" className="text-right">Nome</Label><Input id="itemNameEdit" {...editMenuItemForm.register("name")} className="col-span-3" />{editMenuItemForm.formState.errors.name && <p className="col-span-4 text-right text-sm text-red-500">{editMenuItemForm.formState.errors.name.message}</p>}</div>
-            <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="itemDescriptionEdit" className="text-right">Descrição</Label><Input id="itemDescriptionEdit" {...editMenuItemForm.register("description")} className="col-span-3" /></div>
-            <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="itemPriceEdit" className="text-right">Preço</Label><Input id="itemPriceEdit" type="number" step="0.01" {...editMenuItemForm.register("price")} className="col-span-3" />{editMenuItemForm.formState.errors.price && <p className="col-span-4 text-right text-sm text-red-500">{editMenuItemForm.formState.errors.price.message}</p>}</div>
-            <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="itemImageUrlEdit" className="text-right">URL da Imagem</Label><Input id="itemImageUrlEdit" {...editMenuItemForm.register("image_url")} className="col-span-3" /></div>
-            <DialogFooter><Button type="submit">Salvar Alterações</Button><Button variant="outline" type="button" onClick={() => setIsEditMenuItemModalOpen(false)}>Cancelar</Button></DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <EditMenuItemModal
+        isOpen={isEditMenuItemModalOpen}
+        onOpenChange={setIsEditMenuItemModalOpen}
+        editMenuItemForm={editMenuItemForm}
+        handleSaveMenuItem={handleSaveMenuItem}
+      />
+
+      <DeleteConfirmationDialog
+        isOpen={!!categoryToDelete}
+        onOpenChange={() => setCategoryToDelete(null)}
+        onConfirm={() => {
+          if (categoryToDelete) handleDeleteCategory(categoryToDelete);
+        }}
+        title="Você tem certeza?"
+        description="Esta ação não pode ser desfeita. Isso excluirá permanentemente a categoria e todos os itens dentro dela."
+      />
+
+      <DeleteConfirmationDialog
+        isOpen={!!itemToDelete}
+        onOpenChange={() => setItemToDelete(null)}
+        onConfirm={() => {
+          if (itemToDelete) handleDeleteMenuItem(itemToDelete);
+        }}
+        title="Você tem certeza?"
+        description="Esta ação não pode ser desfeita. Isso excluirá permanentemente o item do cardápio."
+      />
     </div>
   );
 }
