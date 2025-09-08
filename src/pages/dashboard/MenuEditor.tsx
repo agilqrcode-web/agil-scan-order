@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Plus, Save, X, ChevronDown, ChevronUp, Trash2, Edit } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -23,6 +24,7 @@ const categorySchema = z.object({
   id: z.string().optional(),
   name: z.string().min(1, "Nome da categoria é obrigatório."),
   menu_id: z.string().optional(),
+  position: z.number().optional(),
 });
 
 const menuItemSchema = z.object({
@@ -56,14 +58,11 @@ export default function MenuEditor() {
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newCategoryError, setNewCategoryError] = useState<string | null>(null);
   
-  // State for Add Item Modal
   const [isAddMenuItemModalOpen, setIsAddMenuItemModalOpen] = useState(false);
   const [selectedCategoryIdForMenuItem, setSelectedCategoryIdForMenuItem] = useState<string | null>(null);
   const [itemSuggestions, setItemSuggestions] = useState<string[]>([]);
 
-  // State for Edit Item Modal
   const [isEditMenuItemModalOpen, setIsEditMenuItemModalOpen] = useState(false);
-  const [editingMenuItem, setEditingMenuItem] = useState<MenuItemFormValues | null>(null);
 
   const usedCategoryNames = React.useMemo(() => {
     return categories.map(cat => cat.name.toLowerCase());
@@ -115,24 +114,12 @@ export default function MenuEditor() {
     "Vinho tinto seco (taça)", "Vinho branco seco (taça)", "Vinho rosé", "Espumante brut"
   ];
 
-  const menuForm = useForm<MenuFormValues>({
-    resolver: zodResolver(menuSchema),
-  });
-
-  const addMenuItemForm = useForm<MenuItemFormValues>({
-    resolver: zodResolver(menuItemSchema),
-    defaultValues: { name: "", description: "", price: undefined, image_url: "" }
-  });
-
-  const editMenuItemForm = useForm<MenuItemFormValues>({
-    resolver: zodResolver(menuItemSchema),
-  });
+  const menuForm = useForm<MenuFormValues>({ resolver: zodResolver(menuSchema) });
+  const addMenuItemForm = useForm<MenuItemFormValues>({ resolver: zodResolver(menuItemSchema), defaultValues: { name: "", description: "", price: undefined, image_url: "" } });
+  const editMenuItemForm = useForm<MenuItemFormValues>({ resolver: zodResolver(menuItemSchema) });
 
   const fetchMenuData = async () => {
-    if (!menuId || !supabase) {
-      setLoading(false);
-      return;
-    }
+    if (!menuId || !supabase) { setLoading(false); return; }
     try {
       const menuResponse = await fetch(`/api/menus?id=${menuId}`);
       if (!menuResponse.ok) throw new Error("Failed to fetch menu details.");
@@ -140,20 +127,13 @@ export default function MenuEditor() {
       setMenu(menuData);
       menuForm.reset(menuData);
 
-      const { data: categoriesData, error: categoriesError } = await supabase
-        .from('categories')
-        .select('*')
-        .eq('restaurant_id', menuData.restaurant_id);
+      const { data: categoriesData, error: categoriesError } = await supabase.from('categories').select('*').eq('restaurant_id', menuData.restaurant_id).order('position');
       if (categoriesError) throw categoriesError;
       setCategories(categoriesData || []);
 
-      const { data: menuItemsData, error: menuItemsError } = await supabase
-        .from('menu_items')
-        .select('*')
-        .eq('menu_id', menuId);
+      const { data: menuItemsData, error: menuItemsError } = await supabase.from('menu_items').select('*').eq('menu_id', menuId);
       if (menuItemsError) throw menuItemsError;
       setMenuItems(menuItemsData || []);
-
     } catch (err: any) {
       console.error("Error fetching menu data:", err);
       setError(err.message || "Failed to load menu data.");
@@ -162,59 +142,54 @@ export default function MenuEditor() {
     }
   };
 
-  useEffect(() => {
-    fetchMenuData();
-  }, [menuId, supabase]);
+  useEffect(() => { fetchMenuData(); }, [menuId, supabase]);
 
   const handleSaveMenu = async (values: MenuFormValues) => {
     if (!menuId) return;
     try {
-      const response = await fetch("/api/menus", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: menuId, ...values }),
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to update menu.");
-      }
+      const response = await fetch("/api/menus", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: menuId, ...values }) });
+      if (!response.ok) throw new Error((await response.json()).error || "Failed to update menu.");
     } catch (err: any) {
       console.error("Error saving menu:", err);
       setError(err.message || "Failed to save menu.");
     }
   };
 
-  const handleAddCategory = () => {
-    setIsAddCategoryModalOpen(true);
-  };
+  const handleAddCategory = () => { setIsAddCategoryModalOpen(true); };
 
   const handleSaveCategory = async (category: CategoryFormValues) => {
     if (!menuId) return;
     try {
-      const method = category.id ? "PUT" : "POST";
-      const url = "/api/categories";
-      const body = category.id ? { ...category, id: category.id } : { ...category, restaurant_id: menu.restaurant_id };
-
-      const response = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
+      const isNew = !category.id;
+      const body = isNew ? { ...category, restaurant_id: menu.restaurant_id, position: categories.length } : { ...category };
+      const response = await fetch("/api/categories", { method: isNew ? "POST" : "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       if (!response.ok) throw new Error("Failed to save category.");
-      fetchMenuData();
+      if (isNew) fetchMenuData();
     } catch (err: any) {
       console.error("Error saving category:", err);
       setError(err.message || "Failed to save category.");
     }
   };
 
+  const handleMoveCategory = async (index: number, direction: 'up' | 'down') => {
+    const newCategories = [...categories];
+    const [movedCategory] = newCategories.splice(index, 1);
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    newCategories.splice(newIndex, 0, movedCategory);
+
+    const updatedCategories = newCategories.map((cat, idx) => ({ ...cat, position: idx }));
+    setCategories(updatedCategories);
+
+    const updatePromises = [
+      handleSaveCategory(updatedCategories[index]),
+      handleSaveCategory(updatedCategories[newIndex])
+    ];
+    await Promise.all(updatePromises);
+  };
+
   const handleDeleteCategory = async (categoryId: string) => {
     try {
-      const response = await fetch("/api/categories", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: categoryId }),
-      });
+      const response = await fetch("/api/categories", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: categoryId }) });
       if (!response.ok) throw new Error("Failed to delete category.");
       fetchMenuData();
     } catch (err: any) {
@@ -231,7 +206,6 @@ export default function MenuEditor() {
   };
 
   const handleEditMenuItem = (item: MenuItemFormValues) => {
-    setEditingMenuItem(item);
     editMenuItemForm.reset(item);
     setIsEditMenuItemModalOpen(true);
   };
@@ -241,13 +215,8 @@ export default function MenuEditor() {
     try {
       const method = item.id ? "PUT" : "POST";
       const url = "/api/menu-items";
-      const body = item.id ? item : { ...item, menu_id: menuId };
-
-      const response = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
+      const body = item.id ? item : { ...item, menu_id: menuId, category_id: selectedCategoryIdForMenuItem };
+      const response = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       if (!response.ok) throw new Error("Failed to save menu item.");
       fetchMenuData();
     } catch (err: any) {
@@ -258,11 +227,7 @@ export default function MenuEditor() {
 
   const handleDeleteMenuItem = async (itemId: string) => {
     try {
-      const response = await fetch("/api/menu-items", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: itemId }),
-      });
+      const response = await fetch("/api/menu-items", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: itemId }) });
       if (!response.ok) throw new Error("Failed to delete menu item.");
       fetchMenuData();
     } catch (err: any) {
@@ -275,116 +240,90 @@ export default function MenuEditor() {
     const value = e.target.value;
     addMenuItemForm.setValue("name", value);
     if (value.length > 1) {
-      const filteredSuggestions = PREDEFINED_MENU_ITEMS.filter(item =>
-        item.toLowerCase().includes(value.toLowerCase())
-      ).slice(0, 10);
+      const filteredSuggestions = PREDEFINED_MENU_ITEMS.filter(item => item.toLowerCase().includes(value.toLowerCase())).slice(0, 10);
       setItemSuggestions(filteredSuggestions);
     } else {
       setItemSuggestions([]);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="space-y-6 p-4">
-        <Skeleton className="h-10 w-1/3" />
-        <Skeleton className="h-48 w-full" />
-        <Skeleton className="h-32 w-full" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return <div className="text-red-500 p-4">Erro: {error}</div>;
-  }
-
-  if (!menu) {
-    return <div className="text-muted-foreground p-4">Cardápio não encontrado.</div>;
-  }
+  if (loading) return <div className="space-y-6 p-4"><Skeleton className="h-10 w-1/3" /><Skeleton className="h-48 w-full" /><Skeleton className="h-32 w-full" /></div>;
+  if (error) return <div className="text-red-500 p-4">Erro: {error}</div>;
+  if (!menu) return <div className="text-muted-foreground p-4">Cardápio não encontrado.</div>;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Editar Cardápio: {menu.name}</h1>
-        <Button onClick={() => navigate(-1)} variant="outline">
-          <X className="mr-2 h-4 w-4" />
-          Voltar
-        </Button>
+        <Button onClick={() => navigate(-1)} variant="outline"><X className="mr-2 h-4 w-4" />Voltar</Button>
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Detalhes do Cardápio</CardTitle>
-          <CardDescription>Edite o nome e status do seu cardápio.</CardDescription>
-        </CardHeader>
+        <CardHeader><CardTitle>Detalhes do Cardápio</CardTitle><CardDescription>Edite o nome e status do seu cardápio.</CardDescription></CardHeader>
         <CardContent>
           <form onSubmit={menuForm.handleSubmit(handleSaveMenu)} className="space-y-4">
-            <div className="grid gap-2">
-              <Label htmlFor="menuName">Nome do Cardápio</Label>
-              <Input id="menuName" {...menuForm.register("name")} />
-              {menuForm.formState.errors.name && (
-                <p className="text-red-500 text-sm">{menuForm.formState.errors.name.message}</p>
-              )}
-            </div>
-            <Button type="submit">
-              <Save className="mr-2 h-4 w-4" />
-              Salvar Cardápio
-            </Button>
+            <div className="grid gap-2"><Label htmlFor="menuName">Nome do Cardápio</Label><Input id="menuName" {...menuForm.register("name")} />{menuForm.formState.errors.name && <p className="text-red-500 text-sm">{menuForm.formState.errors.name.message}</p>}</div>
+            <Button type="submit"><Save className="mr-2 h-4 w-4" />Salvar Cardápio</Button>
           </form>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Categorias</CardTitle>
-          <Button onClick={handleAddCategory}>
-            <Plus className="mr-2 h-4 w-4" />
-            Adicionar Categoria
-          </Button>
-        </CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between"><CardTitle>Categorias</CardTitle><Button onClick={handleAddCategory}><Plus className="mr-2 h-4 w-4" />Adicionar Categoria</Button></CardHeader>
         <CardContent className="space-y-4">
-          {categories.length === 0 ? (
-            <p className="text-muted-foreground">Nenhuma categoria encontrada. Adicione uma para começar.</p>
-          ) : (
-            categories.map((category) => (
+          {categories.length === 0 ? <p className="text-muted-foreground">Nenhuma categoria encontrada. Adicione uma para começar.</p> : (
+            categories.map((category, index) => (
               <Card key={category.id} className="p-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold">{category.name}</h3>
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm">
-                      <ChevronUp className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      <ChevronDown className="h-4 w-4" />
-                    </Button>
-                    <Button variant="destructive" size="sm" onClick={() => handleDeleteCategory(category.id)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => handleMoveCategory(index, 'up')} disabled={index === 0}><ChevronUp className="h-4 w-4" /></Button>
+                    <Button variant="outline" size="sm" onClick={() => handleMoveCategory(index, 'down')} disabled={index === categories.length - 1}><ChevronDown className="h-4 w-4" /></Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="destructive" size="sm"><Trash2 className="h-4 w-4" /></Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                          <AlertDialogDescription>Esta ação não pode ser desfeita. Isso excluirá permanentemente a categoria e **todos os itens dentro dela**.</AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => handleDeleteCategory(category.id)}>Excluir</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </div>
                 <div className="mt-4 space-y-2">
                   <h4 className="text-md font-medium">Itens da Categoria</h4>
-                  {menuItems.filter(item => item.category_id === category.id).length === 0 ? (
-                    <p className="text-muted-foreground text-sm">Nenhum item nesta categoria.</p>
-                  ) : (
+                  {menuItems.filter(item => item.category_id === category.id).length === 0 ? <p className="text-muted-foreground text-sm">Nenhum item nesta categoria.</p> : (
                     menuItems.filter(item => item.category_id === category.id).map(item => (
                       <div key={item.id} className="flex items-center justify-between border p-2 rounded-md">
                         <span>{item.name} - R$ {Number(item.price).toFixed(2)}</span>
                         <div className="flex gap-2">
-                          <Button variant="outline" size="sm" onClick={() => handleEditMenuItem(item)}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button variant="destructive" size="sm" onClick={() => handleDeleteMenuItem(item.id)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => handleEditMenuItem(item)}><Edit className="h-4 w-4" /></Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="destructive" size="sm"><Trash2 className="h-4 w-4" /></Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                                <AlertDialogDescription>Esta ação não pode ser desfeita. Isso excluirá permanentemente o item do cardápio.</AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDeleteMenuItem(item.id)}>Excluir</AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         </div>
                       </div>
                     ))
                   )}
-                  <Button size="sm" onClick={() => handleAddMenuItem(category.id)}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Adicionar Item
-                  </Button>
+                  <Button size="sm" onClick={() => handleAddMenuItem(category.id)}><Plus className="mr-2 h-4 w-4" />Adicionar Item</Button>
                 </div>
               </Card>
             ))
@@ -392,231 +331,85 @@ export default function MenuEditor() {
         </CardContent>
       </Card>
 
-      {/* Add Category Modal */}
+      {/* Modals */}
       <Dialog open={isAddCategoryModalOpen} onOpenChange={setIsAddCategoryModalOpen}>
         <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle>Adicionar Categoria</DialogTitle>
-            <DialogDescription>
-              Escolha uma categoria comum ou crie uma nova.
-            </DialogDescription>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Adicionar Categoria</DialogTitle><DialogDescription>Escolha uma categoria comum ou crie uma nova.</DialogDescription></DialogHeader>
           <div className="grid gap-4 py-4">
             <Label className="text-lg">Categorias Comuns:</Label>
             <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto border p-2 rounded-md">
               {PREDEFINED_CATEGORIES.filter(cat => !usedCategoryNames.includes(cat.toLowerCase())).map((cat) => (
-                <Button
-                  key={cat}
-                  variant="outline"
-                  onClick={() => {
-                    handleSaveCategory({ name: cat, restaurant_id: menu.restaurant_id });
-                    setIsAddCategoryModalOpen(false);
-                  }}
-                >
-                  {cat}
-                </Button>
+                <Button key={cat} variant="outline" onClick={() => { handleSaveCategory({ name: cat }); setIsAddCategoryModalOpen(false); }}>{cat}</Button>
               ))}
             </div>
             <div className="flex items-center gap-2">
               <Label htmlFor="newCategory" className="shrink-0">Nova Categoria:</Label>
-              <Input
-                id="newCategory"
-                value={newCategoryName}
-                onChange={(e) => {
-                  setNewCategoryName(e.target.value);
-                  setNewCategoryError(null);
-                }}
-                placeholder="Ex: Culinária Japonesa"
-              />
-              <Button
-                onClick={() => {
-                  const trimmedName = newCategoryName.trim();
-                  if (!trimmedName) {
-                    setNewCategoryError("O nome da categoria não pode ser vazio.");
-                    return;
-                  }
-                  if (usedCategoryNames.includes(trimmedName.toLowerCase())) {
-                    setNewCategoryError("Esta categoria já existe.");
-                    return;
-                  }
-                  handleSaveCategory({ name: trimmedName, restaurant_id: menu.restaurant_id });
-                  setNewCategoryName("");
-                  setNewCategoryError(null);
-                  setIsAddCategoryModalOpen(false);
-                }}
-                disabled={!newCategoryName.trim()}
-              >
-                Criar
-              </Button>
+              <Input id="newCategory" value={newCategoryName} onChange={(e) => { setNewCategoryName(e.target.value); setNewCategoryError(null); }} placeholder="Ex: Culinária Japonesa" />
+              <Button onClick={() => {
+                const trimmedName = newCategoryName.trim();
+                if (!trimmedName) { setNewCategoryError("O nome da categoria não pode ser vazio."); return; }
+                if (usedCategoryNames.includes(trimmedName.toLowerCase())) { setNewCategoryError("Esta categoria já existe."); return; }
+                handleSaveCategory({ name: trimmedName });
+                setNewCategoryName("");
+                setNewCategoryError(null);
+                setIsAddCategoryModalOpen(false);
+              }} disabled={!newCategoryName.trim()}>Criar</Button>
             </div>
-             {newCategoryError && (
-                <p className="text-red-500 text-sm col-span-2">{newCategoryError}</p>
-              )}
+            {newCategoryError && <p className="text-red-500 text-sm col-span-2">{newCategoryError}</p>}
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddCategoryModalOpen(false)}>Cancelar</Button>
-          </DialogFooter>
+          <DialogFooter><Button variant="outline" onClick={() => setIsAddCategoryModalOpen(false)}>Cancelar</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Add Item Modal */}
-      <Dialog open={isAddMenuItemModalOpen} onOpenChange={(isOpen) => {
-        setIsAddMenuItemModalOpen(isOpen);
-        if (!isOpen) {
-          addMenuItemForm.reset();
-          setItemSuggestions([]);
-        }
-      }}>
+      <Dialog open={isAddMenuItemModalOpen} onOpenChange={(isOpen) => { if (!isOpen) { addMenuItemForm.reset(); setItemSuggestions([]); } setIsAddMenuItemModalOpen(isOpen); }}>
         <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle>Adicionar Item à Categoria</DialogTitle>
-            <DialogDescription>
-              Use uma sugestão para preencher rapidamente ou crie um item do zero.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={addMenuItemForm.handleSubmit(async (values) => {
-            if (!selectedCategoryIdForMenuItem || !menuId) return;
-            await handleSaveMenuItem({
-              ...values,
-              menu_id: menuId,
-              category_id: selectedCategoryIdForMenuItem,
-            });
-            setIsAddMenuItemModalOpen(false);
-          })}>
-            <Tabs defaultValue="sugerido" className="w-full pt-4" onValueChange={() => {
-              addMenuItemForm.reset();
-              setItemSuggestions([]);
-            }}>
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="sugerido">Item Sugerido</TabsTrigger>
-                <TabsTrigger value="personalizado">Item Personalizado</TabsTrigger>
-              </TabsList>
+          <DialogHeader><DialogTitle>Adicionar Item à Categoria</DialogTitle><DialogDescription>Use uma sugestão para preencher rapidamente ou crie um item do zero.</DialogDescription></DialogHeader>
+          <form onSubmit={addMenuItemForm.handleSubmit(async (values) => { await handleSaveMenuItem(values); setIsAddMenuItemModalOpen(false); })}>
+            <Tabs defaultValue="sugerido" className="w-full pt-4" onValueChange={() => { addMenuItemForm.reset(); setItemSuggestions([]); }}>
+              <TabsList className="grid w-full grid-cols-2"><TabsTrigger value="sugerido">Item Sugerido</TabsTrigger><TabsTrigger value="personalizado">Item Personalizado</TabsTrigger></TabsList>
               <TabsContent value="sugerido" className="py-4 space-y-4">
-                <div className="grid grid-cols-4 items-start gap-4 relative">
-                  <Label htmlFor="itemNameSuggested" className="text-right pt-2">Nome</Label>
+                <div className="grid grid-cols-4 items-center gap-4 relative">
+                  <Label htmlFor="itemNameSuggested" className="text-right">Nome</Label>
                   <div className="col-span-3">
-                    <Input
-                      id="itemNameSuggested"
-                      {...addMenuItemForm.register("name")}
-                      className="w-full"
-                      placeholder="Digite para buscar uma sugestão..."
-                      onChange={handleItemNameInputChange}
-                      value={addMenuItemForm.watch("name") || ""}
-                      autoComplete="off"
-                    />
+                    <Input id="itemNameSuggested" {...addMenuItemForm.register("name")} className="w-full" placeholder="Digite para buscar uma sugestão..." onChange={handleItemNameInputChange} value={addMenuItemForm.watch("name") || ""} autoComplete="off" />
                     {itemSuggestions.length > 0 && (
                       <div className="absolute z-10 top-full mt-1 w-full max-h-40 overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md">
                         {itemSuggestions.map((suggestion) => (
-                          <div
-                            key={suggestion}
-                            className="cursor-pointer p-2 hover:bg-accent hover:text-accent-foreground"
-                            onClick={() => {
-                              addMenuItemForm.setValue("name", suggestion);
-                              setItemSuggestions([]);
-                            }}
-                          >
-                            {suggestion}
-                          </div>
+                          <div key={suggestion} className="cursor-pointer p-2 hover:bg-accent hover:text-accent-foreground" onClick={() => { addMenuItemForm.setValue("name", suggestion); setItemSuggestions([]); }}>{suggestion}</div>
                         ))}
                       </div>
                     )}
-                    {addMenuItemForm.formState.errors.name && (
-                      <p className="text-sm text-red-500 mt-1">{addMenuItemForm.formState.errors.name.message}</p>
-                    )}
+                    {addMenuItemForm.formState.errors.name && <p className="text-sm text-red-500 mt-1">{addMenuItemForm.formState.errors.name.message}</p>}
                   </div>
                 </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="itemDescriptionSuggested" className="text-right">Descrição</Label>
-                  <Input id="itemDescriptionSuggested" {...addMenuItemForm.register("description")} className="col-span-3" placeholder="(Opcional)" />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="itemPriceSuggested" className="text-right">Preço</Label>
-                  <Input id="itemPriceSuggested" type="number" step="0.01" {...addMenuItemForm.register("price")} className="col-span-3" placeholder="Ex: 35.90" />
-                  {addMenuItemForm.formState.errors.price && (
-                    <p className="col-span-4 text-right text-sm text-red-500">{addMenuItemForm.formState.errors.price.message}</p>
-                  )}
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="itemImageUrlSuggested" className="text-right">URL da Imagem</Label>
-                  <Input id="itemImageUrlSuggested" {...addMenuItemForm.register("image_url")} className="col-span-3" placeholder="(Opcional)" />
-                </div>
+                <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="itemDescriptionSuggested" className="text-right">Descrição</Label><Input id="itemDescriptionSuggested" {...addMenuItemForm.register("description")} className="col-span-3" placeholder="(Opcional)" /></div>
+                <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="itemPriceSuggested" className="text-right">Preço</Label><Input id="itemPriceSuggested" type="number" step="0.01" {...addMenuItemForm.register("price")} className="col-span-3" placeholder="Ex: 35.90" />{addMenuItemForm.formState.errors.price && <p className="col-span-4 text-right text-sm text-red-500">{addMenuItemForm.formState.errors.price.message}</p>}</div>
+                <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="itemImageUrlSuggested" className="text-right">URL da Imagem</Label><Input id="itemImageUrlSuggested" {...addMenuItemForm.register("image_url")} className="col-span-3" placeholder="(Opcional)" /></div>
               </TabsContent>
               <TabsContent value="personalizado" className="py-4 space-y-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="itemNameCustom" className="text-right">Nome</Label>
-                  <Input id="itemNameCustom" {...addMenuItemForm.register("name")} className="col-span-3" placeholder="Ex: Prato da Casa" autoComplete="off" />
-                  {addMenuItemForm.formState.errors.name && (
-                    <p className="col-span-4 text-right text-sm text-red-500">{addMenuItemForm.formState.errors.name.message}</p>
-                  )}
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="itemDescriptionCustom" className="text-right">Descrição</Label>
-                  <Input id="itemDescriptionCustom" {...addMenuItemForm.register("description")} className="col-span-3" placeholder="Ex: Ingredientes especiais..." />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="itemPriceCustom" className="text-right">Preço</Label>
-                  <Input id="itemPriceCustom" type="number" step="0.01" {...addMenuItemForm.register("price")} className="col-span-3" placeholder="Ex: 42.00" />
-                  {addMenuItemForm.formState.errors.price && (
-                    <p className="col-span-4 text-right text-sm text-red-500">{addMenuItemForm.formState.errors.price.message}</p>
-                  )}
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="itemImageUrlCustom" className="text-right">URL da Imagem</Label>
-                  <Input id="itemImageUrlCustom" {...addMenuItemForm.register("image_url")} className="col-span-3" placeholder="(Opcional)" />
-                </div>
+                <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="itemNameCustom" className="text-right">Nome</Label><Input id="itemNameCustom" {...addMenuItemForm.register("name")} className="col-span-3" placeholder="Ex: Prato da Casa" autoComplete="off" />{addMenuItemForm.formState.errors.name && <p className="col-span-4 text-right text-sm text-red-500">{addMenuItemForm.formState.errors.name.message}</p>}</div>
+                <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="itemDescriptionCustom" className="text-right">Descrição</Label><Input id="itemDescriptionCustom" {...addMenuItemForm.register("description")} className="col-span-3" placeholder="Ex: Ingredientes especiais..." /></div>
+                <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="itemPriceCustom" className="text-right">Preço</Label><Input id="itemPriceCustom" type="number" step="0.01" {...addMenuItemForm.register("price")} className="col-span-3" placeholder="Ex: 42.00" />{addMenuItemForm.formState.errors.price && <p className="col-span-4 text-right text-sm text-red-500">{addMenuItemForm.formState.errors.price.message}</p>}</div>
+                <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="itemImageUrlCustom" className="text-right">URL da Imagem</Label><Input id="itemImageUrlCustom" {...addMenuItemForm.register("image_url")} className="col-span-3" placeholder="(Opcional)" /></div>
               </TabsContent>
             </Tabs>
-            <DialogFooter>
-              <Button type="submit">Adicionar Item</Button>
-              <Button variant="outline" type="button" onClick={() => setIsAddMenuItemModalOpen(false)}>Cancelar</Button>
-            </DialogFooter>
+            <DialogFooter><Button type="submit">Adicionar Item</Button><Button variant="outline" type="button" onClick={() => setIsAddMenuItemModalOpen(false)}>Cancelar</Button></DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
 
-      {/* Edit Item Modal */}
       <Dialog open={isEditMenuItemModalOpen} onOpenChange={setIsEditMenuItemModalOpen}>
         <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle>Editar Item do Cardápio</DialogTitle>
-            <DialogDescription>
-              Altere os detalhes do item selecionado.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={editMenuItemForm.handleSubmit(async (values) => {
-            await handleSaveMenuItem(values);
-            setIsEditMenuItemModalOpen(false);
-          })} className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="itemNameEdit" className="text-right">Nome</Label>
-              <Input id="itemNameEdit" {...editMenuItemForm.register("name")} className="col-span-3" />
-              {editMenuItemForm.formState.errors.name && (
-                <p className="col-span-4 text-right text-sm text-red-500">{editMenuItemForm.formState.errors.name.message}</p>
-              )}
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="itemDescriptionEdit" className="text-right">Descrição</Label>
-              <Input id="itemDescriptionEdit" {...editMenuItemForm.register("description")} className="col-span-3" />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="itemPriceEdit" className="text-right">Preço</Label>
-              <Input id="itemPriceEdit" type="number" step="0.01" {...editMenuItemForm.register("price")} className="col-span-3" />
-              {editMenuItemForm.formState.errors.price && (
-                <p className="col-span-4 text-right text-sm text-red-500">{editMenuItemForm.formState.errors.price.message}</p>
-              )}
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="itemImageUrlEdit" className="text-right">URL da Imagem</Label>
-              <Input id="itemImageUrlEdit" {...editMenuItemForm.register("image_url")} className="col-span-3" />
-            </div>
-            <DialogFooter>
-              <Button type="submit">Salvar Alterações</Button>
-              <Button variant="outline" type="button" onClick={() => setIsEditMenuItemModalOpen(false)}>Cancelar</Button>
-            </DialogFooter>
+          <DialogHeader><DialogTitle>Editar Item do Cardápio</DialogTitle><DialogDescription>Altere os detalhes do item selecionado.</DialogDescription></DialogHeader>
+          <form onSubmit={editMenuItemForm.handleSubmit(async (values) => { await handleSaveMenuItem(values); setIsEditMenuItemModalOpen(false); })} className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="itemNameEdit" className="text-right">Nome</Label><Input id="itemNameEdit" {...editMenuItemForm.register("name")} className="col-span-3" />{editMenuItemForm.formState.errors.name && <p className="col-span-4 text-right text-sm text-red-500">{editMenuItemForm.formState.errors.name.message}</p>}</div>
+            <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="itemDescriptionEdit" className="text-right">Descrição</Label><Input id="itemDescriptionEdit" {...editMenuItemForm.register("description")} className="col-span-3" /></div>
+            <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="itemPriceEdit" className="text-right">Preço</Label><Input id="itemPriceEdit" type="number" step="0.01" {...editMenuItemForm.register("price")} className="col-span-3" />{editMenuItemForm.formState.errors.price && <p className="col-span-4 text-right text-sm text-red-500">{editMenuItemForm.formState.errors.price.message}</p>}</div>
+            <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="itemImageUrlEdit" className="text-right">URL da Imagem</Label><Input id="itemImageUrlEdit" {...editMenuItemForm.register("image_url")} className="col-span-3" /></div>
+            <DialogFooter><Button type="submit">Salvar Alterações</Button><Button variant="outline" type="button" onClick={() => setIsEditMenuItemModalOpen(false)}>Cancelar</Button></DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
-
     </div>
   );
 }
