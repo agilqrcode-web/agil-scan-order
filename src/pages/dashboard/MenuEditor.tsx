@@ -55,6 +55,13 @@ export default function MenuEditor() {
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newCategoryError, setNewCategoryError] = useState<string | null>(null);
 
+  const usedCategoryNames = React.useMemo(() => {
+    const usedIds = new Set(menuItems.map(item => item.category_id));
+    return categories
+      .filter(cat => usedIds.has(cat.id))
+      .map(cat => cat.name.toLowerCase());
+  }, [categories, menuItems]);
+
   const PREDEFINED_CATEGORIES = [
     "Entradas / Aperitivos",
     "Sopas & Caldos",
@@ -358,7 +365,7 @@ export default function MenuEditor() {
           <div className="grid gap-4 py-4">
             <Label className="text-lg">Categorias Comuns:</Label>
             <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto border p-2 rounded-md">
-              {PREDEFINED_CATEGORIES.map((cat) => (
+              {PREDEFINED_CATEGORIES.filter(cat => !usedCategoryNames.includes(cat.toLowerCase())).map((cat) => (
                 <Button
                   key={cat}
                   variant="outline"
@@ -393,9 +400,7 @@ export default function MenuEditor() {
                     return;
                   }
 
-                  const isDuplicate = categories.some(
-                    (cat) => cat.name.toLowerCase() === trimmedName.toLowerCase()
-                  );
+                  const isDuplicate = usedCategoryNames.includes(trimmedName.toLowerCase());
 
                   if (isDuplicate) {
                     setNewCategoryError("Esta categoria já existe.");
