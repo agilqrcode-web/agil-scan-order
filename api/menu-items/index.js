@@ -10,8 +10,8 @@ export default async function handler(request, response) {
     case 'POST':
       // Create Menu Item
       {
-        console.log(`[API/MenuItems] Received POST request to create menu item for menu_id: ${menu_id}, category_id: ${category_id}`);
         const { menu_id, category_id, name, description, price, image_url } = request.body;
+        console.log(`[API/MenuItems] Received POST request to create menu item for menu_id: ${menu_id}, category_id: ${category_id}`);
         if (!menu_id || !name || !price) {
           console.error("[API/MenuItems] Missing required fields for POST request.");
           return response.status(400).json({ error: 'Missing required fields: menu_id, name, price' });
@@ -37,8 +37,8 @@ export default async function handler(request, response) {
     case 'PUT':
       // Update Menu Item
       {
-        console.log(`[API/MenuItems] Received PUT request to update menu item ID: ${id}`);
         const { id, menu_id, category_id, name, description, price, image_url } = request.body;
+        console.log(`[API/MenuItems] Received PUT request to update menu item ID: ${id}`);
         if (!id || !menu_id || !name || !price) {
           console.error("[API/MenuItems] Missing required fields for PUT request.");
           return response.status(400).json({ error: 'Missing required fields: id, menu_id, name, price' });
@@ -67,8 +67,8 @@ export default async function handler(request, response) {
     case 'DELETE':
       // Delete Menu Item
       {
-        console.log(`[API/MenuItems] Received DELETE request for menu item ID: ${id}`);
         const { id } = request.body;
+        console.log(`[API/MenuItems] Received DELETE request for menu item ID: ${id}`);
         if (!id) {
           console.error("[API/MenuItems] Missing required field: id for DELETE request.");
           return response.status(400).json({ error: 'Missing required field: id' });

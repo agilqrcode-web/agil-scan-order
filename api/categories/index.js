@@ -10,8 +10,8 @@ export default async function handler(request, response) {
     case 'POST':
       // Create Category
       {
-        console.log(`[API/Categories] Received POST request to create category for restaurant_id: ${restaurant_id}`);
         const { restaurant_id, name } = request.body;
+        console.log(`[API/Categories] Received POST request to create category for restaurant_id: ${restaurant_id}`);
         if (!restaurant_id || !name) {
           console.error("[API/Categories] Missing required fields for POST request.");
           return response.status(400).json({ error: 'Missing required fields: restaurant_id, name' });
@@ -37,8 +37,8 @@ export default async function handler(request, response) {
     case 'PUT':
       // Update Category
       {
-        console.log(`[API/Categories] Received PUT request to update category ID: ${id}`);
         const { id, name } = request.body;
+        console.log(`[API/Categories] Received PUT request to update category ID: ${id}`);
         if (!id || !name) {
           console.error("[API/Categories] Missing required fields for PUT request.");
           return response.status(400).json({ error: 'Missing required fields: id, name' });
@@ -67,8 +67,8 @@ export default async function handler(request, response) {
     case 'DELETE':
       // Delete Category
       {
-        console.log(`[API/Categories] Received DELETE request for category ID: ${id}`);
         const { id } = request.body;
+        console.log(`[API/Categories] Received DELETE request for category ID: ${id}`);
         if (!id) {
           console.error("[API/Categories] Missing required field: id for DELETE request.");
           return response.status(400).json({ error: 'Missing required field: id' });
