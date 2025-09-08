@@ -16,8 +16,7 @@ const supabase = createClient(
 );
 
 export default async function handler(req, res) {
-  const url = new URL(req.url, `http://${req.headers.host}`); // Construct full URL to parse query params
-  const action = url.searchParams.get('action');
+  const action = req.query.action;
 
   // --- Lógica do webhook.js ---
   // Webhook will always be POST and identified by Svix headers
