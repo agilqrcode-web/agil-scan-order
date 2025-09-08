@@ -7,7 +7,7 @@ export default async function handler(req, res) {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
   if (req.method === 'GET') {
-    const { menuId } = req.query; // Vercel dynamic routes capture this
+    const { menuId } = req.query; // Now expecting menuId as a query parameter
 
     if (!menuId) {
       return res.status(400).json({ error: 'Menu ID is required' });

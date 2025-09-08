@@ -14,7 +14,7 @@ export default function PublicMenu() {
     queryKey: ['publicMenu', menuId],
     queryFn: async () => {
       if (!menuId) return null;
-      const response = await fetch(`/api/menus/${menuId}/public`);
+      const response = await fetch(`/api/menupublic/public?menuId=${menuId}`);
       if (!response.ok) {
         throw new Error('Failed to fetch public menu data');
       }
