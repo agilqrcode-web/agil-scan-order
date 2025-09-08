@@ -17,7 +17,13 @@ export default function Onboarding() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const queryClient = useQueryClient();
-  const { refetch: refetchUserProfile } = useUserProfile();
+  const { refetch: refetchUserProfile, profileComplete } = useUserProfile();
+
+  useEffect(() => {
+    if (profileComplete && !loading) { // Ensure profile is complete and not still loading from the API call
+      navigate("/dashboard", { replace: true });
+    }
+  }, [profileComplete, loading, navigate]);
 
   console.log("Onboarding.tsx: Onboarding component rendering.");
   console.log("Onboarding.tsx: Clerk user data - isLoaded:", isLoaded, "isSignedIn:", isSignedIn, "user:", user);
