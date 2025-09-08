@@ -10,8 +10,10 @@ export default async function handler(request, response) {
     case 'POST':
       // Add Table
       {
+        console.log(`[API/Tables] Received POST request to add table for restaurant_id: ${restaurant_id}, table_number: ${table_number}`);
         const { restaurant_id, table_number, qr_code_identifier } = request.body;
         if (!restaurant_id || !table_number || !qr_code_identifier) {
+          console.error("[API/Tables] Missing required fields for POST request.");
           return response.status(400).json({ error: 'Missing required fields' });
         }
         try {
@@ -22,20 +24,23 @@ export default async function handler(request, response) {
             ])
             .select();
           if (error) {
-            console.error("Supabase insert error:", error);
+            console.error("[API/Tables] Supabase insert error:", error);
             return response.status(500).json({ error: error.message });
           }
+          console.log(`[API/Tables] Successfully added table with ID: ${data[0].id}`);
           return response.status(201).json(data[0]);
         } catch (error) {
-          console.error("Server error:", error);
+          console.error("[API/Tables] Server error during POST request:", error);
           return response.status(500).json({ error: error.message });
         }
       }
     case 'DELETE':
       // Delete Table
       {
+        console.log(`[API/Tables] Received DELETE request for table_id: ${table_id}`);
         const { table_id } = request.query;
         if (!table_id) {
+          console.error("[API/Tables] Missing table_id for DELETE request.");
           return response.status(400).json({ error: 'Missing table_id' });
         }
         try {
@@ -44,12 +49,13 @@ export default async function handler(request, response) {
             .delete()
             .eq('id', table_id);
           if (error) {
-            console.error("Supabase delete error:", error);
+            console.error("[API/Tables] Supabase delete error:", error);
             return response.status(500).json({ error: error.message });
           }
+          console.log(`[API/Tables] Successfully deleted table with ID: ${table_id}`);
           return response.status(204).send();
         } catch (error) {
-          console.error("Server error:", error);
+          console.error("[API/Tables] Server error during DELETE request:", error);
           return response.status(500).json({ error: error.message });
         }
       }

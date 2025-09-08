@@ -63,7 +63,6 @@ export default function Onboarding() {
       });
       await queryClient.invalidateQueries({ queryKey: ["userProfile"] });
       await refetchUserProfile(); // Explicitly refetch and wait for user profile to update
-      navigate("/dashboard");
 
     } catch (error) {
       console.error("Erro no onboarding:", error);

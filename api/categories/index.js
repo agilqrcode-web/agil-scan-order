@@ -10,8 +10,10 @@ export default async function handler(request, response) {
     case 'POST':
       // Create Category
       {
+        console.log(`[API/Categories] Received POST request to create category for restaurant_id: ${restaurant_id}`);
         const { restaurant_id, name } = request.body;
         if (!restaurant_id || !name) {
+          console.error("[API/Categories] Missing required fields for POST request.");
           return response.status(400).json({ error: 'Missing required fields: restaurant_id, name' });
         }
         try {
@@ -22,20 +24,23 @@ export default async function handler(request, response) {
             ])
             .select();
           if (error) {
-            console.error("Supabase insert error:", error);
+            console.error("[API/Categories] Supabase insert error:", error);
             return response.status(500).json({ error: error.message });
           }
+          console.log(`[API/Categories] Successfully created category with ID: ${data[0].id}`);
           return response.status(201).json(data[0]);
         } catch (error) {
-          console.error("Server error:", error);
+          console.error("[API/Categories] Server error during POST request:", error);
           return response.status(500).json({ error: error.message });
         }
       }
     case 'PUT':
       // Update Category
       {
+        console.log(`[API/Categories] Received PUT request to update category ID: ${id}`);
         const { id, name } = request.body;
         if (!id || !name) {
+          console.error("[API/Categories] Missing required fields for PUT request.");
           return response.status(400).json({ error: 'Missing required fields: id, name' });
         }
         try {
@@ -45,23 +50,27 @@ export default async function handler(request, response) {
             .eq('id', id)
             .select();
           if (error) {
-            console.error("Supabase update error:", error);
+            console.error("[API/Categories] Supabase update error:", error);
             return response.status(500).json({ error: error.message });
           }
           if (!data || data.length === 0) {
+            console.log(`[API/Categories] Category with ID ${id} not found or no changes made.`);
             return response.status(404).json({ error: 'Category not found or no changes made' });
           }
+          console.log(`[API/Categories] Successfully updated category with ID: ${id}`);
           return response.status(200).json(data[0]);
         } catch (error) {
-          console.error("Server error:", error);
+          console.error("[API/Categories] Server error during PUT request:", error);
           return response.status(500).json({ error: error.message });
         }
       }
     case 'DELETE':
       // Delete Category
       {
+        console.log(`[API/Categories] Received DELETE request for category ID: ${id}`);
         const { id } = request.body;
         if (!id) {
+          console.error("[API/Categories] Missing required field: id for DELETE request.");
           return response.status(400).json({ error: 'Missing required field: id' });
         }
         try {
@@ -70,12 +79,13 @@ export default async function handler(request, response) {
             .delete()
             .eq('id', id);
           if (error) {
-            console.error("Supabase delete error:", error);
+            console.error("[API/Categories] Supabase delete error:", error);
             return response.status(500).json({ error: error.message });
           }
+          console.log(`[API/Categories] Successfully deleted category with ID: ${id}`);
           return response.status(204).send();
         } catch (error) {
-          console.error("Server error:", error);
+          console.error("[API/Categories] Server error during DELETE request:", error);
           return response.status(500).json({ error: error.message });
         }
       }

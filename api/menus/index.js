@@ -10,8 +10,10 @@ export default async function handler(request, response) {
     case 'POST':
       // Create Menu
       {
+        console.log(`[API/Menus] Received POST request to create menu for restaurant_id: ${restaurant_id}`);
         const { restaurant_id, name, is_active } = request.body;
         if (!restaurant_id || !name) {
+          console.error("[API/Menus] Missing required fields for POST request.");
           return response.status(400).json({ error: 'Missing required fields: restaurant_id, name' });
         }
         try {
@@ -22,20 +24,23 @@ export default async function handler(request, response) {
             ])
             .select();
           if (error) {
-            console.error("Supabase insert error:", error);
+            console.error("[API/Menus] Supabase insert error:", error);
             return response.status(500).json({ error: error.message });
           }
+          console.log(`[API/Menus] Successfully created menu with ID: ${data[0].id}`);
           return response.status(201).json(data[0]);
         } catch (error) {
-          console.error("Server error:", error);
+          console.error("[API/Menus] Server error during POST request:", error);
           return response.status(500).json({ error: error.message });
         }
       }
     case 'GET':
       // Read Menu
       {
+        console.log(`[API/Menus] Received GET request for menu ID: ${id}`);
         const { id } = request.query;
         if (!id) {
+          console.error("[API/Menus] Missing required query parameter: id for GET request.");
           return response.status(400).json({ error: 'Missing required query parameter: id' });
         }
         try {
@@ -45,23 +50,27 @@ export default async function handler(request, response) {
             .eq('id', id)
             .single();
           if (error) {
-            console.error("Supabase fetch error:", error);
+            console.error("[API/Menus] Supabase fetch error:", error);
             return response.status(500).json({ error: error.message });
           }
           if (!data) {
+            console.log(`[API/Menus] Menu with ID ${id} not found.`);
             return response.status(404).json({ error: 'Menu not found' });
           }
+          console.log(`[API/Menus] Successfully fetched menu with ID: ${id}`);
           return response.status(200).json(data);
         } catch (error) {
-          console.error("Server error:", error);
+          console.error("[API/Menus] Server error during GET request:", error);
           return response.status(500).json({ error: error.message });
         }
       }
     case 'PUT':
       // Update Menu
       {
+        console.log(`[API/Menus] Received PUT request to update menu ID: ${id}`);
         const { id, name, is_active } = request.body;
         if (!id || !name) {
+          console.error("[API/Menus] Missing required fields for PUT request.");
           return response.status(400).json({ error: 'Missing required fields: id, name' });
         }
         try {
@@ -71,23 +80,27 @@ export default async function handler(request, response) {
             .eq('id', id)
             .select();
           if (error) {
-            console.error("Supabase update error:", error);
+            console.error("[API/Menus] Supabase update error:", error);
             return response.status(500).json({ error: error.message });
           }
           if (!data || data.length === 0) {
+            console.log(`[API/Menus] Menu with ID ${id} not found or no changes made.`);
             return response.status(404).json({ error: 'Menu not found or no changes made' });
           }
+          console.log(`[API/Menus] Successfully updated menu with ID: ${id}`);
           return response.status(200).json(data[0]);
         } catch (error) {
-          console.error("Server error:", error);
+          console.error("[API/Menus] Server error during PUT request:", error);
           return response.status(500).json({ error: error.message });
         }
       }
     case 'DELETE':
       // Delete Menu
       {
+        console.log(`[API/Menus] Received DELETE request for menu ID: ${menu_id}`);
         const { menu_id } = request.body;
         if (!menu_id) {
+          console.error("[API/Menus] Missing required field: menu_id for DELETE request.");
           return response.status(400).json({ error: 'Missing required field: menu_id' });
         }
         try {
@@ -96,12 +109,13 @@ export default async function handler(request, response) {
             .delete()
             .eq('id', menu_id);
           if (error) {
-            console.error("Supabase delete error:", error);
+            console.error("[API/Menus] Supabase delete error:", error);
             return response.status(500).json({ error: error.message });
           }
+          console.log(`[API/Menus] Successfully deleted menu with ID: ${menu_id}`);
           return response.status(204).send();
         } catch (error) {
-          console.error("Server error:", error);
+          console.error("[API/Menus] Server error during DELETE request:", error);
           return response.status(500).json({ error: error.message });
         }
       }
