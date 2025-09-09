@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/sidebar";
 import { NavLink } from "react-router-dom";
 import { useTheme } from "next-themes";
+import { useSidebar as useSidebarContext } from "@/components/ui/sidebar"; // Renamed to avoid conflict
 import { 
   Home, 
   UserIcon, 
@@ -40,6 +41,9 @@ import {
   Monitor,
   Utensils
 } from "lucide-react";
+
+import { useSidebar as useSidebarContext } from "@/components/ui/sidebar"; // Renamed to avoid conflict
+import { MobileBottomNavbar } from "@/components/layout/MobileBottomNavbar"; // New import
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: Home },
@@ -183,15 +187,32 @@ function DashboardHeader() {
 }
 
 export default function DashboardLayout() {
+  const { isMobile } = useSidebarContext();
+
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full">
-        <DashboardSidebar />
-        <div className="flex-1 flex flex-col">
+      <div className={cn(
+        "min-h-screen flex w-full",
+        isMobile ? "flex-col" : "flex-row" // Stack on mobile, side-by-side on desktop
+      )}>
+        {/* Desktop Sidebar */}
+        <div className={cn(isMobile ? "hidden" : "block")}>
+          <DashboardSidebar />
+        </div>
+
+        <div className={cn(
+          "flex-1 flex flex-col",
+          isMobile ? "pb-16" : "pb-0" // Add padding for bottom navbar on mobile
+        )}>
           <DashboardHeader />
           <main className="flex-1 p-6">
             <Outlet key={location.pathname} />
           </main>
+        </div>
+
+        {/* Mobile Bottom Navbar */}
+        <div className={cn(isMobile ? "block" : "hidden")}>
+          <MobileBottomNavbar />
         </div>
       </div>
     </SidebarProvider>
