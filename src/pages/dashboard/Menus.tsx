@@ -72,17 +72,26 @@ export default function Menus() {
     }
   };
 
-  // Function to fetch summary counts (will be implemented later)
+  // Function to fetch summary counts
   const fetchSummaryCounts = async () => {
     if (!restaurantId || !supabase) return;
     try {
-      const { data: categoriesCount, error: categoriesError } = await supabase.rpc('get_restaurant_category_count', { p_restaurant_id: restaurantId });
-      if (categoriesError) throw categoriesError;
-      setTotalCategories(categoriesCount || 0);
+      // Chamar a nova função RPC consolidada
+      const { data, error } = await supabase.rpc('get_restaurant_summary_counts', { p_restaurant_id: restaurantId });
 
-      const { data: itemsCount, error: itemsError } = await supabase.rpc('get_restaurant_item_count', { p_restaurant_id: restaurantId });
-      if (itemsError) throw itemsError;
-      setTotalItems(itemsCount || 0);
+      if (error) {
+        throw error;
+      }
+
+      // A função retorna um array com um objeto, por exemplo: [{ total_categories: 5, total_items: 20 }]
+      if (data && data.length > 0) {
+        const counts = data[0];
+        setTotalCategories(counts.total_categories || 0);
+        setTotalItems(counts.total_items || 0);
+      } else {
+        setTotalCategories(0);
+        setTotalItems(0);
+      }
     } catch (err) {
       console.error("Error fetching summary counts:", err);
       setError("Failed to load summary counts.");
