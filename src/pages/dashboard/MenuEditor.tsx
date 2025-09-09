@@ -150,11 +150,30 @@ export default function MenuEditor() {
 
   useEffect(() => { fetchMenuData(); }, [menuId, supabase]);
 
+  const handleSaveCategoryOrder = async () => {
+    try {
+      const response = await fetch("/api/categories", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ categories: categories.map(cat => ({ id: cat.id, position: cat.position })) }),
+      });
+      if (!response.ok) throw new Error("Failed to save category order.");
+      console.log("Category order saved successfully!");
+    } catch (err: any) {
+      console.error("Error saving category order:", err);
+      setError(err.message || "Failed to save category order.");
+    }
+  };
+
   const handleSaveMenu = async (values: MenuFormValues) => {
     if (!menuId) return;
     try {
       const response = await fetch("/api/menus", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: menuId, ...values }) });
       if (!response.ok) throw new Error((await response.json()).error || "Failed to update menu.");
+
+      // Call the new function to save category order
+      await handleSaveCategoryOrder();
+
     } catch (err: any) {
       console.error("Error saving menu:", err);
       setError(err.message || "Failed to save menu.");
@@ -186,12 +205,6 @@ export default function MenuEditor() {
 
     const updatedCategories = newCategories.map((cat, idx) => ({ ...cat, position: idx }));
     setCategories(updatedCategories);
-
-    const updatePromises = [
-      handleSaveCategory(updatedCategories[from]),
-      handleSaveCategory(updatedCategories[to])
-    ];
-    await Promise.all(updatePromises);
   };
 
   const handleDeleteCategory = async (categoryId: string) => {
