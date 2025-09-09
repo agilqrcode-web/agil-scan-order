@@ -63,12 +63,12 @@ export default function PublicMenu() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-200 dark:from-gray-900 dark:to-gray-800">
-      {/* Fixed Header Bar */}
-      <div className="fixed top-0 left-0 right-0 z-50 bg-white dark:bg-gray-800 shadow-md p-4 flex items-center justify-between">
-        <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">
-          {restaurant.name}
-        </h1>
-        <Tabs defaultValue="menu" className="w-auto">
+      <Tabs defaultValue="menu" className="w-full"> {/* Main Tabs component now wraps everything */}
+        {/* Fixed Header Bar */}
+        <div className="fixed top-0 left-0 right-0 z-50 bg-white dark:bg-gray-800 shadow-md p-4 flex items-center justify-between">
+          <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">
+            {restaurant.name}
+          </h1>
           <TabsList className="grid grid-cols-3 h-auto p-1 bg-gray-100 dark:bg-gray-700 rounded-lg">
             <TabsTrigger value="menu" className="flex flex-col items-center justify-center p-2 text-gray-600 dark:text-gray-300 data-[state=active]:bg-white dark:data-[state=active]:bg-gray-900 data-[state=active]:text-primary-600 dark:data-[state=active]:text-primary-400 rounded-md shadow-sm transition-all duration-200">
               <UtensilsCrossed className="h-5 w-5 mb-1" />
@@ -83,13 +83,11 @@ export default function PublicMenu() {
               <span className="text-xs font-medium">Pedido</span>
             </TabsTrigger>
           </TabsList>
-        </Tabs>
-      </div>
+        </div>
 
-      {/* Main Content Area - Adjusted padding-top for fixed header */}
-      <div className="pt-24 pb-8"> {/* Adjust pt- to match header height + desired spacing */}
-        <div className="container mx-auto px-4 max-w-3xl">
-          <Tabs defaultValue="menu" className="w-full">
+        {/* Main Content Area - Adjusted padding-top for fixed header */}
+        <div className="pt-24 pb-8"> {/* Adjust pt- to match header height + desired spacing */}
+          <div className="container mx-auto px-4 max-w-3xl">
             <TabsContent value="menu">
               {/* Existing Menu Display Logic */}
               <Card className="mb-8 shadow-xl border-t-4 border-primary-500 dark:border-primary-400">
@@ -186,9 +184,9 @@ export default function PublicMenu() {
                 </div>
               </Card>
             </TabsContent>
-          </Tabs>
+          </div>
         </div>
-      </div>
+      </Tabs>
     </div>
   );
 }
