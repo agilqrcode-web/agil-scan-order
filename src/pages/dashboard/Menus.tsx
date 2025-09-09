@@ -1,3 +1,4 @@
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, Edit, Trash2, QrCode, UtensilsCrossed, LayoutList, Package, Eye } from "lucide-react"; // Added icons
@@ -73,10 +74,19 @@ export default function Menus() {
 
   // Function to fetch summary counts (will be implemented later)
   const fetchSummaryCounts = async () => {
-    // For now, these are static or derived from fetched menus
-    // Later, we might use RPCs or other queries for accurate counts
-    // setTotalCategories(someRpcResult.total_categories);
-    // setTotalItems(someRpcResult.total_items);
+    if (!restaurantId || !supabase) return;
+    try {
+      const { data: categoriesCount, error: categoriesError } = await supabase.rpc('get_restaurant_category_count', { p_restaurant_id: restaurantId });
+      if (categoriesError) throw categoriesError;
+      setTotalCategories(categoriesCount || 0);
+
+      const { data: itemsCount, error: itemsError } = await supabase.rpc('get_restaurant_item_count', { p_restaurant_id: restaurantId });
+      if (itemsError) throw itemsError;
+      setTotalItems(itemsCount || 0);
+    } catch (err) {
+      console.error("Error fetching summary counts:", err);
+      setError("Failed to load summary counts.");
+    }
   };
 
   const onSubmit = async (values: MenuFormValues) => {
