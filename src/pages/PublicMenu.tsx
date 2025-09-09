@@ -6,7 +6,7 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button'; // Added Button import
-import { Loader2, UtensilsCrossed, Info, ShoppingCart } from 'lucide-react'; // Added icons
+import { Loader2, UtensilsCrossed, Info, ShoppingCart, Wallet, Calendar, MapPin, Clock, Phone, BookOpen } from 'lucide-react'; // Added icons
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'; // Added Tabs components
 
 export default function PublicMenu() {
@@ -152,21 +152,47 @@ export default function PublicMenu() {
             <TabsContent value="info" className="pt-4">
               <Card className="p-6 shadow-lg dark:bg-gray-700">
                 <CardTitle className="text-2xl font-bold mb-4 text-gray-800 dark:text-gray-100">Informações do Restaurante</CardTitle>
-                <p className="text-gray-700 dark:text-gray-300 mb-2">
-                  **Nome:** {restaurant.name}
-                </p>
-                <p className="text-gray-700 dark:text-gray-300 mb-2">
-                  **Endereço:** Rua Exemplo, 123 - Bairro Fictício, Cidade - UF
-                </p>
-                <p className="text-gray-700 dark:text-gray-300 mb-2">
-                  **Telefone:** (XX) XXXX-XXXX
-                </p>
-                <p className="text-gray-700 dark:text-gray-300 mb-2">
-                  **Horário de Funcionamento:** Segunda a Sábado, das 18h às 23h.
-                </p>
-                <p className="text-gray-700 dark:text-gray-300">
-                  **Sobre nós:** Um lugar aconchegante com a melhor comida da cidade!
-                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Column 1 */}
+                  <div>
+                    <h3 className="text-xl font-semibold mb-3 flex items-center text-gray-800 dark:text-gray-100">
+                      <Wallet className="h-5 w-5 mr-2 text-primary-500" /> Método de Pagamento
+                    </h3>
+                    <ul className="list-disc list-inside text-gray-700 dark:text-gray-300 space-y-1 pl-2">
+                      <li>Dinheiro</li>
+                      <li>Cartão</li>
+                      <li>Pix</li>
+                    </ul>
+
+                    <h3 className="text-xl font-semibold mt-6 mb-3 flex items-center text-gray-800 dark:text-gray-100">
+                      <Calendar className="h-5 w-5 mr-2 text-primary-500" /> Reserva de Mesa
+                    </h3>
+                    <p className="text-gray-700 dark:text-gray-300 pl-2">A combinar</p>
+
+                    <h3 className="text-xl font-semibold mt-6 mb-3 flex items-center text-gray-800 dark:text-gray-100">
+                      <MapPin className="h-5 w-5 mr-2 text-primary-500" /> Endereço
+                    </h3>
+                    <p className="text-gray-700 dark:text-gray-300 pl-2">Rua Exemplo, 123 - Bairro Fictício, Cidade - UF</p>
+                  </div>
+
+                  {/* Column 2 */}
+                  <div>
+                    <h3 className="text-xl font-semibold mb-3 flex items-center text-gray-800 dark:text-gray-100">
+                      <Clock className="h-5 w-5 mr-2 text-primary-500" /> Horário de Funcionamento
+                    </h3>
+                    <p className="text-gray-700 dark:text-gray-300 pl-2">Segunda a Domingo: 00:00 - 00:00</p>
+
+                    <h3 className="text-xl font-semibold mt-6 mb-3 flex items-center text-gray-800 dark:text-gray-100">
+                      <Phone className="h-5 w-5 mr-2 text-primary-500" /> Telefone
+                    </h3>
+                    <p className="text-gray-700 dark:text-gray-300 pl-2">(XX) XXXX-XXXX</p>
+
+                    <h3 className="text-xl font-semibold mt-6 mb-3 flex items-center text-gray-800 dark:text-gray-100">
+                      <BookOpen className="h-5 w-5 mr-2 text-primary-500" /> Sobre Nós
+                    </h3>
+                    <p className="text-gray-700 dark:text-gray-300 pl-2">Um lugar aconchegante com a melhor comida da cidade!</p>
+                  </div>
+                </div>
               </Card>
             </TabsContent>
 
