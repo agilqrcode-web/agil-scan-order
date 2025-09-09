@@ -168,14 +168,10 @@ export default function Menus() {
 
   useEffect(() => {
     async function getRestaurantId() {
-      // Ensure userId is available and Supabase client is ready and authenticated
-      // Check for supabase.auth.session() to confirm the client has an active user session
-      if (!userId || !supabase || !supabase.auth.session()) {
-        // If not ready, do nothing and wait for dependencies to change
-        // Keep loading true until we attempt the fetch
+      if (!userId || !supabase || !supabase.auth.user()) {
+        setLoading(false);
         return;
       }
-
       try {
         const { data: restaurantIdData, error: restaurantIdError } = await supabase
           .rpc('get_user_restaurant_id');
@@ -188,8 +184,7 @@ export default function Menus() {
       } catch (err) {
         console.error("Error fetching restaurant ID:", err);
         setError("Failed to load restaurant data.");
-      } finally {
-        setLoading(false); // Set loading to false only after the fetch attempt (success or error)
+        setLoading(false);
       }
     }
     getRestaurantId();
