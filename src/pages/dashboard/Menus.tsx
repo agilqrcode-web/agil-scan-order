@@ -168,7 +168,7 @@ export default function Menus() {
 
   useEffect(() => {
     async function getRestaurantId() {
-      if (!userId || !supabase || !supabase.auth.user()) {
+      if (!userId || !supabase) {
         setLoading(false);
         return;
       }
