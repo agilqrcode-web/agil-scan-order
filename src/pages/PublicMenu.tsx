@@ -90,7 +90,7 @@ export default function PublicMenu() {
           <div className="container mx-auto px-4 max-w-3xl">
             <TabsContent value="menu">
               {/* Existing Menu Display Logic */}
-              <Card className="mb-8 shadow-xl overflow-hidden">
+              <Card className="mb-4 shadow-xl overflow-hidden">
                 {/* Placeholder for Restaurant Image Banner */}
                 <div className="h-48 bg-gray-200 flex items-center justify-center rounded-lg">
                   <p className="text-gray-500 font-medium">Futuro banner do cardápio</p>
@@ -98,19 +98,19 @@ export default function PublicMenu() {
               </Card>
 
               {categories.length === 0 ? (
-                <Card className="p-6 text-center text-gray-600 shadow-md">
+                <Card className="p-6 text-center text-gray-600 shadow-md bg-white">
                   <p className="text-lg">Este cardápio ainda não possui categorias ou itens.</p>
                 </Card>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {categories.map((category) => (
-                    <Card key={category.id} className="shadow-lg">
-                      <CardHeader>
+                    <Card key={category.id} className="shadow-lg bg-white">
+                      <CardHeader className="pb-2">
                         <CardTitle className="text-2xl font-bold text-gray-800">
                           {category.name}
                         </CardTitle>
                       </CardHeader>
-                      <CardContent className="space-y-4">
+                      <CardContent className="pt-2 space-y-4">
                         {category.items && category.items.length > 0 ? (
                           category.items.map((item) => (
                             <div key={item.id} className="flex items-start space-x-4 pb-2">
@@ -122,7 +122,7 @@ export default function PublicMenu() {
                                 />
                               )}
                               <div className="flex-grow">
-                                <h4 className="text-lg font-semibold text-gray-900">{item.name}</h4>
+                                <h4 className="text-lg font-bold text-gray-900">{item.name}</h4>
                                 {item.description && (
                                   <p className="text-sm text-gray-600 mt-1">{item.description}</p>
                                 )}
@@ -143,7 +143,7 @@ export default function PublicMenu() {
             </TabsContent>
 
             <TabsContent value="info" className="pt-4">
-              <Card className="p-6 shadow-lg">
+              <Card className="p-6 shadow-lg bg-white">
                 <CardTitle className="text-2xl font-bold mb-4 text-gray-800">Informações do Restaurante</CardTitle>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Column 1 */}
@@ -190,7 +190,7 @@ export default function PublicMenu() {
             </TabsContent>
 
             <TabsContent value="checkout" className="pt-4">
-              <Card className="p-6 shadow-lg">
+              <Card className="p-6 shadow-lg bg-white">
                 <CardTitle className="text-2xl font-bold mb-4 text-gray-800">Checkout de Pedidos</CardTitle>
                 <p className="text-gray-700 mb-2">
                   Esta é a área de checkout. Em breve, você poderá finalizar seu pedido aqui!
