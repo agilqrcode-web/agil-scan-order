@@ -86,28 +86,28 @@ export default function PublicMenu() {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-200">
       <Tabs defaultValue="menu" className="w-full"> {/* Main Tabs component now wraps everything */}
         {/* Fixed Header Bar */}
-        <div className="fixed top-0 left-0 right-0 z-50 bg-white shadow-md p-4 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-gray-800">
+        <div className="fixed top-0 left-0 right-0 z-50 bg-white shadow-md p-2 flex items-center justify-between">
+          <h1 className="text-lg font-bold text-gray-800">
             {restaurant.name}
           </h1>
           <TabsList className="grid grid-cols-3 h-auto p-1 bg-gray-100 rounded-lg">
-            <TabsTrigger value="menu" className="flex flex-col items-center justify-center p-2 text-gray-600 data-[state=active]:bg-white data-[state=active]:text-primary-600 rounded-md shadow-sm transition-all duration-200">
-              <UtensilsCrossed className="h-5 w-5 mb-1" />
+            <TabsTrigger value="menu" className="flex flex-col items-center justify-center p-1 text-gray-600 data-[state=active]:bg-white data-[state=active]:text-primary-600 rounded-md shadow-sm transition-all duration-200">
+              <UtensilsCrossed className="h-4 w-4" />
               <span className="text-xs font-medium">Cardápio</span>
             </TabsTrigger>
-            <TabsTrigger value="info" className="flex flex-col items-center justify-center p-2 text-gray-600 data-[state=active]:bg-white data-[state=active]:text-primary-600 rounded-md shadow-sm transition-all duration-200">
-              <Info className="h-5 w-5 mb-1" />
+            <TabsTrigger value="info" className="flex flex-col items-center justify-center p-1 text-gray-600 data-[state=active]:bg-white data-[state=active]:text-primary-600 rounded-md shadow-sm transition-all duration-200">
+              <Info className="h-4 w-4" />
               <span className="text-xs font-medium">Info</span>
             </TabsTrigger>
-            <TabsTrigger value="checkout" className="flex flex-col items-center justify-center p-2 text-gray-600 data-[state=active]:bg-white data-[state=active]:text-primary-600 rounded-md shadow-sm transition-all duration-200">
-              <ShoppingCart className="h-5 w-5 mb-1" />
+            <TabsTrigger value="checkout" className="flex flex-col items-center justify-center p-1 text-gray-600 data-[state=active]:bg-white data-[state=active]:text-primary-600 rounded-md shadow-sm transition-all duration-200">
+              <ShoppingCart className="h-4 w-4" />
               <span className="text-xs font-medium">Pedido</span>
             </TabsTrigger>
           </TabsList>
         </div>
 
         {/* Main Content Area - Adjusted padding-top for fixed header */}
-        <div className="pt-24 pb-8"> {/* Adjust pt- to match header height + desired spacing */}
+        <div className="pt-20 pb-8"> {/* Adjust pt- to match header height + desired spacing */}
           <div className="container mx-auto px-4 max-w-3xl">
             <TabsContent value="menu">
               {/* Existing Menu Display Logic */}
@@ -163,7 +163,7 @@ export default function PublicMenu() {
               )}
             </TabsContent>
 
-            <TabsContent value="info" className="pt-4">
+            <TabsContent value="info">
               <Card className="p-6 shadow-lg bg-white">
                 <CardTitle className="text-2xl font-bold mb-4 text-gray-800">Informações do Restaurante</CardTitle>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -210,7 +210,7 @@ export default function PublicMenu() {
               </Card>
             </TabsContent>
 
-            <TabsContent value="checkout" className="pt-4">
+            <TabsContent value="checkout">
               <Card className="p-6 shadow-lg bg-white">
                 <CardTitle className="text-2xl font-bold mb-4 text-gray-800">Checkout de Pedidos</CardTitle>
                 <p className="text-gray-700 mb-2">
