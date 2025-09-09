@@ -10,6 +10,13 @@ import { Loader2, UtensilsCrossed, Info, ShoppingCart, Wallet, Calendar, MapPin,
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'; // Added Tabs components
 
 export default function PublicMenu() {
+  const { setTheme } = useTheme();
+
+  // Force light theme for the public menu page
+  useEffect(() => {
+    setTheme('light');
+  }, []);
+
   const { menuId } = useParams();
 
   const { data, isLoading, isError, error } = useQuery({
