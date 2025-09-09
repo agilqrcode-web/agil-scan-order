@@ -186,35 +186,43 @@ function DashboardHeader() {
   );
 }
 
-export default function DashboardLayout() {
-  const { isMobile } = useSidebarContext();
+function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
+  const { isMobile } = useSidebarContext(); // Now this hook is called within the provider's scope
 
   return (
-    <SidebarProvider>
-      <div className={cn(
-        "min-h-screen flex w-full",
-        isMobile ? "flex-col" : "flex-row" // Stack on mobile, side-by-side on desktop
-      )}>
-        {/* Desktop Sidebar */}
-        <div className={cn(isMobile ? "hidden" : "block")}>
-          <DashboardSidebar />
-        </div>
-
-        <div className={cn(
-          "flex-1 flex flex-col",
-          isMobile ? "pb-16" : "pb-0" // Add padding for bottom navbar on mobile
-        )}>
-          <DashboardHeader />
-          <main className="flex-1 p-6">
-            <Outlet key={location.pathname} />
-          </main>
-        </div>
-
-        {/* Mobile Bottom Navbar */}
-        <div className={cn(isMobile ? "block" : "hidden")}>
-          <MobileBottomNavbar />
-        </div>
+    <div className={cn(
+      "min-h-screen flex w-full",
+      isMobile ? "flex-col" : "flex-row" // Stack on mobile, side-by-side on desktop
+    )}>
+      {/* Desktop Sidebar */}
+      <div className={cn(isMobile ? "hidden" : "block")}>
+        <DashboardSidebar />
       </div>
+
+      <div className={cn(
+        "flex-1 flex flex-col",
+        isMobile ? "pb-16" : "pb-0" // Add padding for bottom navbar on mobile
+      )}>
+        <DashboardHeader />
+        <main className="flex-1 p-6">
+          {children} {/* Render Outlet here */}
+        </main>
+      </div>
+
+      {/* Mobile Bottom Navbar */}
+      <div className={cn(isMobile ? "block" : "hidden")}>
+        <MobileBottomNavbar />
+      </div>
+    </div>
+  );
+}
+
+export default function DashboardLayout() {
+  return (
+    <SidebarProvider>
+      <DashboardLayoutContent>
+        <Outlet key={location.pathname} />
+      </DashboardLayoutContent>
     </SidebarProvider>
   );
 }
