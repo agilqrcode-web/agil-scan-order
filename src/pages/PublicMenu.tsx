@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { useTheme } from 'next-themes';
+
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
@@ -11,12 +11,25 @@ import { Loader2, UtensilsCrossed, Info, ShoppingCart, Wallet, Calendar, MapPin,
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'; // Added Tabs components
 
 export default function PublicMenu() {
-  const { setTheme } = useTheme();
-
-  // Force light theme for the public menu page
+  // Temporarily force a light theme for this public page only,
+  // without changing the user's saved preference.
   useEffect(() => {
-    setTheme('light');
-  }, []);
+    const htmlElement = document.documentElement;
+    // Store the original theme
+    const originalTheme = htmlElement.classList.contains('dark') ? 'dark' : 'light';
+    
+    // Apply the light theme
+    htmlElement.classList.remove('dark');
+    htmlElement.classList.add('light');
+
+    // On component unmount, restore the original theme
+    return () => {
+      htmlElement.classList.remove('light');
+      if (originalTheme === 'dark') {
+        htmlElement.classList.add('dark');
+      }
+    };
+  }, []); // Run only once on mount and cleanup on unmount
 
   const { menuId } = useParams();
 
