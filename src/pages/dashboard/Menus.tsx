@@ -47,54 +47,48 @@ export default function Menus() {
     },
   });
 
-  const fetchMenus = async () => {
-    if (!restaurantId || !supabase) {
-      setLoading(false);
-      return;
-    }
+  // =================================================================
+  // DATA FETCHING LOGIC
+  // =================================================================
+
+  // Nova função unificada para carregar todos os dados da página.
+  const loadPageData = async () => {
+    if (!restaurantId || !supabase) return;
+
+    setLoading(true);
+    setError(null);
+
     try {
-      const { data, error } = await supabase
+      // 1. Buscar menus
+      const { data: menusData, error: menusError } = await supabase
         .from('menus')
         .select('*')
         .eq('restaurant_id', restaurantId);
 
-      if (error) {
-        throw error;
-      }
-      setMenus(data || []);
-      setTotalMenus(data?.length || 0); // Update total menus count
-    } catch (err) {
-      console.error("Error fetching menus:", err);
-      console.error("Raw error object for menus:", JSON.stringify(err, null, 2));
-      setError("Failed to load menus.");
-    } finally {
-      setLoading(false);
-    }
-  };
+      if (menusError) throw menusError;
+      
+      setMenus(menusData || []);
+      setTotalMenus(menusData?.length || 0);
 
-  // Function to fetch summary counts
-  const fetchSummaryCounts = async () => {
-    if (!restaurantId || !supabase) return;
-    try {
-      // Chamar a nova função RPC consolidada
-      const { data, error } = await supabase.rpc('get_restaurant_summary_counts', { p_restaurant_id: restaurantId });
+      // 2. Buscar contagens
+      const { data: countsData, error: countsError } = await supabase.rpc('get_restaurant_summary_counts', { p_restaurant_id: restaurantId });
 
-      if (error) {
-        throw error;
-      }
+      if (countsError) throw countsError;
 
-      // A função retorna um array com um objeto, por exemplo: [{ total_categories: 5, total_items: 20 }]
-      if (data && data.length > 0) {
-        const counts = data[0];
+      if (countsData && countsData.length > 0) {
+        const counts = countsData[0];
         setTotalCategories(counts.total_categories || 0);
         setTotalItems(counts.total_items || 0);
       } else {
         setTotalCategories(0);
         setTotalItems(0);
       }
+
     } catch (err) {
-      console.error("Error fetching summary counts:", err);
-      setError("Failed to load summary counts.");
+      console.error("Error loading page data:", err);
+      setError("Falha ao carregar os dados. Tente atualizar a página.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -132,8 +126,7 @@ export default function Menus() {
 
       setIsAddMenuModalOpen(false);
       form.reset();
-      fetchMenus(); // Refresh the list of menus
-      fetchSummaryCounts(); // Refresh summary counts
+      loadPageData(); // Recarrega todos os dados da página
     } catch (err) {
       console.error("Error adding menu:", err);
       setError(err.message || "Failed to add menu.");
@@ -167,14 +160,14 @@ export default function Menus() {
 
       setIsDeleteMenuModalOpen(false);
       setMenuToDelete(null);
-      fetchMenus(); // Refresh the list of menus
-      fetchSummaryCounts(); // Refresh summary counts
+      loadPageData(); // Recarrega todos os dados da página
     } catch (err) {
       console.error("Error deleting menu:", err);
       setError(err.message || "Failed to delete menu.");
     }
   };
 
+  // Efeito para buscar o ID do restaurante
   useEffect(() => {
     async function getRestaurantId() {
       if (!userId || !supabase) {
@@ -199,10 +192,10 @@ export default function Menus() {
     getRestaurantId();
   }, [userId, supabase]);
 
+  // Efeito para carregar os dados da página quando o ID do restaurante estiver disponível
   useEffect(() => {
     if (restaurantId) {
-      fetchMenus();
-      fetchSummaryCounts(); // Fetch summary counts when restaurantId is available
+      loadPageData();
     }
   }, [restaurantId]);
 
