@@ -95,7 +95,7 @@ function DashboardSidebar() {
   );
 }
 
-function DashboardHeader() {
+function DashboardHeader({ isMobile }: { isMobile: boolean }) {
   const { setTheme, theme } = useTheme();
   const { user } = useUser();
   const { signOut } = useClerk();
@@ -109,7 +109,7 @@ function DashboardHeader() {
     <header className="h-12 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="flex h-full items-center justify-between px-4">
         <div className="flex items-center gap-4">
-          <SidebarTrigger />
+          {!isMobile && <SidebarTrigger />}
           
         </div>
         
@@ -203,7 +203,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
         "flex-1 flex flex-col",
         isMobile ? "pb-16" : "pb-0" // Add padding for bottom navbar on mobile
       )}>
-        <DashboardHeader />
+        <DashboardHeader isMobile={isMobile} />
         <main className="flex-1 p-6">
           {children} {/* Render Outlet here */}
         </main>
