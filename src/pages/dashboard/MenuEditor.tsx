@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSupabase } from '@/contexts/SupabaseContext';
+import { useToast } from '@/components/ui/use-toast';
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { X } from "lucide-react";
@@ -50,6 +51,7 @@ export default function MenuEditor() {
   const { menuId } = useParams();
   const navigate = useNavigate();
   const supabase = useSupabase();
+  const { toast } = useToast(); // Initialize toast hook
 
   // State management
   const [loading, setLoading] = useState(true);
@@ -174,9 +176,22 @@ export default function MenuEditor() {
       // Call the new function to save category order
       await handleSaveCategoryOrder();
 
+      // Add success toast
+      toast({
+        title: "Sucesso!",
+        description: "Cardápio atualizado com sucesso.",
+        variant: "success", // Assuming a success variant exists
+      });
+
     } catch (err: any) {
       console.error("Error saving menu:", err);
       setError(err.message || "Failed to save menu.");
+      // Add error toast
+      toast({
+        title: "Erro",
+        description: err.message || "Falha ao atualizar cardápio.",
+        variant: "destructive", // Assuming a destructive variant exists
+      });
     }
   };
 
