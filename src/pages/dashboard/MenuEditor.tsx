@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSupabase } from '@/contexts/SupabaseContext';
-import { useToast } from '@/components/ui/use-toast';
+
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { X } from "lucide-react";
@@ -51,7 +51,7 @@ export default function MenuEditor() {
   const { menuId } = useParams();
   const navigate = useNavigate();
   const supabase = useSupabase();
-  const { toast } = useToast(); // Initialize toast hook
+  
 
   // State management
   const [loading, setLoading] = useState(true);
@@ -59,6 +59,7 @@ export default function MenuEditor() {
   const [menu, setMenu] = useState<any | null>(null);
   const [categories, setCategories] = useState<any[]>([]);
   const [menuItems, setMenuItems] = useState<any[]>([]);
+  const [saveMessage, setSaveMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   
   // Modal states
   const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
@@ -176,22 +177,14 @@ export default function MenuEditor() {
       // Call the new function to save category order
       await handleSaveCategoryOrder();
 
-      // Add success toast
-      toast({
-        title: "Sucesso!",
-        description: "Cardápio atualizado com sucesso.",
-        variant: "success", // Assuming a success variant exists
-      });
+      setSaveMessage({ text: "Cardápio atualizado com sucesso!", type: "success" });
 
     } catch (err: any) {
       console.error("Error saving menu:", err);
-      setError(err.message || "Failed to save menu.");
-      // Add error toast
-      toast({
-        title: "Erro",
-        description: err.message || "Falha ao atualizar cardápio.",
-        variant: "destructive", // Assuming a destructive variant exists
-      });
+      setError(err.message || "Falha ao salvar cardápio.");
+      setSaveMessage({ text: err.message || "Falha ao atualizar cardápio.", type: "error" });
+    } finally {
+      setTimeout(() => setSaveMessage(null), 5000); // Clear message after 5 seconds
     }
   };
 
@@ -281,6 +274,12 @@ export default function MenuEditor() {
       </div>
 
       <MenuDetailsCard menuForm={menuForm} handleSaveMenu={handleSaveMenu} />
+
+      {saveMessage && (
+        <div className={`p-3 rounded-md text-center font-semibold ${saveMessage.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+          {saveMessage.text}
+        </div>
+      )}
 
       <CategoriesList
         categories={categories}
