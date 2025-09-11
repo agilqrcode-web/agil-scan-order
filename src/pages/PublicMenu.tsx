@@ -98,10 +98,14 @@ export default function PublicMenu() {
           <div className="container mx-auto px-4 max-w-3xl">
             <TabsContent value="menu">
               {/* Existing Menu Display Logic */}
-              <Card className="mb-4 shadow-xl overflow-hidden">
-                {/* Placeholder for Restaurant Image Banner */}
-                <div className="h-48 bg-gray-200 flex items-center justify-center rounded-lg">
-                  <p className="text-gray-500 font-medium">Futuro banner do cardápio</p>
+              <Card className="mb-4 shadow-xl overflow-hidden rounded-lg">
+                {/* Banner do Cardápio */}
+                <div className="w-full h-48 bg-gray-200 flex items-center justify-center">
+                  {menu.banner_url ? (
+                    <img src={menu.banner_url} alt={`Banner do ${menu.name}`} className="w-full h-full object-cover" />
+                  ) : (
+                    <ImageIcon className="h-16 w-16 text-gray-400" />
+                  )}
                 </div>
               </Card>
 
