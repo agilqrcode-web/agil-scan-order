@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSupabase } from '@/contexts/SupabaseContext';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -51,21 +52,25 @@ export default function MenuEditor() {
   const { menuId } = useParams();
   const navigate = useNavigate();
   const supabase = useSupabase();
-  
+  const queryClient = useQueryClient();
 
   // State management
   const [loading, setLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [menu, setMenu] = useState<any | null>(null);
   const [categories, setCategories] = useState<any[]>([]);
   const [menuItems, setMenuItems] = useState<any[]>([]);
   const [saveMessage, setSaveMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
-  
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [bannerPreview, setBannerPreview] = useState<string | null>(null);
+  const [isBannerMarkedForDeletion, setIsBannerMarkedForDeletion] = useState(false);
+
   // Modal states
   const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
   const [isAddMenuItemModalOpen, setIsAddMenuItemModalOpen] = useState(false);
   const [isEditMenuItemModalOpen, setIsEditMenuItemModalOpen] = useState(false);
-  
+
   // State for actions
   const [selectedCategoryIdForMenuItem, setSelectedCategoryIdForMenuItem] = useState<string | null>(null);
   const [itemSuggestions, setItemSuggestions] = useState<string[]>([]);
@@ -135,6 +140,7 @@ export default function MenuEditor() {
       const menuData = await menuResponse.json();
       setMenu(menuData);
       menuForm.reset(menuData);
+      setBannerPreview(menuData.banner_url || null);
 
       const { data: categoriesData, error: categoriesError } = await supabase.from('categories').select('*').eq('restaurant_id', menuData.restaurant_id).order('position');
       if (categoriesError) throw categoriesError;
@@ -153,6 +159,41 @@ export default function MenuEditor() {
 
   useEffect(() => { fetchMenuData(); }, [menuId, supabase]);
 
+  const handleBannerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!['image/png', 'image/jpeg'].includes(file.type)) {
+      setSaveMessage({ text: 'Formato de arquivo inválido. Use PNG ou JPG.', type: 'error' });
+      setTimeout(() => setSaveMessage(null), 5000);
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      setSaveMessage({ text: 'O arquivo é muito grande. O tamanho máximo é 2MB.', type: 'error' });
+      setTimeout(() => setSaveMessage(null), 5000);
+      return;
+    }
+
+    setBannerFile(file);
+    setBannerPreview(URL.createObjectURL(file));
+    setIsBannerMarkedForDeletion(false);
+  };
+
+  const handleBannerRemove = () => {
+    setBannerFile(null);
+    setBannerPreview(null);
+    setIsBannerMarkedForDeletion(true);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (bannerPreview && bannerPreview.startsWith('blob:')) {
+        URL.revokeObjectURL(bannerPreview);
+      }
+    };
+  }, [bannerPreview]);
+
   const handleSaveCategoryOrder = async () => {
     try {
       const response = await fetch("/api/categories", {
@@ -169,22 +210,75 @@ export default function MenuEditor() {
   };
 
   const handleSaveMenu = async (values: MenuFormValues) => {
-    if (!menuId) return;
-    try {
-      const response = await fetch("/api/menus", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: menuId, ...values }) });
-      if (!response.ok) throw new Error((await response.json()).error || "Failed to update menu.");
+    if (!menuId || !menu || !supabase) return;
+    setIsSaving(true);
+    setSaveMessage(null);
 
-      // Call the new function to save category order
+    try {
+      let newBannerUrl = menu.banner_url;
+
+      if (isBannerMarkedForDeletion && menu.banner_url) {
+        const oldBannerPath = menu.banner_url.substring(menu.banner_url.lastIndexOf('/') + 1);
+        if (oldBannerPath) {
+          await supabase.storage.from('menu-banners').remove([oldBannerPath]);
+        }
+        newBannerUrl = null;
+      }
+
+      if (bannerFile) {
+        if (menu.banner_url && !isBannerMarkedForDeletion) {
+          const oldBannerPath = menu.banner_url.substring(menu.banner_url.lastIndexOf('/') + 1);
+          if (oldBannerPath) {
+            await supabase.storage.from('menu-banners').remove([oldBannerPath]);
+          }
+        }
+
+        const fileExt = bannerFile.name.split('.').pop();
+        const filePath = `${menu.restaurant_id}/${menu.id}-${Date.now()}.${fileExt}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('menu-banners')
+          .upload(filePath, bannerFile);
+
+        if (uploadError) {
+          throw new Error(`Falha no upload do banner: ${uploadError.message}`);
+        }
+
+        const { data: publicUrlData } = supabase.storage.from('menu-banners').getPublicUrl(filePath);
+        newBannerUrl = publicUrlData.publicUrl;
+      }
+
+      const updateData = {
+        id: menuId,
+        name: values.name,
+        is_active: values.is_active,
+        banner_url: newBannerUrl,
+      };
+
+      const response = await fetch("/api/menus", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updateData),
+      });
+
+      if (!response.ok) {
+        throw new Error((await response.json()).error || "Failed to update menu.");
+      }
+
       await handleSaveCategoryOrder();
 
+      await queryClient.invalidateQueries({ queryKey: ['menus', menu.restaurant_id] });
       setSaveMessage({ text: "Cardápio atualizado com sucesso!", type: "success" });
+
+      setBannerFile(null);
+      setIsBannerMarkedForDeletion(false);
 
     } catch (err: any) {
       console.error("Error saving menu:", err);
-      setError(err.message || "Falha ao salvar cardápio.");
       setSaveMessage({ text: err.message || "Falha ao atualizar cardápio.", type: "error" });
     } finally {
-      setTimeout(() => setSaveMessage(null), 5000); // Clear message after 5 seconds
+      setIsSaving(false);
+      setTimeout(() => setSaveMessage(null), 5000);
     }
   };
 
@@ -273,7 +367,14 @@ export default function MenuEditor() {
         <Button onClick={() => navigate(-1)} variant="outline"><X className="mr-2 h-4 w-4" />Voltar</Button>
       </div>
 
-      <MenuDetailsCard menuForm={menuForm} handleSaveMenu={handleSaveMenu} />
+      <MenuDetailsCard
+        menuForm={menuForm}
+        handleSaveMenu={handleSaveMenu}
+        bannerPreview={bannerPreview}
+        onBannerChange={handleBannerChange}
+        onBannerRemove={handleBannerRemove}
+        isSaving={isSaving}
+      />
 
       {saveMessage && (
         <div className={`p-3 rounded-md text-center font-semibold ${saveMessage.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>

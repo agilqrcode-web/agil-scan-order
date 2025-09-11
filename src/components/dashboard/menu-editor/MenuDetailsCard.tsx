@@ -2,7 +2,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Save } from "lucide-react";
+import { Save, Upload, X, Image as ImageIcon } from "lucide-react";
+import React from "react";
 import { useForm, UseFormReturn } from "react-hook-form";
 import * as z from "zod";
 
@@ -16,17 +17,30 @@ type MenuFormValues = z.infer<typeof menuSchema>;
 interface MenuDetailsCardProps {
   menuForm: UseFormReturn<MenuFormValues>;
   handleSaveMenu: (values: MenuFormValues) => Promise<void>;
+  bannerPreview: string | null;
+  onBannerChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onBannerRemove: () => void;
+  isSaving: boolean;
 }
 
-export function MenuDetailsCard({ menuForm, handleSaveMenu }: MenuDetailsCardProps) {
+export function MenuDetailsCard({
+  menuForm,
+  handleSaveMenu,
+  bannerPreview,
+  onBannerChange,
+  onBannerRemove,
+  isSaving,
+}: MenuDetailsCardProps) {
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Detalhes do Cardápio</CardTitle>
-        <CardDescription>Edite o nome e status do seu cardápio.</CardDescription>
+        <CardDescription>Edite o nome, status e o banner do seu cardápio.</CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={menuForm.handleSubmit(handleSaveMenu)} className="space-y-4">
+        <form onSubmit={menuForm.handleSubmit(handleSaveMenu)} className="space-y-6">
           <div className="grid gap-2">
             <Label htmlFor="menuName">Nome do Cardápio</Label>
             <Input id="menuName" {...menuForm.register("name")} />
@@ -34,9 +48,49 @@ export function MenuDetailsCard({ menuForm, handleSaveMenu }: MenuDetailsCardPro
               <p className="text-red-500 text-sm">{menuForm.formState.errors.name.message}</p>
             )}
           </div>
-          <Button type="submit">
+
+          <div className="grid gap-3">
+            <Label>Banner do Cardápio</Label>
+            <div className="relative w-full h-48 border-2 border-dashed rounded-lg flex items-center justify-center bg-muted/40">
+              {bannerPreview ? (
+                <>
+                  <img src={bannerPreview} alt="Pré-visualização do banner" className="w-full h-full object-cover rounded-lg" />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon"
+                    className="absolute top-2 right-2 h-7 w-7"
+                    onClick={onBannerRemove}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </>
+              ) : (
+                <div className="text-center text-muted-foreground">
+                  <ImageIcon className="mx-auto h-10 w-10" />
+                  <p className="mt-2 text-sm">Nenhum banner selecionado</p>
+                </div>
+              )}
+            </div>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={onBannerChange}
+              className="hidden"
+              accept="image/png, image/jpeg"
+            />
+            <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
+              <Upload className="mr-2 h-4 w-4" />
+              Carregar Banner
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              Formatos: PNG, JPG. Dimensões ideais: 1200x400 pixels. Tamanho máximo: 2MB.
+            </p>
+          </div>
+
+          <Button type="submit" disabled={isSaving}>
             <Save className="mr-2 h-4 w-4" />
-            Salvar Cardápio
+            {isSaving ? "Salvando..." : "Salvar Cardápio"}
           </Button>
         </form>
       </CardContent>

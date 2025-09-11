@@ -67,16 +67,28 @@ export default async function handler(request, response) {
     case 'PUT':
       // Update Menu
       {
-        const { id, name, is_active } = request.body;
+        const { id, name, is_active, banner_url } = request.body;
         console.log(`[API/Menus] Received PUT request to update menu ID: ${id}`);
-        if (!id || !name) {
-          console.error("[API/Menus] Missing required fields for PUT request.");
-          return response.status(400).json({ error: 'Missing required fields: id, name' });
+        if (!id) {
+          console.error("[API/Menus] Missing required field 'id' for PUT request.");
+          return response.status(400).json({ error: "Missing required field: id" });
         }
+
+        const updateData = {};
+        if (name) updateData.name = name;
+        if (is_active !== undefined) updateData.is_active = is_active;
+        // Allow banner_url to be explicitly set to null to remove it
+        if (banner_url !== undefined) updateData.banner_url = banner_url;
+
+
+        if (Object.keys(updateData).length === 0) {
+          return response.status(400).json({ error: 'No update fields provided.' });
+        }
+
         try {
           const { data, error } = await supabase
             .from('menus')
-            .update({ name, is_active })
+            .update(updateData)
             .eq('id', id)
             .select();
           if (error) {
