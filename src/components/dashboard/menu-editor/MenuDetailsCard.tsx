@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Save, Upload, X, Image as ImageIcon } from "lucide-react";
+import { Upload, X, Image as ImageIcon } from "lucide-react";
 import React from "react";
 import { useForm, UseFormReturn } from "react-hook-form";
 import * as z from "zod";
@@ -16,20 +16,16 @@ type MenuFormValues = z.infer<typeof menuSchema>;
 
 interface MenuDetailsCardProps {
   menuForm: UseFormReturn<MenuFormValues>;
-  handleSaveMenu: (values: MenuFormValues) => Promise<void>;
   bannerPreview: string | null;
   onBannerChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onBannerRemove: () => void;
-  isSaving: boolean;
 }
 
 export function MenuDetailsCard({
   menuForm,
-  handleSaveMenu,
   bannerPreview,
   onBannerChange,
   onBannerRemove,
-  isSaving,
 }: MenuDetailsCardProps) {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -40,7 +36,7 @@ export function MenuDetailsCard({
         <CardDescription>Edite o nome, status e o banner do seu cardápio.</CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={menuForm.handleSubmit(handleSaveMenu)} className="space-y-6">
+        <div className="space-y-6">
           <div className="grid gap-2">
             <Label htmlFor="menuName">Nome do Cardápio</Label>
             <Input id="menuName" {...menuForm.register("name")} />
@@ -79,20 +75,17 @@ export function MenuDetailsCard({
               className="hidden"
               accept="image/png, image/jpeg"
             />
-            <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
-              <Upload className="mr-2 h-4 w-4" />
-              Carregar Banner
-            </Button>
-            <p className="text-xs text-muted-foreground">
+            <div className="flex justify-center">
+              <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
+                <Upload className="mr-2 h-4 w-4" />
+                Carregar Banner
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground text-center">
               Formatos: PNG, JPG. Dimensões ideais: 1200x400 pixels. Tamanho máximo: 2MB.
             </p>
           </div>
-
-          <Button type="submit" disabled={isSaving}>
-            <Save className="mr-2 h-4 w-4" />
-            {isSaving ? "Salvando..." : "Salvar Cardápio"}
-          </Button>
-        </form>
+        </div>
       </CardContent>
     </Card>
   );
