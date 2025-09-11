@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useLayoutEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 
@@ -14,7 +14,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 export default function PublicMenu() {
   // Temporarily force a light theme for this public page only,
   // without changing the user's saved preference.
-  useEffect(() => {
+  useLayoutEffect(() => {
     const htmlElement = document.documentElement;
     // Store the original theme
     const originalTheme = htmlElement.classList.contains('dark') ? 'dark' : 'light';
@@ -167,7 +167,7 @@ export default function PublicMenu() {
             <TabsContent value="info">
               <Card className="p-6 shadow-lg bg-white">
                 <CardTitle className="text-2xl font-bold mb-4 text-gray-800">Informações do Restaurante</CardTitle>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
                   {/* Column 1 */}
                   <div>
                     <h3 className="text-xl font-semibold mb-3 flex items-center text-gray-800">
