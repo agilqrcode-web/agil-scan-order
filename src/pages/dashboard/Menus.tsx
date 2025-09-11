@@ -71,6 +71,13 @@ export default function Menus() {
     enabled: !!restaurantId,
   });
 
+  // Adicionado para depuração
+  useEffect(() => {
+    if (menus) {
+      console.log('Dados de menus recebidos:', menus);
+    }
+  }, [menus]);
+
   // Mutation for creating a menu
   const createMenuMutation = useMutation({
     mutationFn: async (values: MenuFormValues) => {
