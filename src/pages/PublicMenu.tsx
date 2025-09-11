@@ -18,19 +18,19 @@ export default function PublicMenu() {
   // without changing the user's saved preference.
   useLayoutEffect(() => {
     const htmlElement = document.documentElement;
-    // Store the original theme
-    const originalTheme = htmlElement.classList.contains('dark') ? 'dark' : 'light';
     
-    // Apply the light theme
-    htmlElement.classList.remove('dark');
-    htmlElement.classList.add('light');
+    // Store original values
+    const originalClassName = htmlElement.className;
+    const originalColorScheme = htmlElement.style.colorScheme;
 
-    // On component unmount, restore the original theme
+    // Force light theme
+    htmlElement.className = 'light'; // Force class for shadcn compatibility
+    htmlElement.style.colorScheme = 'light'; // Signal to browser/extensions
+
+    // On component unmount, restore original values
     return () => {
-      htmlElement.classList.remove('light');
-      if (originalTheme === 'dark') {
-        htmlElement.classList.add('dark');
-      }
+      htmlElement.className = originalClassName;
+      htmlElement.style.colorScheme = originalColorScheme;
     };
   }, []); // Run only once on mount and cleanup on unmount
 
