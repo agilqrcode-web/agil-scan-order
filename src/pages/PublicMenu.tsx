@@ -7,6 +7,7 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button'; // Added Button import
+import { Input } from "@/components/ui/input";
 import { Loader2, UtensilsCrossed, Info, ShoppingCart, Wallet, Calendar, MapPin, Clock, Phone, BookOpen } from 'lucide-react'; // Added icons
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'; // Added Tabs components
 
@@ -211,18 +212,65 @@ export default function PublicMenu() {
             </TabsContent>
 
             <TabsContent value="checkout">
-              <Card className="p-6 shadow-lg bg-white">
-                <CardTitle className="text-2xl font-bold mb-4 text-gray-800">Checkout de Pedidos</CardTitle>
-                <p className="text-gray-700 mb-2">
-                  Esta é a área de checkout. Em breve, você poderá finalizar seu pedido aqui!
-                </p>
-                <p className="text-gray-700">
-                  **Itens no Carrinho:** (Nenhum item adicionado ainda)
-                </p>
-                <div className="mt-4">
-                  <Button className="w-full bg-primary-600 hover:bg-primary-700 text-white">Finalizar Pedido (Estático)</Button>
+              {/* Add padding to the bottom to account for the fixed bar */}
+              <div className="pb-24">
+                <Card className="p-6 shadow-lg bg-white">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                    {/* Coluna 1: Informações do Pedido */}
+                    <div>
+                      <h2 className="text-2xl font-bold mb-4 text-gray-800">Informações do pedido</h2>
+                      {/* Formulário ou detalhes do pedido podem ir aqui */}
+                      <p className="text-gray-600">Em breve, você poderá adicionar informações como seu nome e número da mesa aqui.</p>
+                    </div>
+
+                    {/* Coluna 2: Resumo do Carrinho */}
+                    <div>
+                      <h3 className="text-xl font-bold mb-4 text-gray-800">Resumo</h3>
+                      <div className="space-y-4">
+                        {/* Cabeçalho da Tabela */}
+                        <div className="grid grid-cols-3 gap-4 text-sm font-semibold text-gray-600 border-b pb-2">
+                          <span>Qtd</span>
+                          <span className="col-span-1">Item</span>
+                          <span className="text-right">Preço</span>
+                        </div>
+
+                        {/* Itens do Carrinho (estático) */}
+                        <div className="text-center text-gray-500 py-8">
+                          <p>Carrinho está vazio</p>
+                        </div>
+
+                        {/* Cupom */}
+                        <div className="flex justify-between items-center pt-4 border-t">
+                          <Input placeholder="Adicionar cupom" className="max-w-xs" />
+                          <Button variant="outline">Aplicar</Button>
+                        </div>
+
+                        {/* Sub-total */}
+                        <div className="flex justify-between items-center pt-4 border-t">
+                          <span className="text-gray-600">Sub-Total</span>
+                          <span className="font-semibold">R$ 0,00</span>
+                        </div>
+
+                        {/* Total */}
+                        <div className="flex justify-between items-center text-xl font-bold pt-4 border-t">
+                          <span>Total</span>
+                          <span>R$ 0,00</span>
+                        </div>
+                      </div>
+                      {/* O botão de finalizar pedido foi movido para a barra inferior */}
+                    </div>
+                  </div>
+                </Card>
+              </div>
+
+              {/* Barra Inferior Fixa */}
+              <div className="fixed bottom-0 left-0 right-0 bg-white shadow-[0_-2px_10px_rgba(0,0,0,0.1)] border-t z-50">
+                <div className="container mx-auto max-w-3xl h-20 flex items-center justify-end px-4">
+                  <Button size="lg" className="bg-primary-600 hover:bg-primary-700 text-white">
+                    Fazer pedido
+                  </Button>
                 </div>
-              </Card>
+              </div>
             </TabsContent>
           </div>
         </div>
