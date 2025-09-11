@@ -161,9 +161,7 @@ export default function Menus() {
               Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-48 w-full" />)
             ) : menusError ? (
               <div className="text-red-500 col-span-3">Falha ao carregar cardápios: {menusError.message}</div>
-            ) : menus?.length === 0 ? (
-              <p className="text-muted-foreground col-span-3">Nenhum cardápio encontrado. Adicione um novo para começar!</p>
-            ) : (
+            ) : menus && menus.length > 0 ? (
               menus.map((menu) => (
                 <Card key={menu.id} className="hover:shadow-lg transition-shadow flex flex-col">
                   <div className="w-full h-32 bg-muted/30 flex items-center justify-center">
@@ -188,6 +186,8 @@ export default function Menus() {
                   </CardContent>
                 </Card>
               ))
+            ) : (
+              <p className="text-muted-foreground col-span-3">Nenhum cardápio encontrado. Adicione um novo para começar!</p>
             )}
           </div>
         </CardContent>
