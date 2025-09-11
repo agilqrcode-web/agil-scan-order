@@ -1,4 +1,4 @@
-import React, { useLayoutEffect } from 'react';
+import React from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 
@@ -14,25 +14,7 @@ import { Loader2, UtensilsCrossed, Info, ShoppingCart, Wallet, Calendar, MapPin,
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'; // Added Tabs components
 
 export default function PublicMenu() {
-  // Temporarily force a light theme for this public page only,
-  // without changing the user's saved preference.
-  useLayoutEffect(() => {
-    const htmlElement = document.documentElement;
-    
-    // Store original values
-    const originalClassName = htmlElement.className;
-    const originalColorScheme = htmlElement.style.colorScheme;
-
-    // Force light theme
-    htmlElement.className = 'light'; // Force class for shadcn compatibility
-    htmlElement.style.colorScheme = 'light'; // Signal to browser/extensions
-
-    // On component unmount, restore original values
-    return () => {
-      htmlElement.className = originalClassName;
-      htmlElement.style.colorScheme = originalColorScheme;
-    };
-  }, []); // Run only once on mount and cleanup on unmount
+  
 
   const { menuId } = useParams();
 
