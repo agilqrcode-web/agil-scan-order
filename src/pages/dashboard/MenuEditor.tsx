@@ -361,7 +361,7 @@ export default function MenuEditor() {
   if (!menu) return <div className="text-muted-foreground p-4">Cardápio não encontrado.</div>;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-24">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Editar Cardápio: {menu.name}</h1>
         <Button onClick={() => navigate(-1)} variant="outline"><X className="mr-2 h-4 w-4" />Voltar</Button>
@@ -446,9 +446,8 @@ export default function MenuEditor() {
         title="Você tem certeza?"
         description="Esta ação não pode ser desfeita. Isso excluirá permanentemente o item do cardápio."
       />
-    </div>
-  );
-}ixed bottom bar */}
+
+      {/* NEW: Fixed bottom bar */}
       <div className="fixed bottom-0 left-0 right-0 bg-card border-t shadow-sm p-4 z-10">
           <div className="max-w-4xl mx-auto flex justify-end">
               <Button 
