@@ -8,6 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button'; // Added Button import
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Loader2, UtensilsCrossed, Info, ShoppingCart, Wallet, Calendar, MapPin, Clock, Phone, BookOpen } from 'lucide-react'; // Added icons
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'; // Added Tabs components
 
@@ -126,13 +128,12 @@ export default function PublicMenu() {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {categories.map((category) => (
-                    <Card key={category.id} className="shadow-lg bg-white">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-2xl font-bold text-gray-800">
-                          {category.name}
-                        </CardTitle>
+                    <Card key={category.id} className="shadow-lg bg-white flex flex-col">
+                      <CardHeader className="p-4">
+                        <CardTitle>{category.name}</CardTitle>
+                        <CardDescription>Veja os itens desta categoria abaixo.</CardDescription>
                       </CardHeader>
-                      <CardContent className="pt-2 space-y-4">
+                      <CardContent className="p-4 pt-0 flex-1">
                         {category.items && category.items.length > 0 ? (
                           category.items.map((item) => (
                             <div key={item.id} className="flex items-start space-x-4 pb-2">
@@ -165,108 +166,145 @@ export default function PublicMenu() {
             </TabsContent>
 
             <TabsContent value="info">
-              <Card className="p-6 shadow-lg bg-white">
-                <CardTitle className="text-2xl font-bold mb-4 text-gray-800">Informações do Restaurante</CardTitle>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                  {/* Column 1 */}
-                  <div>
-                    <h3 className="text-xl font-semibold mb-3 flex items-center text-gray-800">
-                      <Wallet className="h-5 w-5 mr-2 text-primary-500" /> Método de Pagamento
-                    </h3>
-                    <ul className="list-disc list-inside text-gray-700 space-y-1 pl-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Coluna da Esquerda */}
+                <div className="space-y-6">
+                  <Card className="p-6 shadow-lg bg-white">
+                    <CardHeader className="p-0 pb-4">
+                      <CardTitle className="flex items-center"><MapPin className="h-5 w-5 mr-3 text-primary" /> Endereço e Contato</CardTitle>
+                    </CardHeader>
+                    <div className="space-y-2 text-gray-700">
+                      <p>Rua Exemplo, 123 - Bairro Fictício, Cidade - UF</p>
+                      <p>(XX) XXXX-XXXX</p>
+                    </div>
+                  </Card>
+                  <Card className="p-6 shadow-lg bg-white">
+                    <CardHeader className="p-0 pb-4">
+                      <CardTitle className="flex items-center"><BookOpen className="h-5 w-5 mr-3 text-primary" /> Sobre Nós</CardTitle>
+                    </CardHeader>
+                    <p className="text-gray-700">Um lugar aconchegante com a melhor comida da cidade!</p>
+                  </Card>
+                </div>
+                {/* Coluna da Direita */}
+                <div className="space-y-6">
+                  <Card className="p-6 shadow-lg bg-white">
+                    <CardHeader className="p-0 pb-4">
+                      <CardTitle className="flex items-center"><Clock className="h-5 w-5 mr-3 text-primary" /> Horário de Funcionamento</CardTitle>
+                    </CardHeader>
+                    <p className="text-gray-700">Segunda a Domingo: 00:00 - 00:00</p>
+                  </Card>
+                  <Card className="p-6 shadow-lg bg-white">
+                    <CardHeader className="p-0 pb-4">
+                      <CardTitle className="flex items-center"><Wallet className="h-5 w-5 mr-3 text-primary" /> Métodos de Pagamento</CardTitle>
+                    </CardHeader>
+                    <ul className="list-disc list-inside text-gray-700">
                       <li>Dinheiro</li>
                       <li>Cartão</li>
                       <li>Pix</li>
                     </ul>
-
-                    <h3 className="text-xl font-semibold mt-6 mb-3 flex items-center text-gray-800">
-                      <Calendar className="h-5 w-5 mr-2 text-primary-500" /> Reserva de Mesa
-                    </h3>
-                    <p className="text-gray-700 pl-2">A combinar</p>
-
-                    <h3 className="text-xl font-semibold mt-6 mb-3 flex items-center text-gray-800">
-                      <MapPin className="h-5 w-5 mr-2 text-primary-500" /> Endereço
-                    </h3>
-                    <p className="text-gray-700 pl-2">Rua Exemplo, 123 - Bairro Fictício, Cidade - UF</p>
-                  </div>
-
-                  {/* Column 2 */}
-                  <div>
-                    <h3 className="text-xl font-semibold mb-3 flex items-center text-gray-800">
-                      <Clock className="h-5 w-5 mr-2 text-primary-500" /> Horário de Funcionamento
-                    </h3>
-                    <p className="text-gray-700 pl-2">Segunda a Domingo: 00:00 - 00:00</p>
-
-                    <h3 className="text-xl font-semibold mt-6 mb-3 flex items-center text-gray-800">
-                      <Phone className="h-5 w-5 mr-2 text-primary-500" /> Telefone
-                    </h3>
-                    <p className="text-gray-700 pl-2">(XX) XXXX-XXXX</p>
-
-                    <h3 className="text-xl font-semibold mt-6 mb-3 flex items-center text-gray-800">
-                      <BookOpen className="h-5 w-5 mr-2 text-primary-500" /> Sobre Nós
-                    </h3>
-                    <p className="text-gray-700 pl-2">Um lugar aconchegante com a melhor comida da cidade!</p>
-                  </div>
+                  </Card>
+                   <Card className="p-6 shadow-lg bg-white">
+                    <CardHeader className="p-0 pb-4">
+                      <CardTitle className="flex items-center"><Calendar className="h-5 w-5 mr-3 text-primary" /> Reservas</CardTitle>
+                    </CardHeader>
+                    <p className="text-gray-700">A combinar</p>
+                  </Card>
                 </div>
-              </Card>
+              </div>
             </TabsContent>
 
             <TabsContent value="checkout">
-              {/* Add padding to the bottom to account for the fixed bar */}
-              <div className="pb-24">
-                <Card className="p-6 shadow-lg bg-white">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                    {/* Coluna 1: Informações do Pedido */}
-                    <div>
-                      <h2 className="text-2xl font-bold mb-4 text-gray-800">Informações do pedido</h2>
-                      {/* Formulário ou detalhes do pedido podem ir aqui */}
-                      <p className="text-gray-600">Em breve, você poderá adicionar informações como seu nome e número da mesa aqui.</p>
-                    </div>
-
-                    {/* Coluna 2: Resumo do Carrinho */}
-                    <div>
-                      <h3 className="text-xl font-bold mb-4 text-gray-800">Resumo</h3>
+              <div className="pb-28"> {/* Padding for the fixed bottom bar */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {/* Coluna da Esquerda: Detalhes do Cliente */}
+                  <div className="space-y-6">
+                    <Card className="p-6 shadow-lg bg-white">
+                      <CardHeader className="p-0 pb-4">
+                        <CardTitle>Suas Informações</CardTitle>
+                        <CardDescription>Preencha seus dados para o pedido.</CardDescription>
+                      </CardHeader>
                       <div className="space-y-4">
-                        {/* Cabeçalho da Tabela */}
-                        <div className="grid grid-cols-3 gap-4 text-sm font-semibold text-gray-600 border-b pb-2">
-                          <span>Qtd</span>
-                          <span className="col-span-1">Item</span>
-                          <span className="text-right">Preço</span>
+                        <div>
+                          <Label htmlFor="customer-name">Nome</Label>
+                          <Input id="customer-name" placeholder="Seu nome" />
                         </div>
-
-                        {/* Itens do Carrinho (estático) */}
-                        <div className="text-center text-gray-500 py-8">
-                          <p>Carrinho está vazio</p>
-                        </div>
-
-                        {/* Cupom */}
-                        <div className="flex justify-between items-center pt-4 border-t">
-                          <Input placeholder="Adicionar cupom" className="max-w-xs" />
-                          <Button variant="outline">Aplicar</Button>
-                        </div>
-
-                        {/* Sub-total */}
-                        <div className="flex justify-between items-center pt-4 border-t">
-                          <span className="text-gray-600">Sub-Total</span>
-                          <span className="font-semibold">R$ 0,00</span>
-                        </div>
-
-                        {/* Total */}
-                        <div className="flex justify-between items-center text-xl font-bold pt-4 border-t">
-                          <span>Total</span>
-                          <span>R$ 0,00</span>
+                        <div>
+                          <Label htmlFor="table-number">Número da Mesa</Label>
+                          <Input id="table-number" placeholder="Número da sua mesa" />
                         </div>
                       </div>
-                      {/* O botão de finalizar pedido foi movido para a barra inferior */}
-                    </div>
+                    </Card>
+                    <Card className="p-6 shadow-lg bg-white">
+                      <CardHeader className="p-0 pb-4">
+                        <CardTitle>Observações</CardTitle>
+                      </CardHeader>
+                      <Textarea placeholder="Ex: tirar a cebola, ponto da carne mal passado, etc." />
+                    </Card>
                   </div>
-                </Card>
+
+                  {/* Coluna da Direita: Resumo do Pedido */}
+                  <div className="space-y-6">
+                    <Card className="p-6 shadow-lg bg-white">
+                      <CardHeader className="p-0 pb-4">
+                        <CardTitle>Resumo do Pedido</CardTitle>
+                      </CardHeader>
+                      
+                      {/* Lista de Itens */}
+                      <div className="flow-root">
+                        <ul className="-my-4 divide-y divide-gray-200">
+                          {/* Placeholder for a cart item */}
+                          <li className="flex items-center py-4">
+                            <img src="https://via.placeholder.com/64" alt="Item" className="h-16 w-16 rounded object-cover" />
+                            <div className="ml-4 flex-1">
+                              <h3 className="font-bold text-gray-900">Hambúrguer Clássico</h3>
+                              <p className="mt-1 text-sm text-gray-500">R$ 25,50</p>
+                            </div>
+                            <div className="flex items-center">
+                              <Button variant="outline" size="icon" className="h-8 w-8">-</Button>
+                              <span className="w-8 text-center">1</span>
+                              <Button variant="outline" size="icon" className="h-8 w-8">+</Button>
+                            </div>
+                          </li>
+                          {/* Fim do Placeholder */}
+                        </ul>
+                      </div>
+
+                      {/* Mensagem de carrinho vazio (para ser usada condicionalmente no futuro) */}
+                      <div className="text-center text-gray-500 py-8 hidden">
+                        <ShoppingCart className="mx-auto h-12 w-12" />
+                        <p className="mt-4">Seu carrinho está vazio</p>
+                      </div>
+
+                      {/* Detalhes de Custo */}
+                      <div className="mt-6 space-y-2 border-t pt-6">
+                        <div className="flex items-center justify-between gap-2">
+                          <Input placeholder="Adicionar cupom" className="flex-1" />
+                          <Button variant="outline">Aplicar</Button>
+                        </div>
+                        <dl className="space-y-1 text-sm text-gray-700 pt-4">
+                          <div className="flex justify-between">
+                            <dt>Sub-total</dt>
+                            <dd>R$ 25,50</dd>
+                          </div>
+                          <div className="flex justify-between">
+                            <dt>Taxa de Serviço (10%)</dt>
+                            <dd>R$ 2,55</dd>
+                          </div>
+                          <div className="flex justify-between font-bold text-base text-gray-900 border-t pt-2 mt-2">
+                            <dt>Total</dt>
+                            <dd>R$ 28,05</dd>
+                          </div>
+                        </dl>
+                      </div>
+                    </Card>
+                  </div>
+                </div>
               </div>
 
               {/* Barra Inferior Fixa */}
               <div className="fixed bottom-0 left-0 right-0 bg-white shadow-[0_-2px_10px_rgba(0,0,0,0.1)] border-t z-50">
                 <div className="container mx-auto max-w-3xl h-20 flex items-center justify-end px-4">
-                  <Button size="lg" className="bg-primary-600 hover:bg-primary-700 text-white">
+                  <Button size="lg" className="bg-primary hover:opacity-90 text-primary-foreground">
                     Fazer pedido
                   </Button>
                 </div>
