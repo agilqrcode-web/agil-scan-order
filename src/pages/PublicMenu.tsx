@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'; // Added Button import
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, UtensilsCrossed, Info, ShoppingCart, Wallet, Calendar, MapPin, Clock, Phone, BookOpen } from 'lucide-react'; // Added icons
+import { Loader2, UtensilsCrossed, Info, ShoppingCart, Wallet, Calendar, MapPin, Clock, Phone, BookOpen, ImageIcon } from 'lucide-react'; // Added icons
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'; // Added Tabs components
 
 export default function PublicMenu() {
@@ -71,24 +71,26 @@ export default function PublicMenu() {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-200">
       <Tabs defaultValue="menu" className="w-full"> {/* Main Tabs component now wraps everything */}
         {/* Fixed Header Bar */}
-        <div className="fixed top-0 left-0 right-0 z-50 bg-white shadow-md p-2 flex items-center justify-between">
-          <h1 className="text-lg font-bold text-gray-800">
-            {restaurant.name}
-          </h1>
-          <TabsList className="grid grid-cols-3 h-auto p-1 bg-gray-100 rounded-lg">
-            <TabsTrigger value="menu" className="flex flex-col items-center justify-center p-1 text-gray-600 data-[state=active]:bg-white data-[state=active]:text-primary-600 rounded-md shadow-sm transition-all duration-200">
-              <UtensilsCrossed className="h-4 w-4" />
-              <span className="text-xs font-medium">Cardápio</span>
-            </TabsTrigger>
-            <TabsTrigger value="info" className="flex flex-col items-center justify-center p-1 text-gray-600 data-[state=active]:bg-white data-[state=active]:text-primary-600 rounded-md shadow-sm transition-all duration-200">
-              <Info className="h-4 w-4" />
-              <span className="text-xs font-medium">Info</span>
-            </TabsTrigger>
-            <TabsTrigger value="checkout" className="flex flex-col items-center justify-center p-1 text-gray-600 data-[state=active]:bg-white data-[state=active]:text-primary-600 rounded-md shadow-sm transition-all duration-200">
-              <ShoppingCart className="h-4 w-4" />
-              <span className="text-xs font-medium">Pedido</span>
-            </TabsTrigger>
-          </TabsList>
+        <div className="fixed top-0 left-0 right-0 z-50">
+          <div className="container mx-auto max-w-3xl bg-white shadow-md p-2 flex items-center justify-between rounded-b-lg">
+            <h1 className="text-lg font-bold text-gray-800">
+              {restaurant.name}
+            </h1>
+            <TabsList className="grid grid-cols-3 h-auto p-1 bg-gray-100 rounded-lg">
+              <TabsTrigger value="menu" className="flex flex-col items-center justify-center p-1 text-gray-600 data-[state=active]:bg-white data-[state=active]:text-primary-600 rounded-md shadow-sm transition-all duration-200">
+                <UtensilsCrossed className="h-4 w-4" />
+                <span className="text-xs font-medium">Cardápio</span>
+              </TabsTrigger>
+              <TabsTrigger value="info" className="flex flex-col items-center justify-center p-1 text-gray-600 data-[state=active]:bg-white data-[state=active]:text-primary-600 rounded-md shadow-sm transition-all duration-200">
+                <Info className="h-4 w-4" />
+                <span className="text-xs font-medium">Info</span>
+              </TabsTrigger>
+              <TabsTrigger value="checkout" className="flex flex-col items-center justify-center p-1 text-gray-600 data-[state=active]:bg-white data-[state=active]:text-primary-600 rounded-md shadow-sm transition-all duration-200">
+                <ShoppingCart className="h-4 w-4" />
+                <span className="text-xs font-medium">Pedido</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
         </div>
 
         {/* Main Content Area - Adjusted padding-top for fixed header */}
@@ -236,7 +238,9 @@ export default function PublicMenu() {
                         <ul className="-my-4 divide-y divide-gray-200">
                           {/* Placeholder for a cart item */}
                           <li className="flex items-center py-4">
-                            <img src="https://via.placeholder.com/64" alt="Item" className="h-16 w-16 rounded object-cover" />
+                            <div className="h-16 w-16 rounded object-cover bg-secondary flex items-center justify-center">
+                              <ImageIcon className="h-8 w-8 text-gray-400" />
+                            </div>
                             <div className="ml-4 flex-1">
                               <h3 className="font-bold text-gray-900">Hambúrguer Clássico</h3>
                               <p className="mt-1 text-sm text-gray-500">R$ 25,50</p>
@@ -284,8 +288,8 @@ export default function PublicMenu() {
               </div>
 
               {/* Barra Inferior Fixa */}
-              <div className="fixed bottom-0 left-0 right-0 bg-white shadow-[0_-2px_10px_rgba(0,0,0,0.1)] border-t z-50">
-                <div className="container mx-auto max-w-3xl h-20 flex items-center justify-end px-4">
+              <div className="fixed bottom-0 left-0 right-0 z-50">
+                <div className="container mx-auto max-w-3xl h-20 flex items-center justify-end px-4 bg-white shadow-[0_-2px_10px_rgba(0,0,0,0.1)] border-t rounded-t-lg">
                   <Button size="lg" className="bg-primary hover:opacity-90 text-primary-foreground">
                     Fazer pedido
                   </Button>
