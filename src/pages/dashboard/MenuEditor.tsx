@@ -322,7 +322,7 @@ export default function MenuEditor() {
     <div className="space-y-6 pb-24">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Editar Cardápio: {menu.name}</h1>
-        <Button onClick={() => navigate(-1)} variant="outline"><X className="mr-2 h-4 w-4" />Voltar</Button>
+        
       </div>
 
       <MenuDetailsCard
@@ -409,15 +409,19 @@ export default function MenuEditor() {
                   {saveMessage.text}
                 </div>
               )}
-              <Button 
-                type="button" 
-                onClick={() => menuForm.handleSubmit(handleSaveMenu)()} 
-                disabled={isSaving}
-                className="ml-auto"
-              >
-                  <Save className="mr-2 h-4 w-4" />
-                  {isSaving ? "Salvando..." : "Salvar Cardápio"}
-              </Button>
+              <div className="flex space-x-2 ml-auto"> {/* Group for buttons, pushed to right */}
+                  <Button onClick={() => navigate(-1)} variant="outline">
+                      <X className="mr-2 h-4 w-4" />Voltar
+                  </Button>
+                  <Button 
+                    type="button" 
+                    onClick={() => menuForm.handleSubmit(handleSaveMenu)()} 
+                    disabled={isSaving}
+                  >
+                      <Save className="mr-2 h-4 w-4" />
+                      {isSaving ? "Salvando..." : "Salvar Cardápio"}
+                  </Button>
+              </div>
           </div>
       </div>
     </div>
