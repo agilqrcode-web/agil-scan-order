@@ -315,6 +315,8 @@ export default function MenuEditor() {
         handleItemNameInputChange={handleItemNameInputChange}
         itemSuggestions={itemSuggestions}
         setItemSuggestions={setItemSuggestions}
+        restaurantId={menu?.restaurant_id}
+        setSaveMessage={setSaveMessage}
       />
 
       <EditMenuItemModal
@@ -322,6 +324,8 @@ export default function MenuEditor() {
         onOpenChange={setIsEditMenuItemModalOpen}
         editMenuItemForm={editMenuItemForm}
         handleSaveMenuItem={handleSaveMenuItem}
+        restaurantId={menu?.restaurant_id}
+        setSaveMessage={setSaveMessage}
       />
 
       <DeleteConfirmationDialog
