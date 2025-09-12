@@ -10,6 +10,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { PREDEFINED_MENU_ITEMS, PREDEFINED_CATEGORIES } from '@/lib/menu-constants';
+import { useMenuBannerUpload } from '@/hooks/useMenuBannerUpload';
 
 // Import extracted components
 import { MenuDetailsCard } from '@/components/dashboard/menu-editor/MenuDetailsCard';
@@ -63,9 +64,6 @@ export default function MenuEditor() {
   const [categories, setCategories] = useState<any[]>([]);
   const [menuItems, setMenuItems] = useState<any[]>([]);
   const [saveMessage, setSaveMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
-  const [bannerFile, setBannerFile] = useState<File | null>(null);
-  const [bannerPreview, setBannerPreview] = useState<string | null>(null);
-  const [isBannerMarkedForDeletion, setIsBannerMarkedForDeletion] = useState(false);
 
   // Modal states
   const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
@@ -83,6 +81,18 @@ export default function MenuEditor() {
   const addMenuItemForm = useForm<MenuItemFormValues>({ resolver: zodResolver(menuItemSchema), defaultValues: { name: "", description: "", price: undefined, image_url: "" } });
   const editMenuItemForm = useForm<MenuItemFormValues>({ resolver: zodResolver(menuItemSchema) });
 
+  const {
+    bannerPreview,
+    handleBannerChange,
+    handleBannerRemove,
+    uploadBanner,
+    resetBannerState,
+  } = useMenuBannerUpload({
+    initialBannerUrl: menu?.banner_url || null,
+    menuId: menuId || '',
+    restaurantId: menu?.restaurant_id || '',
+    setSaveMessage,
+  });
   
   const usedCategoryNames = React.useMemo(() => {
     return categories.map(cat => cat.name.toLowerCase());
@@ -98,8 +108,8 @@ export default function MenuEditor() {
       const menuData = await menuResponse.json();
       setMenu(menuData);
       menuForm.reset(menuData);
-      setBannerPreview(menuData.banner_url || null);
-
+      // setBannerPreview(menuData.banner_url || null); // This line is now handled by the hook's initialBannerUrl
+      
       const { data: categoriesData, error: categoriesError } = await supabase.from('categories').select('*').eq('restaurant_id', menuData.restaurant_id).order('position');
       if (categoriesError) throw categoriesError;
       setCategories(categoriesData || []);
@@ -116,41 +126,6 @@ export default function MenuEditor() {
   };
 
   useEffect(() => { fetchMenuData(); }, [menuId, supabase]);
-
-  const handleBannerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!['image/png', 'image/jpeg'].includes(file.type)) {
-      setSaveMessage({ text: 'Formato de arquivo inválido. Use PNG ou JPG.', type: 'error' });
-      setTimeout(() => setSaveMessage(null), 5000);
-      return;
-    }
-
-    if (file.size > 2 * 1024 * 1024) {
-      setSaveMessage({ text: 'O arquivo é muito grande. O tamanho máximo é 2MB.', type: 'error' });
-      setTimeout(() => setSaveMessage(null), 5000);
-      return;
-    }
-
-    setBannerFile(file);
-    setBannerPreview(URL.createObjectURL(file));
-    setIsBannerMarkedForDeletion(false);
-  };
-
-  const handleBannerRemove = () => {
-    setBannerFile(null);
-    setBannerPreview(null);
-    setIsBannerMarkedForDeletion(true);
-  };
-
-  useEffect(() => {
-    return () => {
-      if (bannerPreview && bannerPreview.startsWith('blob:')) {
-        URL.revokeObjectURL(bannerPreview);
-      }
-    };
-  }, [bannerPreview]);
 
   const handleSaveCategoryOrder = async () => {
     try {
@@ -173,38 +148,7 @@ export default function MenuEditor() {
     setSaveMessage(null);
 
     try {
-      let newBannerUrl = menu.banner_url;
-
-      if (isBannerMarkedForDeletion && menu.banner_url) {
-        const oldBannerPath = menu.banner_url.substring(menu.banner_url.lastIndexOf('/') + 1);
-        if (oldBannerPath) {
-          await supabase.storage.from('menu-banners').remove([oldBannerPath]);
-        }
-        newBannerUrl = null;
-      }
-
-      if (bannerFile) {
-        if (menu.banner_url && !isBannerMarkedForDeletion) {
-          const oldBannerPath = menu.banner_url.substring(menu.banner_url.lastIndexOf('/') + 1);
-          if (oldBannerPath) {
-            await supabase.storage.from('menu-banners').remove([oldBannerPath]);
-          }
-        }
-
-        const fileExt = bannerFile.name.split('.').pop();
-        const filePath = `${menu.restaurant_id}/${menu.id}-${Date.now()}.${fileExt}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('menu-banners')
-          .upload(filePath, bannerFile);
-
-        if (uploadError) {
-          throw new Error(`Falha no upload do banner: ${uploadError.message}`);
-        }
-
-        const { data: publicUrlData } = supabase.storage.from('menu-banners').getPublicUrl(filePath);
-        newBannerUrl = publicUrlData.publicUrl;
-      }
+      const newBannerUrl = await uploadBanner(menu.banner_url); // Use the hook's uploadBanner function
 
       const updateData = {
         id: menuId,
@@ -228,8 +172,7 @@ export default function MenuEditor() {
       await queryClient.invalidateQueries({ queryKey: ['menus', menu.restaurant_id] });
       setSaveMessage({ text: "Cardápio atualizado com sucesso!", type: "success" });
 
-      setBannerFile(null);
-      setIsBannerMarkedForDeletion(false);
+      resetBannerState(); // Use the hook's reset function
 
     } catch (err: any) {
       console.error("Error saving menu:", err);
@@ -414,11 +357,12 @@ export default function MenuEditor() {
                     type="button" 
                     onClick={() => menuForm.handleSubmit(handleSaveMenu)()} 
                     disabled={isSaving}
+                    size="default"
                   >
                       <Save className="mr-2 h-4 w-4" />
                       {isSaving ? "Salvando..." : "Salvar Cardápio"}
                   </Button>
-                  <Button onClick={() => navigate(-1)} variant="outline">
+                  <Button onClick={() => navigate(-1)} variant="outline" size="default">
                       <X className="mr-2 h-4 w-4" />Voltar
                   </Button>
               </div>
