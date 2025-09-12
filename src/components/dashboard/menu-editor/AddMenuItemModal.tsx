@@ -36,7 +36,6 @@ interface AddMenuItemModalProps {
   setSaveMessage: (message: { text: string; type: 'success' | 'error' } | null) => void;
 }
 
-// A small reusable component for the image upload UI
 const ImageUploader = ({ imagePreview, handleImageChange, handleImageRemove }) => (
   <div className="grid grid-cols-4 items-start gap-4">
     <Label className="text-right pt-2">Imagem</Label>
@@ -74,6 +73,7 @@ export function AddMenuItemModal({
   restaurantId,
   setSaveMessage,
 }: AddMenuItemModalProps) {
+  const [activeTab, setActiveTab] = useState('sugerido');
 
   const { 
     imagePreview, 
@@ -89,9 +89,10 @@ export function AddMenuItemModal({
 
   useEffect(() => {
     if (isOpen) {
-      addMenuItemForm.reset();
+      addMenuItemForm.reset({ name: '', description: '', price: undefined, image_url: '' });
       setItemSuggestions([]);
       resetImageState();
+      setActiveTab('sugerido');
     }
   }, [isOpen, addMenuItemForm, setItemSuggestions, resetImageState]);
 
@@ -100,12 +101,19 @@ export function AddMenuItemModal({
       const newImageUrl = await uploadImage(null);
       const finalValues = { ...values, image_url: newImageUrl || '' };
       await handleSaveMenuItem(finalValues);
-      onOpenChange(false); // Close modal on success
+      onOpenChange(false);
     } catch (error) {
       console.error("Failed to save item with image:", error);
-      setSaveMessage({ text: 'Falha ao salvar item. Verifique o console para mais detalhes.', type: 'error' });
+      setSaveMessage({ text: 'Falha ao salvar item. Verifique o console.', type: 'error' });
     }
   };
+
+  const handleTabChange = (tab: string) => {
+    addMenuItemForm.reset();
+    setItemSuggestions([]);
+    resetImageState();
+    setActiveTab(tab);
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -117,13 +125,13 @@ export function AddMenuItemModal({
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={addMenuItemForm.handleSubmit(handleSaveWithImage)}>
-          <Tabs defaultValue="sugerido" className="w-full pt-4" onValueChange={() => { addMenuItemForm.reset(); setItemSuggestions([]); resetImageState(); }}>
+          <Tabs defaultValue="sugerido" value={activeTab} className="w-full pt-4" onValueChange={handleTabChange}>
             <TabsList className="grid w-full grid-cols-2"><TabsTrigger value="sugerido">Item Sugerido</TabsTrigger><TabsTrigger value="personalizado">Item Personalizado</TabsTrigger></TabsList>
             <TabsContent value="sugerido" className="py-4 space-y-4">
               <div className="grid grid-cols-4 items-center gap-4 relative">
                 <Label htmlFor="itemNameSuggested" className="text-right">Nome</Label>
                 <div className="col-span-3">
-                  <Input id="itemNameSuggested" {...addMenuItemForm.register("name")} className="w-full" placeholder="Digite para buscar uma sugestão..." onChange={handleItemNameInputChange} value={addMenuItemForm.watch("name") || ""} autoComplete="off" />
+                  <Input id="itemNameSuggested" {...addMenuItemForm.register("name", { disabled: activeTab !== 'sugerido' })} className="w-full" placeholder="Digite para buscar uma sugestão..." onChange={handleItemNameInputChange} autoComplete="off" />
                   {itemSuggestions.length > 0 && (
                     <div className="absolute z-10 top-full mt-1 w-full max-h-40 overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md">
                       {itemSuggestions.map((suggestion) => (
@@ -134,14 +142,14 @@ export function AddMenuItemModal({
                   {addMenuItemForm.formState.errors.name && <p className="text-sm text-red-500 mt-1">{addMenuItemForm.formState.errors.name.message}</p>}
                 </div>
               </div>
-              <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="itemDescriptionSuggested" className="text-right">Descrição</Label><Input id="itemDescriptionSuggested" {...addMenuItemForm.register("description")} className="col-span-3" placeholder="(Opcional)" /></div>
-              <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="itemPriceSuggested" className="text-right">Preço</Label><Input id="itemPriceSuggested" type="number" step="0.01" {...addMenuItemForm.register("price")} className="col-span-3" placeholder="Ex: 35.90" />{addMenuItemForm.formState.errors.price && <p className="col-span-4 text-right text-sm text-red-500">{addMenuItemForm.formState.errors.price.message}</p>}</div>
+              <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="itemDescriptionSuggested" className="text-right">Descrição</Label><Input id="itemDescriptionSuggested" {...addMenuItemForm.register("description", { disabled: activeTab !== 'sugerido' })} className="col-span-3" placeholder="(Opcional)" /></div>
+              <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="itemPriceSuggested" className="text-right">Preço</Label><Input id="itemPriceSuggested" type="number" step="0.01" {...addMenuItemForm.register("price", { disabled: activeTab !== 'sugerido' })} className="col-span-3" placeholder="Ex: 35.90" />{addMenuItemForm.formState.errors.price && <p className="col-span-4 text-right text-sm text-red-500">{addMenuItemForm.formState.errors.price.message}</p>}</div>
               <ImageUploader imagePreview={imagePreview} handleImageChange={handleImageChange} handleImageRemove={handleImageRemove} />
             </TabsContent>
             <TabsContent value="personalizado" className="py-4 space-y-4">
-              <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="itemNameCustom" className="text-right">Nome</Label><Input id="itemNameCustom" {...addMenuItemForm.register("name")} className="col-span-3" placeholder="Ex: Prato da Casa" autoComplete="off" />{addMenuItemForm.formState.errors.name && <p className="col-span-4 text-right text-sm text-red-500">{addMenuItemForm.formState.errors.name.message}</p>}</div>
-              <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="itemDescriptionCustom" className="text-right">Descrição</Label><Input id="itemDescriptionCustom" {...addMenuItemForm.register("description")} className="col-span-3" placeholder="Ex: Ingredientes especiais..." /></div>
-              <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="itemPriceCustom" className="text-right">Preço</Label><Input id="itemPriceCustom" type="number" step="0.01" {...addMenuItemForm.register("price")} className="col-span-3" placeholder="Ex: 42.00" />{addMenuItemForm.formState.errors.price && <p className="col-span-4 text-right text-sm text-red-500">{addMenuItemForm.formState.errors.price.message}</p>}</div>
+              <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="itemNameCustom" className="text-right">Nome</Label><Input id="itemNameCustom" {...addMenuItemForm.register("name", { disabled: activeTab === 'sugerido' })} className="col-span-3" placeholder="Ex: Prato da Casa" autoComplete="off" />{addMenuItemForm.formState.errors.name && <p className="col-span-4 text-right text-sm text-red-500">{addMenuItemForm.formState.errors.name.message}</p>}</div>
+              <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="itemDescriptionCustom" className="text-right">Descrição</Label><Input id="itemDescriptionCustom" {...addMenuItemForm.register("description", { disabled: activeTab === 'sugerido' })} className="col-span-3" placeholder="Ex: Ingredientes especiais..." /></div>
+              <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="itemPriceCustom" className="text-right">Preço</Label><Input id="itemPriceCustom" type="number" step="0.01" {...addMenuItemForm.register("price", { disabled: activeTab === 'sugerido' })} className="col-span-3" placeholder="Ex: 42.00" />{addMenuItemForm.formState.errors.price && <p className="col-span-4 text-right text-sm text-red-500">{addMenuItemForm.formState.errors.price.message}</p>}</div>
               <ImageUploader imagePreview={imagePreview} handleImageChange={handleImageChange} handleImageRemove={handleImageRemove} />
             </TabsContent>
           </Tabs>
