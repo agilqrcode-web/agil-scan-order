@@ -9,6 +9,7 @@ import { X, Save } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { PREDEFINED_MENU_ITEMS, PREDEFINED_CATEGORIES } from '@/lib/menu-constants';
 
 // Import extracted components
 import { MenuDetailsCard } from '@/components/dashboard/menu-editor/MenuDetailsCard';
@@ -82,50 +83,7 @@ export default function MenuEditor() {
   const addMenuItemForm = useForm<MenuItemFormValues>({ resolver: zodResolver(menuItemSchema), defaultValues: { name: "", description: "", price: undefined, image_url: "" } });
   const editMenuItemForm = useForm<MenuItemFormValues>({ resolver: zodResolver(menuItemSchema) });
 
-  const PREDEFINED_MENU_ITEMS = [
-    "Bruschetta", "Carpaccio", "Batata frita", "Polenta frita", "Isca de peixe", "Anéis de cebola", "Coxinha", "Bolinho de bacalhau", "Pastéis sortidos", "Tábua de frios",
-    "Sopa de legumes", "Caldo verde", "Canja de galinha", "Creme de abóbora", "Sopa de cebola gratinada", "Caldo de feijão",
-    "Salada Caesar", "Salada Caprese", "Salada grega", "Salada tropical (frutas + verdes)", "Salada de grão-de-bico", "Salada de frango",
-    "Bife à parmegiana", "Filé mignon grelhado", "Picanha na chapa", "Costela assada", "Frango grelhado", "Strogonoff de carne", "Feijoada", "Churrasco misto",
-    "Espaguete à bolonhesa", "Lasanha à bolonhesa", "Nhoque ao sugo", "Ravioli de queijo", "Fettuccine Alfredo", "Penne quatro queijos",
-    "Bacalhau à portuguesa", "Filé de salmão grelhado", "Moqueca de peixe", "Camarão na moranga", "Risoto de frutos do mar", "Lula à dorê",
-    "Frango à passarinho", "Galeto assado", "Peito de frango grelhado", "Frango xadrez", "Frango à milanesa",
-    "Hambúrguer clássico", "Cheeseburger", "X-bacon", "Hambúrguer vegano", "Sanduíche natural de frango", "Bauru",
-    "Mussarela", "Calabresa", "Margherita", "Portuguesa", "Quatro queijos", "Frango com catupiry", "Pepperoni", "Vegetariana",
-    "Hambúrguer de grão-de-bico", "Strogonoff de cogumelos", "Risoto de legumes", "Tofu grelhado", "Espaguete de abobrinha",
-    "Arroz branco", "Arroz à grega", "Feijão carioca", "Purê de batata", "Legumes grelhados", "Farofa", "Vinagrete",
-    "Pudim de leite", "Mousse de chocolate", "Torta de limão", "Petit gâteau", "Brownie", "Cheesecake", "Sorvete", "Frutas da estação",
-    "Refrigerante (lata)", "Água mineral (com e sem gás)", "Suco natural de laranja", "Suco de maracujá", "Suco de uva integral", "Vitamina de frutas",
-    "Café expresso", "Café coado", "Cappuccino", "Latte", "Chá de camomila", "Chá mate",
-    "Caipirinha (limão, morango, maracujá)", "Mojito", "Piña colada", "Aperol Spritz", "Gin tônica",
-    "Cerveja pilsen (long neck)", "Cerveja artesanal IPA", "Cerveja de trigo", "Chopp claro", "Chopp escuro",
-    "Vinho tinto seco (taça)", "Vinho branco seco (taça)", "Vinho rosé", "Espumante brut"
-  ];
-  const PREDEFINED_CATEGORIES = [
-    "Entradas / Aperitivos",
-    "Sopas & Caldos",
-    "Saladas",
-    "Pratos Principais",
-    "Massas",
-    "Carnes",
-    "Peixes & Frutos do Mar",
-    "Aves",
-    "Sanduíches & Hambúrgueres",
-    "Pizzas",
-    "Comida Vegetariana / Vegana",
-    "Guarnições / Acompanhamentos",
-    "Sobremesas",
-    "Bebidas Não Alcoólicas",
-    "Sucos & Vitaminas",
-    "Cafés & Chás",
-    "Drinks & Coquetéis",
-    "Cervejas",
-    "Vinhos",
-    "Executivo / Combo do Dia",
-    "Infantil",
-    "Fit / Saudável",
-    "Promoções / Ofertas Especiais",
-  ];
+  
   const usedCategoryNames = React.useMemo(() => {
     return categories.map(cat => cat.name.toLowerCase());
   }, [categories]);
