@@ -403,7 +403,7 @@ export default function MenuEditor() {
 
       {/* NEW: Fixed bottom bar */}
       <div className="fixed bottom-0 left-0 right-0 bg-card border-t shadow-sm p-4 z-10">
-          <div className="max-w-4xl mx-auto flex justify-between items-center">
+          <div className="max-w-4xl mx-auto flex items-center">
               {saveMessage && (
                 <div className={`p-2 rounded-md text-sm font-semibold ${saveMessage.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                   {saveMessage.text}
@@ -413,6 +413,7 @@ export default function MenuEditor() {
                 type="button" 
                 onClick={() => menuForm.handleSubmit(handleSaveMenu)()} 
                 disabled={isSaving}
+                className="ml-auto"
               >
                   <Save className="mr-2 h-4 w-4" />
                   {isSaving ? "Salvando..." : "Salvar Cardápio"}
