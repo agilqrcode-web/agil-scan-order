@@ -14,33 +14,7 @@ export function CheckoutTab() {
     return (
         <div className="pb-28"> {/* Padding for the fixed bottom bar */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* Coluna da Esquerda: Detalhes do Cliente */}
-                <div className="space-y-6">
-                    <Card className="p-6 shadow-lg bg-white">
-                        <CardHeader className="p-0 pb-4">
-                            <CardTitle>Suas Informações</CardTitle>
-                            <CardDescription>Preencha seus dados para o pedido.</CardDescription>
-                        </CardHeader>
-                        <div className="space-y-4">
-                            <div>
-                                <Label htmlFor="customer-name">Nome</Label>
-                                <Input id="customer-name" placeholder="Seu nome" />
-                            </div>
-                            <div>
-                                <Label htmlFor="table-number">Número da Mesa</Label>
-                                <Input id="table-number" placeholder="Número da sua mesa" />
-                            </div>
-                        </div>
-                    </Card>
-                    <Card className="p-6 shadow-lg bg-white">
-                        <CardHeader className="p-0 pb-4">
-                            <CardTitle>Observações</CardTitle>
-                        </CardHeader>
-                        <Textarea placeholder="Ex: tirar a cebola, ponto da carne mal passado, etc." />
-                    </Card>
-                </div>
-
-                {/* Coluna da Direita: Resumo do Pedido */}
+                {/* Coluna da Direita: Resumo do Pedido (Agora na esquerda no código para aparecer primeiro no mobile) */}
                 <div className="space-y-6">
                     <Card className="p-6 shadow-lg bg-white">
                         <CardHeader className="p-0 pb-4">
@@ -103,6 +77,32 @@ export function CheckoutTab() {
                                 </div>
                             </>
                         )}
+                    </Card>
+                </div>
+
+                {/* Coluna da Esquerda: Detalhes do Cliente (Agora na direita no código para aparecer depois no mobile) */}
+                <div className="space-y-6">
+                    <Card className="p-6 shadow-lg bg-white">
+                        <CardHeader className="p-0 pb-4">
+                            <CardTitle>Suas Informações</CardTitle>
+                            <CardDescription>Preencha seus dados para o pedido.</CardDescription>
+                        </CardHeader>
+                        <div className="space-y-4">
+                            <div>
+                                <Label htmlFor="customer-name">Nome</Label>
+                                <Input id="customer-name" placeholder="Seu nome" />
+                            </div>
+                            <div>
+                                <Label htmlFor="table-number">Número da Mesa</Label>
+                                <Input id="table-number" placeholder="Número da sua mesa" />
+                            </div>
+                        </div>
+                    </Card>
+                    <Card className="p-6 shadow-lg bg-white">
+                        <CardHeader className="p-0 pb-4">
+                            <CardTitle>Observações</CardTitle>
+                        </CardHeader>
+                        <Textarea placeholder="Ex: tirar a cebola, ponto da carne mal passado, etc." />
                     </Card>
                 </div>
             </div>

@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, ReactNode, useMemo } from 'react';
 import { MenuItem } from '@/hooks/usePublicMenu';
+import { CheckCircle2 } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 
 export interface CartItem extends MenuItem {
@@ -33,8 +34,14 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       }
     });
     toast({
-        title: "Item adicionado!",
-        description: `${item.name} foi adicionado ao seu pedido.`,
+      variant: "success",
+      title: (
+        <div className="flex items-center gap-2">
+          <CheckCircle2 className="h-5 w-5" />
+          <span className="font-bold">Item adicionado!</span>
+        </div>
+      ),
+      description: `${item.name} foi adicionado ao seu pedido.`,
     })
   };
 
