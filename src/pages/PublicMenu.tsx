@@ -143,6 +143,7 @@ export default function PublicMenu() {
                               </div>
                             ))}
                           </div>
+                        ) : (
                           <p className="text-gray-500 italic">Nenhum item nesta categoria.</p>
                         )}
                       </CardContent>
