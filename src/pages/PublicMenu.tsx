@@ -125,16 +125,12 @@ export default function PublicMenu() {
                         {category.items && category.items.length > 0 ? (
                           category.items.map((item) => (
                             <div key={item.id} className="flex items-start space-x-4 pb-2">
-                              {item.image_url ? (
+                              {item.image_url && (
                                 <img
                                   src={item.image_url}
                                   alt={item.name}
                                   className="w-20 h-20 object-cover rounded-md shadow-sm flex-shrink-0"
                                 />
-                              ) : (
-                                <div className="w-20 h-20 rounded-md shadow-sm flex-shrink-0 bg-gray-200 flex items-center justify-center">
-                                  <UtensilsCrossed className="w-8 h-8 text-gray-400" />
-                                </div>
                               )}
                               <div className="flex-grow">
                                 <h4 className="text-lg font-bold text-gray-900">{item.name}</h4>
