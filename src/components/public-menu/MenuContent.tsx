@@ -1,12 +1,13 @@
 import { Card } from "@/components/ui/card";
-import { Category } from "@/hooks/usePublicMenu";
+import { Category, MenuItem } from "@/hooks/usePublicMenu";
 import { CategorySection } from "./CategorySection";
 
 interface MenuContentProps {
     categories: Category[];
+    onItemClick: (item: MenuItem) => void;
 }
 
-export function MenuContent({ categories }: MenuContentProps) {
+export function MenuContent({ categories, onItemClick }: MenuContentProps) {
     return (
         <>{
             categories.length === 0 ? (
@@ -14,9 +15,9 @@ export function MenuContent({ categories }: MenuContentProps) {
                     <p className="text-lg">Este cardápio ainda não possui categorias ou itens.</p>
                 </Card>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-8">
                     {categories.map((category) => (
-                        <CategorySection key={category.id} category={category} />
+                        <CategorySection key={category.id} category={category} onItemClick={onItemClick} />
                     ))}
                 </div>
             )

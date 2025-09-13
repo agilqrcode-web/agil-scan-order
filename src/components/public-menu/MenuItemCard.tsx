@@ -3,23 +3,24 @@ import { MenuItem } from "@/hooks/usePublicMenu";
 
 interface MenuItemCardProps {
     item: MenuItem;
+    onClick: () => void;
 }
 
-export function MenuItemCard({ item }: MenuItemCardProps) {
+export function MenuItemCard({ item, onClick }: MenuItemCardProps) {
     return (
-        <div key={item.id} className="flex items-center space-x-3 pt-2">
+        <div onClick={onClick} className="flex items-start space-x-4 p-2 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors duration-200">
             <img
                 src={item.image_url || '/placeholder.svg'}
                 alt={item.name}
-                className="w-16 h-16 object-cover rounded-lg shadow-sm flex-shrink-0"
+                className="w-20 h-20 object-cover rounded-md shadow-sm flex-shrink-0"
             />
             <div className="flex-grow">
-                <h4 className="text-base font-bold text-gray-800">{item.name}</h4>
+                <h4 className="text-base font-semibold text-gray-900">{item.name}</h4>
                 {item.description && (
-                    <p className="text-xs text-gray-500 mt-1">{item.description}</p>
+                    <p className="text-sm text-gray-500 mt-1 line-clamp-2">{item.description}</p>
                 )}
             </div>
-            <Badge className="text-base font-bold px-2 py-1 bg-green-600 text-white flex-shrink-0 self-start">
+            <Badge className="text-sm font-bold px-2 py-1 bg-green-100 text-green-800 flex-shrink-0 self-start border border-green-200">
                 R$ {item.price.toFixed(2).replace('.', ',')}
             </Badge>
         </div>
