@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Plus, Store, QrCode, ShoppingCart, Users, Pencil, Trash2 } from "lucide-react";
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@clerk/clerk-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSupabase } from "@/contexts/SupabaseContext";
@@ -12,6 +13,7 @@ interface Restaurant {
 }
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const { userId } = useAuth();
   const supabase = useSupabase();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
@@ -155,10 +157,17 @@ export default function Dashboard() {
                  <div className="text-red-500 text-sm">{error}</div>
               ) : restaurants.length > 0 ? (
                 restaurants.map(restaurant => (
-                  <div key={restaurant.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-100">
-                    <span className="font-medium">{restaurant.name}</span>
+                  <div key={restaurant.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-secondary">
+                    <div className="flex items-center gap-3">
+                      <img 
+                        src="/placeholder.svg" 
+                        alt={`Logo de ${restaurant.name}`}
+                        className="h-9 w-9 rounded-md object-cover" 
+                      />
+                      <span className="font-medium">{restaurant.name}</span>
+                    </div>
                     <div className="flex items-center gap-2">
-                      <Button variant="outline" size="icon" className="h-8 w-8">
+                      <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => navigate(`/dashboard/restaurants/${restaurant.id}/edit`)}>
                         <Pencil className="h-4 w-4" />
                       </Button>
                       <Button variant="destructive" size="icon" className="h-8 w-8">
