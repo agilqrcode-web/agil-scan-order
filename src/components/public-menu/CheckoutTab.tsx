@@ -45,13 +45,11 @@ export function CheckoutTab() {
                                                     {/* Linha 2: Preço e Controles */}
                                                     <div className="flex justify-between items-center mt-2">
                                                         <p className="text-sm text-gray-700 font-medium">R$ {item.price.toFixed(2).replace('.', ',')}</p>
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="flex items-center">
-                                                                <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => updateQuantity(item.id, item.quantity - 1)}>-</Button>
-                                                                <span className="w-10 text-center font-medium">{item.quantity}</span>
-                                                                <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => updateQuantity(item.id, item.quantity + 1)}>+</Button>
-                                                            </div>
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:bg-red-100 hover:text-red-600" onClick={() => removeFromCart(item.id)}>
+                                                        <div className="flex items-center">
+                                                            <Button variant="outline" size="icon" className="h-8 w-8 rounded-r-none" onClick={() => updateQuantity(item.id, item.quantity - 1)}>-</Button>
+                                                            <span className="w-8 text-center font-medium border-y h-8 flex items-center justify-center">{item.quantity}</span>
+                                                            <Button variant="outline" size="icon" className="h-8 w-8 rounded-l-none" onClick={() => updateQuantity(item.id, item.quantity + 1)}>+</Button>
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:bg-red-100 hover:text-red-600 ml-2" onClick={() => removeFromCart(item.id)}>
                                                                 <Trash2 className="h-4 w-4" />
                                                             </Button>
                                                         </div>
