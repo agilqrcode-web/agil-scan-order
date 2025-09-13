@@ -315,6 +315,7 @@ export default function MenuEditor() {
         handleItemNameInputChange={handleItemNameInputChange}
         itemSuggestions={itemSuggestions}
         setItemSuggestions={setItemSuggestions}
+        restaurantId={menu?.restaurant_id}
       />
 
       <EditMenuItemModal
