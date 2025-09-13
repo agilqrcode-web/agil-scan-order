@@ -1,21 +1,22 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Store, QrCode, ShoppingCart, Users } from "lucide-react";
+import { Plus, Store, QrCode, ShoppingCart, Users, Pencil, Trash2 } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { useAuth } from "@clerk/clerk-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSupabase } from "@/contexts/SupabaseContext";
 
+interface Restaurant {
+  id: string;
+  name: string;
+}
+
 export default function Dashboard() {
   const { userId } = useAuth();
   const supabase = useSupabase();
-  const [restaurantCount, setRestaurantCount] = useState<number | null>(null);
-  const [restaurantId, setRestaurantId] = useState<string | null>(null);
+  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [tableCounts, setTableCounts] = useState({
     total_tables: 0,
-    available_tables: 0,
-    occupied_tables: 0,
-    cleaning_tables: 0,
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -23,43 +24,34 @@ export default function Dashboard() {
   useEffect(() => {
     async function fetchData() {
       if (!userId || !supabase) {
-        console.log("Dashboard: userId or supabase not ready. userId:", userId, "supabase:", supabase);
         setLoading(false);
         return;
       }
 
       try {
-        // Fetch restaurant count
-        const { data: countData, error: countError } = await supabase
-          .rpc('get_user_restaurant_count', { p_user_id: userId });
+        // Fetch restaurants user is associated with
+        const { data: restaurantData, error: restaurantError } = await supabase
+          .from('restaurant_users')
+          .select('restaurants ( id, name )')
+          .eq('user_id', userId);
 
-        if (countError) {
-          throw countError;
-        }
-        setRestaurantCount(countData as number);
+        if (restaurantError) throw restaurantError;
 
-        // Fetch restaurant ID
-        const { data: idData, error: idError } = await supabase
-          .rpc('get_user_restaurant_id');
+        const fetchedRestaurants = restaurantData.map(item => item.restaurants).filter(Boolean) as Restaurant[];
+        setRestaurants(fetchedRestaurants);
 
-        if (idError) {
-          throw idError;
-        }
-        const fetchedRestaurantId = idData as string;
-        setRestaurantId(fetchedRestaurantId);
-
-        // Fetch table counts if restaurantId is available
-        if (fetchedRestaurantId) {
+        // Fetch table counts for the first restaurant for now
+        if (fetchedRestaurants.length > 0) {
           const { data: tableCountData, error: tableCountError } = await supabase
-            .rpc('get_table_counts_for_restaurant', { p_restaurant_id: fetchedRestaurantId });
+            .rpc('get_table_counts_for_restaurant', { p_restaurant_id: fetchedRestaurants[0].id });
 
-          if (tableCountError) {
-            throw tableCountError;
-          }
+          if (tableCountError) throw tableCountError;
+          
           if (tableCountData && tableCountData.length > 0) {
             setTableCounts(tableCountData[0]);
           }
         }
+
       } catch (err) {
         console.error("Error fetching dashboard data:", err);
         setError("Failed to load dashboard data.");
@@ -93,7 +85,7 @@ export default function Dashboard() {
             ) : error ? (
               <div className="text-red-500 text-sm">{error}</div>
             ) : (
-              <div className="text-2xl font-bold">{restaurantCount}</div>
+              <div className="text-2xl font-bold">{restaurants.length}</div>
             )}
             <p className="text-xs text-muted-foreground">
               Total de restaurantes
@@ -150,23 +142,37 @@ export default function Dashboard() {
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Bem-vindo ao Ágil QR!</CardTitle>
+            <CardTitle>Gerenciar Restaurantes</CardTitle>
             <CardDescription>
-              Comece criando seu primeiro restaurante
+              Edite ou exclua seus restaurantes existentes.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground mb-4">
-              Para começar a usar a plataforma, você precisa criar um restaurante,
-              configurar suas mesas e cardápios.
-            </p>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Criar Restaurante
-            </Button>
+            <div className="space-y-4">
+              {loading ? (
+                Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)
+              ) : error ? (
+                 <div className="text-red-500 text-sm">{error}</div>
+              ) : restaurants.length > 0 ? (
+                restaurants.map(restaurant => (
+                  <div key={restaurant.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-100">
+                    <span className="font-medium">{restaurant.name}</span>
+                    <div className="flex items-center gap-2">
+                      <Button variant="outline" size="icon" className="h-8 w-8">
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button variant="destructive" size="icon" className="h-8 w-8">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-4">Nenhum restaurante encontrado.</p>
+              )}
+            </div>
           </CardContent>
         </Card>
-
         <Card>
           <CardHeader>
             <CardTitle>Pedidos Recentes</CardTitle>
