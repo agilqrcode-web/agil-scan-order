@@ -3,11 +3,11 @@ import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/ca
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ShoppingCart } from "lucide-react";
+import { ShoppingCart, Trash2 } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 
 export function CheckoutTab() {
-    const { cartItems, updateQuantity, totalPrice } = useCart();
+    const { cartItems, updateQuantity, removeFromCart, totalPrice } = useCart();
     const serviceFee = totalPrice * 0.10;
     const finalTotal = totalPrice + serviceFee;
 
@@ -58,14 +58,14 @@ export function CheckoutTab() {
                                 <div className="flow-root">
                                     <ul className="-my-4 divide-y divide-gray-200">
                                         {cartItems.map(item => (
-                                            <li key={item.id} className="flex items-center py-4">
+                                            <li key={item.id} className="flex items-center py-4 gap-4">
                                                 <img
                                                     src={item.image_url || '/placeholder.svg'}
                                                     alt={item.name}
-                                                    className="h-16 w-16 rounded object-cover bg-secondary flex items-center justify-center"
+                                                    className="h-16 w-16 rounded object-cover bg-secondary flex-shrink-0"
                                                 />
-                                                <div className="ml-4 flex-1">
-                                                    <h3 className="font-semibold text-gray-900">{item.name}</h3>
+                                                <div className="flex-1">
+                                                    <h3 className="font-semibold text-gray-900 line-clamp-1">{item.name}</h3>
                                                     <p className="mt-1 text-sm text-gray-500">R$ {item.price.toFixed(2).replace('.', ',')}</p>
                                                 </div>
                                                 <div className="flex items-center">
@@ -73,6 +73,9 @@ export function CheckoutTab() {
                                                     <span className="w-10 text-center font-medium">{item.quantity}</span>
                                                     <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => updateQuantity(item.id, item.quantity + 1)}>+</Button>
                                                 </div>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:bg-red-100 hover:text-red-600" onClick={() => removeFromCart(item.id)}>
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
                                             </li>
                                         ))}
                                     </ul>
@@ -107,7 +110,7 @@ export function CheckoutTab() {
             {/* Barra Inferior Fixa */}
             <div className="fixed bottom-0 left-0 right-0 z-50">
                 <div className="container mx-auto max-w-3xl h-20 flex items-center justify-end px-4 bg-white shadow-[0_-2px_10px_rgba(0,0,0,0.1)] border-t rounded-t-lg">
-                    <Button size="lg" className="bg-primary hover:opacity-90 text-primary-foreground" disabled={cartItems.length === 0}>
+                    <Button size="lg" className="bg-orange-400 hover:bg-orange-500 text-white font-bold" disabled={cartItems.length === 0}>
                         Fazer pedido
                     </Button>
                 </div>

@@ -15,7 +15,7 @@ export function MenuContent({ categories, onItemClick }: MenuContentProps) {
                     <p className="text-lg">Este cardápio ainda não possui categorias ou itens.</p>
                 </Card>
             ) : (
-                <div className="space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {categories.map((category) => (
                         <CategorySection key={category.id} category={category} onItemClick={onItemClick} />
                     ))}

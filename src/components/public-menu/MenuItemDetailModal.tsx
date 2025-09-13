@@ -57,7 +57,7 @@ export function MenuItemDetailModal({ item, isOpen, onClose }: MenuItemDetailMod
         <DialogFooter className="p-6 pt-0">
           <div className="w-full flex justify-between items-center">
             <span className="text-2xl font-bold text-green-600">R$ {item.price.toFixed(2).replace('.', ',')}</span>
-            <Button onClick={handleAddToCart} size="lg" className="bg-primary hover:opacity-90 text-primary-foreground">
+            <Button onClick={handleAddToCart} size="lg" className="bg-orange-400 hover:bg-orange-500 text-white font-bold">
               Adicionar ao pedido
             </Button>
           </div>
