@@ -123,27 +123,26 @@ export default function PublicMenu() {
                       </CardHeader>
                       <CardContent className="p-4 pt-0 flex-1">
                         {category.items && category.items.length > 0 ? (
-                          category.items.map((item) => (
-                            <div key={item.id} className="flex items-start space-x-4 pb-2">
-                              {item.image_url && (
+                          <div className="space-y-2">
+                            {category.items.map((item) => (
+                              <div key={item.id} className="flex items-center space-x-3 pt-2">
                                 <img
-                                  src={item.image_url}
+                                  src={item.image_url || '/placeholder.svg'}
                                   alt={item.name}
-                                  className="w-20 h-20 object-cover rounded-md shadow-sm flex-shrink-0"
+                                  className="w-16 h-16 object-cover rounded-lg shadow-sm flex-shrink-0"
                                 />
-                              )}
-                              <div className="flex-grow">
-                                <h4 className="text-lg font-bold text-gray-900">{item.name}</h4>
-                                {item.description && (
-                                  <p className="text-sm text-gray-600 mt-1">{item.description}</p>
-                                )}
+                                <div className="flex-grow">
+                                  <h4 className="text-base font-bold text-gray-800">{item.name}</h4>
+                                  {item.description && (
+                                    <p className="text-xs text-gray-500 mt-1">{item.description}</p>
+                                  )}
+                                </div>
+                                <Badge className="text-base font-bold px-2 py-1 bg-green-600 text-white flex-shrink-0 self-start">
+                                  R$ {item.price.toFixed(2).replace('.', ',')}
+                                </Badge>
                               </div>
-                              <Badge className="text-lg font-bold px-3 py-1 bg-primary-600 text-white flex-shrink-0">
-                                R$ {item.price.toFixed(2).replace('.', ',')}
-                              </Badge>
-                            </div>
-                          ))
-                        ) : (
+                            ))}
+                          </div>
                           <p className="text-gray-500 italic">Nenhum item nesta categoria.</p>
                         )}
                       </CardContent>
