@@ -323,6 +323,7 @@ export default function MenuEditor() {
         onOpenChange={setIsEditMenuItemModalOpen}
         editMenuItemForm={editMenuItemForm}
         handleSaveMenuItem={handleSaveMenuItem}
+        restaurantId={menu?.restaurant_id}
       />
 
       <DeleteConfirmationDialog

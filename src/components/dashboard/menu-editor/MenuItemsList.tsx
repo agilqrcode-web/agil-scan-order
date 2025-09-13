@@ -16,7 +16,14 @@ export function MenuItemsList({ items, onEditItem, onDeleteItem }: MenuItemsList
     <>
       {items.map(item => (
         <div key={item.id} className="flex items-center justify-between border p-2 rounded-md">
-          <span>{item.name} - R$ {Number(item.price).toFixed(2)}</span>
+          <div className="flex items-center">
+            <img
+              src={item.image_url || '/placeholder.svg'}
+              alt={item.name}
+              className="w-10 h-10 object-cover rounded-md mr-4"
+            />
+            <span>{item.name} - R$ {Number(item.price).toFixed(2)}</span>
+          </div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => onEditItem(item)}>
               <Edit className="h-4 w-4" />
