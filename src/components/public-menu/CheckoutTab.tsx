@@ -32,24 +32,31 @@ export function CheckoutTab() {
                                 <div className="flow-root">
                                     <ul className="-my-4 divide-y divide-gray-200">
                                         {cartItems.map(item => (
-                                            <li key={item.id} className="flex items-center py-4 gap-4">
+                                            <li key={item.id} className="flex items-start py-4 gap-4">
                                                 <img
                                                     src={item.image_url || '/placeholder.svg'}
                                                     alt={item.name}
                                                     className="h-16 w-16 rounded object-cover bg-secondary flex-shrink-0"
                                                 />
-                                                <div className="flex-1">
-                                                    <h3 className="font-semibold text-gray-900 line-clamp-1">{item.name}</h3>
-                                                    <p className="mt-1 text-sm text-gray-500">R$ {item.price.toFixed(2).replace('.', ',')}</p>
+                                                <div className="flex-1 flex flex-col">
+                                                    {/* Linha 1: Nome do Item */}
+                                                    <h3 className="font-semibold text-gray-900">{item.name}</h3>
+                                                    
+                                                    {/* Linha 2: Preço e Controles */}
+                                                    <div className="flex justify-between items-center mt-2">
+                                                        <p className="text-sm text-gray-700 font-medium">R$ {item.price.toFixed(2).replace('.', ',')}</p>
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="flex items-center">
+                                                                <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => updateQuantity(item.id, item.quantity - 1)}>-</Button>
+                                                                <span className="w-10 text-center font-medium">{item.quantity}</span>
+                                                                <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => updateQuantity(item.id, item.quantity + 1)}>+</Button>
+                                                            </div>
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:bg-red-100 hover:text-red-600" onClick={() => removeFromCart(item.id)}>
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                                <div className="flex items-center">
-                                                    <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => updateQuantity(item.id, item.quantity - 1)}>-</Button>
-                                                    <span className="w-10 text-center font-medium">{item.quantity}</span>
-                                                    <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => updateQuantity(item.id, item.quantity + 1)}>+</Button>
-                                                </div>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:bg-red-100 hover:text-red-600" onClick={() => removeFromCart(item.id)}>
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
                                             </li>
                                         ))}
                                     </ul>
