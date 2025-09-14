@@ -273,27 +273,56 @@ export type Database = {
       }
       restaurants: {
         Row: {
+          about_us: string | null
+          address: string | null
           created_at: string | null
           description: string | null
           id: string
-          image_url: string | null
+          logo_url: string | null
           name: string
+          opening_hours: string | null
+          owner_user_id: string
+          payment_methods: string | null
+          phone: string | null
+          reservations_info: string | null
         }
         Insert: {
+          about_us?: string | null
+          address?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
-          image_url?: string | null
+          logo_url?: string | null
           name: string
+          opening_hours?: string | null
+          owner_user_id: string
+          payment_methods?: string | null
+          phone?: string | null
+          reservations_info?: string | null
         }
         Update: {
+          about_us?: string | null
+          address?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
-          image_url?: string | null
+          logo_url?: string | null
           name?: string
+          opening_hours?: string | null
+          owner_user_id?: string
+          payment_methods?: string | null
+          phone?: string | null
+          reservations_info?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fk_restaurants_owner_user_id"
+            columns: ["owner_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

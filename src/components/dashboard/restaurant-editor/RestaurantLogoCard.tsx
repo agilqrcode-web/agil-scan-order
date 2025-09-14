@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ImageIcon } from "lucide-react";
+import { ImageIcon, Upload, Trash2 } from "lucide-react";
 
 export function RestaurantLogoCard() {
     return (
@@ -15,8 +15,12 @@ export function RestaurantLogoCard() {
                     <ImageIcon className="h-16 w-16 text-muted-foreground" />
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="outline">Enviar nova logo</Button>
-                    <Button variant="ghost">Remover</Button>
+                    <Button variant="outline" size="icon">
+                        <Upload className="h-4 w-4" />
+                    </Button>
+                    <Button variant="destructive" size="icon">
+                        <Trash2 className="h-4 w-4" />
+                    </Button>
                 </div>
             </CardContent>
         </Card>
