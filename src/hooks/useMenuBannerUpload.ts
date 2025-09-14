@@ -60,36 +60,44 @@ export const useMenuBannerUpload = ({
 
   const uploadBanner = async (currentBannerUrl: string | null): Promise<string | null> => {
     let newBannerUrl = currentBannerUrl;
+    const bucketName = 'menu-banners';
 
-    if (isBannerMarkedForDeletion && currentBannerUrl) {
-      const bucketName = 'menu-banners';
-      const oldBannerPath = currentBannerUrl.substring(currentBannerUrl.indexOf(bucketName) + bucketName.length + 1);
-      if (oldBannerPath) {
-        await supabase.storage.from(bucketName).remove([oldBannerPath]);
-      }
+    // Lógica de remoção (seja por substituição ou remoção explícita)
+    const deleteOldBanner = async () => {
+        if (!currentBannerUrl) return;
+        try {
+            const oldBannerPath = currentBannerUrl.substring(currentBannerUrl.indexOf(bucketName) + bucketName.length + 1);
+            if (oldBannerPath) {
+                await supabase.storage.from(bucketName).remove([oldBannerPath]);
+            }
+        } catch (error) {
+            console.error("Failed to delete old banner:", error);
+            // Não trava a operação principal se a exclusão falhar
+        }
+    };
+
+    // Caso 1: O banner foi marcado para ser deletado
+    if (isBannerMarkedForDeletion) {
+      await deleteOldBanner();
       newBannerUrl = null;
     }
 
+    // Caso 2: Um novo arquivo foi selecionado (substituição)
     if (bannerFile) {
-      if (currentBannerUrl && !isBannerMarkedForDeletion) {
-        const oldBannerPath = currentBannerUrl.substring(currentBannerUrl.lastIndexOf('/') + 1);
-        if (oldBannerPath) {
-          await supabase.storage.from('menu-banners').remove([oldBannerPath]);
-        }
-      }
+      await deleteOldBanner(); // Deleta o antigo antes de subir o novo
 
       const fileExt = bannerFile.name.split('.').pop();
       const filePath = `${restaurantId}/${menuId}-${Date.now()}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
-        .from('menu-banners')
+        .from(bucketName)
         .upload(filePath, bannerFile);
 
       if (uploadError) {
         throw new Error(`Falha no upload do banner: ${uploadError.message}`);
       }
 
-      const { data: publicUrlData } = supabase.storage.from('menu-banners').getPublicUrl(filePath);
+      const { data: publicUrlData } = supabase.storage.from(bucketName).getPublicUrl(filePath);
       newBannerUrl = publicUrlData.publicUrl;
     }
 
