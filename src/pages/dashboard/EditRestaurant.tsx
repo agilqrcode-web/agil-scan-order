@@ -130,7 +130,7 @@ export default function EditRestaurant() {
                     {restaurant && (
                         <>
                             <RestaurantDetailsCard restaurant={restaurant} onInputChange={handleInputChange} />
-                            <RestaurantInfoCard restaurant={restaurant} onInputChange={handleInputChange} />
+                            <RestaurantInfoCard restaurant={restaurant} onInputChange={handleInputChange} onPaymentMethodChange={handlePaymentMethodChange} />
                         </>
                     )}
                 </div>
@@ -140,11 +140,28 @@ export default function EditRestaurant() {
                 </div>
             </div>
 
-            <div className="flex justify-end">
-                <Button size="lg" onClick={handleSave} disabled={isSaving}>
-                    {isSaving ? <Spinner size="small" className="mr-2" /> : null}
-                    {isSaving ? "Salvando..." : "Salvar Alterações"}
-                </Button>
+            <div className="fixed bottom-0 left-0 right-0 bg-card border-t shadow-sm p-4 z-10">
+                <div className="flex items-center">
+                    <div className="flex space-x-2 ml-auto">
+                        <Button size="default" onClick={handleSave} disabled={isSaving}>
+                            {isSaving ? <Spinner size="small" className="mr-2" /> : null}
+                            {isSaving ? "Salvando..." : "Salvar Alterações"}
+                        </Button>
+                        <Button onClick={() => window.location.href = 'https://agil-scan-order-neon.vercel.app/dashboard'} variant="outline" size="default">
+                            Voltar
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}                 {isSaving ? "Salvando..." : "Salvar Alterações"}
+                        </Button>
+                        <Button onClick={() => window.location.href = 'https://agil-scan-order-neon.vercel.app/dashboard'} variant="outline" size="default">
+                            Voltar
+                        </Button>
+                    </div>
+                </div>
             </div>
         </div>
     );
