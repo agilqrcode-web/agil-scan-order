@@ -2,7 +2,6 @@ import { Button } from "@/components/ui/button";
 import { RestaurantDetailsCard } from "@/components/dashboard/restaurant-editor/RestaurantDetailsCard";
 import { RestaurantInfoCard } from "@/components/dashboard/restaurant-editor/RestaurantInfoCard";
 import { RestaurantLogoCard } from "@/components/dashboard/restaurant-editor/RestaurantLogoCard";
-import { ArrowLeft } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Spinner } from "@/components/ui/spinner";
@@ -65,7 +64,7 @@ export default function EditRestaurant() {
         fetchRestaurant();
     }, [restaurantId, toast]);
 
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | { target: { id: string, value: string } }) => {
         const { id, value } = e.target;
         if (restaurant) {
             setRestaurant({ ...restaurant, [id]: value });
@@ -76,6 +75,17 @@ export default function EditRestaurant() {
         if (restaurant) {
             setRestaurant({ ...restaurant, logo_url: newLogoUrl });
         }
+    };
+
+    const handlePaymentMethodChange = (method: string) => {
+        if (!restaurant) return;
+
+        const currentMethods = restaurant.payment_methods ? restaurant.payment_methods.split(', ').filter(m => m) : [];
+        const newMethods = currentMethods.includes(method)
+            ? currentMethods.filter(m => m !== method)
+            : [...currentMethods, method];
+        
+        setRestaurant({ ...restaurant, payment_methods: newMethods.join(', ') });
     };
 
     const handleSave = async () => {
@@ -117,14 +127,7 @@ export default function EditRestaurant() {
     }
 
     return (
-        <div className="space-y-6">
-            <div>
-                <Button variant="outline" onClick={() => navigate("/dashboard")}>
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Voltar para o Dashboard
-                </Button>
-            </div>
-
+        <div className="space-y-6 pb-24"> {/* Added pb-24 for padding at the bottom */}
             <div className="grid gap-6 lg:grid-cols-3">
                 <div className="lg:col-span-2 space-y-6">
                     {restaurant && (
@@ -146,16 +149,6 @@ export default function EditRestaurant() {
                         <Button size="default" onClick={handleSave} disabled={isSaving}>
                             {isSaving ? <Spinner size="small" className="mr-2" /> : null}
                             {isSaving ? "Salvando..." : "Salvar Alterações"}
-                        </Button>
-                        <Button onClick={() => window.location.href = 'https://agil-scan-order-neon.vercel.app/dashboard'} variant="outline" size="default">
-                            Voltar
-                        </Button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-}                 {isSaving ? "Salvando..." : "Salvar Alterações"}
                         </Button>
                         <Button onClick={() => window.location.href = 'https://agil-scan-order-neon.vercel.app/dashboard'} variant="outline" size="default">
                             Voltar
