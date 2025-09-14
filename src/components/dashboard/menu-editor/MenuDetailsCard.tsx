@@ -65,14 +65,15 @@ export function MenuDetailsCard({
               accept="image/png, image/jpeg"
             />
             <div className="flex justify-center gap-2">
+              {!bannerPreview ? (
                 <Button type="button" variant="outline" size="icon" onClick={() => fileInputRef.current?.click()} aria-label="Carregar Banner">
                     <Upload className="h-4 w-4" />
                 </Button>
-                {bannerPreview && (
-                    <Button type="button" variant="destructive" size="icon" onClick={onBannerRemove} aria-label="Remover Banner">
-                        <Trash2 className="h-4 w-4" />
-                    </Button>
-                )}
+              ) : (
+                <Button type="button" variant="destructive" size="icon" onClick={onBannerRemove} aria-label="Remover Banner">
+                    <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
             </div>
             <p className="text-xs text-muted-foreground text-center">
               Formatos: PNG, JPG. Dimensões ideais: 1200x400 pixels. Tamanho máximo: 2MB.

@@ -15,14 +15,23 @@ export const useMenuBannerUpload = ({
   setSaveMessage,
 }: UseMenuBannerUploadProps) => {
   const supabase = useSupabase();
+  
+  // State for the image file selected by the user
   const [bannerFile, setBannerFile] = useState<File | null>(null);
+  // State for the image preview URL (can be a blob URL or a remote URL)
   const [bannerPreview, setBannerPreview] = useState<string | null>(initialBannerUrl);
+  // State to track the currently saved URL in the database
+  const [currentSavedUrl, setCurrentSavedUrl] = useState<string | null>(initialBannerUrl);
+  // State to flag if the user wants to delete the banner
   const [isBannerMarkedForDeletion, setIsBannerMarkedForDeletion] = useState(false);
 
+  // Sync states if the initial URL from props changes
   useEffect(() => {
     setBannerPreview(initialBannerUrl);
+    setCurrentSavedUrl(initialBannerUrl);
   }, [initialBannerUrl]);
 
+  // Clean up blob URLs to prevent memory leaks
   useEffect(() => {
     return () => {
       if (bannerPreview && bannerPreview.startsWith('blob:')) {
@@ -37,13 +46,10 @@ export const useMenuBannerUpload = ({
 
     if (!['image/png', 'image/jpeg'].includes(file.type)) {
       setSaveMessage({ text: 'Formato de arquivo inválido. Use PNG ou JPG.', type: 'error' });
-      setTimeout(() => setSaveMessage(null), 5000);
       return;
     }
-
     if (file.size > 2 * 1024 * 1024) {
-      setSaveMessage({ text: 'O arquivo é muito grande. O tamanho máximo é 2MB.', type: 'error' });
-      setTimeout(() => setSaveMessage(null), 5000);
+      setSaveMessage({ text: 'O arquivo é muito grande (máx 2MB).', type: 'error' });
       return;
     }
 
@@ -58,50 +64,50 @@ export const useMenuBannerUpload = ({
     setIsBannerMarkedForDeletion(true);
   };
 
-  const uploadBanner = async (currentBannerUrl: string | null): Promise<string | null> => {
-    let newBannerUrl = currentBannerUrl;
+  const uploadBanner = async (): Promise<string | null> => {
     const bucketName = 'menu-banners';
 
-    // Lógica de remoção (seja por substituição ou remoção explícita)
     const deleteOldBanner = async () => {
-        if (!currentBannerUrl) return;
-        try {
-            const oldBannerPath = currentBannerUrl.substring(currentBannerUrl.indexOf(bucketName) + bucketName.length + 1);
-            if (oldBannerPath) {
-                await supabase.storage.from(bucketName).remove([oldBannerPath]);
-            }
-        } catch (error) {
-            console.error("Failed to delete old banner:", error);
-            // Não trava a operação principal se a exclusão falhar
+      // Use the stateful URL, not a stale prop
+      if (!currentSavedUrl) return;
+      try {
+        const oldBannerPath = currentSavedUrl.substring(currentSavedUrl.indexOf(bucketName) + bucketName.length + 1);
+        if (oldBannerPath) {
+          await supabase.storage.from(bucketName).remove([oldBannerPath]);
         }
+      } catch (error) {
+        console.error("Failed to delete old banner:", error);
+      }
     };
 
-    // Caso 1: O banner foi marcado para ser deletado
+    // Case 1: Banner is marked for deletion
     if (isBannerMarkedForDeletion) {
       await deleteOldBanner();
-      newBannerUrl = null;
+      setCurrentSavedUrl(null); // Update internal state
+      return null;
     }
 
-    // Caso 2: Um novo arquivo foi selecionado (substituição)
+    // Case 2: A new file was selected for upload
     if (bannerFile) {
-      await deleteOldBanner(); // Deleta o antigo antes de subir o novo
+      await deleteOldBanner(); // Delete the old one before uploading
 
       const fileExt = bannerFile.name.split('.').pop();
       const filePath = `${restaurantId}/${menuId}-${Date.now()}.${fileExt}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from(bucketName)
-        .upload(filePath, bannerFile);
-
+      const { error: uploadError } = await supabase.storage.from(bucketName).upload(filePath, bannerFile);
       if (uploadError) {
         throw new Error(`Falha no upload do banner: ${uploadError.message}`);
       }
 
       const { data: publicUrlData } = supabase.storage.from(bucketName).getPublicUrl(filePath);
-      newBannerUrl = publicUrlData.publicUrl;
+      const newPublicUrl = publicUrlData.publicUrl;
+      
+      setCurrentSavedUrl(newPublicUrl); // Update internal state with the new URL
+      return newPublicUrl;
     }
 
-    return newBannerUrl;
+    // Case 3: No changes to the banner
+    return currentSavedUrl;
   };
 
   return {
@@ -112,6 +118,8 @@ export const useMenuBannerUpload = ({
     resetBannerState: () => {
       setBannerFile(null);
       setIsBannerMarkedForDeletion(false);
+      // After saving, the preview should revert to the newly saved URL
+      setBannerPreview(currentSavedUrl);
     },
   };
 };
