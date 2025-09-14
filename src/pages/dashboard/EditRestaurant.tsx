@@ -130,7 +130,7 @@ export default function EditRestaurant() {
                 </div>
 
                 <div className="lg:col-span-1">
-                    <RestaurantLogoCard />
+                    {restaurant && <RestaurantLogoCard restaurant={restaurant} onLogoUpdate={handleLogoUpdate} />}
                 </div>
             </div>
 
@@ -138,6 +138,12 @@ export default function EditRestaurant() {
                 <Button size="lg" onClick={handleSave} disabled={isSaving}>
                     {isSaving ? <Spinner size="small" className="mr-2" /> : null}
                     {isSaving ? "Salvando..." : "Salvar Alterações"}
+                </Button>
+            </div>
+        </div>
+    );
+}
+ndo..." : "Salvar Alterações"}
                 </Button>
             </div>
         </div>
