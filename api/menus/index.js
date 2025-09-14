@@ -87,6 +87,8 @@ export default async function handler(request, response) {
           return response.status(400).json({ error: 'No update fields provided.' });
         }
 
+        console.log('[API/Menus] Data to be updated:', updateData);
+
         try {
           const { data, error } = await supabase
             .from('menus')
