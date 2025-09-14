@@ -72,6 +72,12 @@ export default function EditRestaurant() {
         }
     };
 
+    const handleLogoUpdate = (newLogoUrl: string | null) => {
+        if (restaurant) {
+            setRestaurant({ ...restaurant, logo_url: newLogoUrl });
+        }
+    };
+
     const handleSave = async () => {
         if (!restaurant) return;
 
@@ -138,12 +144,6 @@ export default function EditRestaurant() {
                 <Button size="lg" onClick={handleSave} disabled={isSaving}>
                     {isSaving ? <Spinner size="small" className="mr-2" /> : null}
                     {isSaving ? "Salvando..." : "Salvar Alterações"}
-                </Button>
-            </div>
-        </div>
-    );
-}
-ndo..." : "Salvar Alterações"}
                 </Button>
             </div>
         </div>
