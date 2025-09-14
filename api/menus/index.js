@@ -79,6 +79,8 @@ export default async function handler(request, response) {
         if (is_active !== undefined) updateData.is_active = is_active;
         // Allow banner_url to be explicitly set to null to remove it
         if (banner_url !== undefined) updateData.banner_url = banner_url;
+        // Allow banner_url to be explicitly set to null to remove it
+        if (banner_url !== undefined) updateData.banner_url = banner_url;
 
 
         if (Object.keys(updateData).length === 0) {
