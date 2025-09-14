@@ -101,9 +101,10 @@ export const useRestaurantLogoUpload = ({ initialLogoUrl, restaurantId }: UseRes
 
     setIsUploading(true);
     try {
+      const bucketName = 'restaurant-logos';
       // 1. Remove a logo do storage
-      const oldLogoPath = `${restaurantId}/${initialLogoUrl.split('/').pop()}`;
-      await supabase.storage.from('restaurant-logos').remove([oldLogoPath]);
+      const oldLogoPath = initialLogoUrl.substring(initialLogoUrl.indexOf(bucketName) + bucketName.length + 1);
+      await supabase.storage.from(bucketName).remove([oldLogoPath]);
 
       // 2. Atualiza a tabela do restaurante para remover a URL
       const { error: dbError } = await supabase

@@ -119,10 +119,9 @@ export function EditMenuItemModal({
         } 
         // Case 2: Existing image was removed (no new file, but preview is gone)
         else if (originalImageUrl && !imagePreview) {
-            const oldFileName = originalImageUrl.split('/').pop();
-            if (oldFileName) {
-                await supabase.storage.from('menu-item-images').remove([`${restaurantId}/${oldFileName}`]);
-            }
+            const bucketName = 'menu-item-images';
+            const oldImagePath = originalImageUrl.substring(originalImageUrl.indexOf(bucketName) + bucketName.length + 1);
+            await supabase.storage.from(bucketName).remove([oldImagePath]);
             imageUrl = "";
         }
 

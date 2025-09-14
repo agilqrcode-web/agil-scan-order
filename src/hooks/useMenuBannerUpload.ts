@@ -62,9 +62,10 @@ export const useMenuBannerUpload = ({
     let newBannerUrl = currentBannerUrl;
 
     if (isBannerMarkedForDeletion && currentBannerUrl) {
-      const oldBannerPath = currentBannerUrl.substring(currentBannerUrl.lastIndexOf('/') + 1);
+      const bucketName = 'menu-banners';
+      const oldBannerPath = currentBannerUrl.substring(currentBannerUrl.indexOf(bucketName) + bucketName.length + 1);
       if (oldBannerPath) {
-        await supabase.storage.from('menu-banners').remove([oldBannerPath]);
+        await supabase.storage.from(bucketName).remove([oldBannerPath]);
       }
       newBannerUrl = null;
     }
