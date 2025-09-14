@@ -49,18 +49,7 @@ export function MenuDetailsCard({
             <Label>Banner do Cardápio</Label>
             <div className="relative w-full h-48 border-2 border-dashed rounded-lg flex items-center justify-center bg-muted/40">
               {bannerPreview ? (
-                <>
-                  <img src={bannerPreview} alt="Pré-visualização do banner" className="w-full h-full object-cover rounded-lg" />
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="icon"
-                    className="absolute top-2 right-2 h-7 w-7"
-                    onClick={onBannerRemove}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </>
+                <img src={bannerPreview} alt="Pré-visualização do banner" className="w-full h-full object-cover rounded-lg" />
               ) : (
                 <div className="text-center text-muted-foreground">
                   <ImageIcon className="mx-auto h-10 w-10" />
@@ -75,11 +64,15 @@ export function MenuDetailsCard({
               className="hidden"
               accept="image/png, image/jpeg"
             />
-            <div className="flex justify-center">
-              <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
-                <Upload className="mr-2 h-4 w-4" />
-                Carregar Banner
-              </Button>
+            <div className="flex justify-center gap-2">
+                <Button type="button" variant="outline" size="icon" onClick={() => fileInputRef.current?.click()} aria-label="Carregar Banner">
+                    <Upload className="h-4 w-4" />
+                </Button>
+                {bannerPreview && (
+                    <Button type="button" variant="destructive" size="icon" onClick={onBannerRemove} aria-label="Remover Banner">
+                        <Trash2 className="h-4 w-4" />
+                    </Button>
+                )}
             </div>
             <p className="text-xs text-muted-foreground text-center">
               Formatos: PNG, JPG. Dimensões ideais: 1200x400 pixels. Tamanho máximo: 2MB.
