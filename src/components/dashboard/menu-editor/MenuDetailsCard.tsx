@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Upload, X, Image as ImageIcon } from "lucide-react";
+import { Upload, Trash2, Image as ImageIcon } from "lucide-react";
 import React from "react";
 import { useForm, UseFormReturn } from "react-hook-form";
 import * as z from "zod";
