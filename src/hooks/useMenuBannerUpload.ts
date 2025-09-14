@@ -118,8 +118,6 @@ export const useMenuBannerUpload = ({
     resetBannerState: () => {
       setBannerFile(null);
       setIsBannerMarkedForDeletion(false);
-      // After saving, the preview should revert to the newly saved URL
-      setBannerPreview(currentSavedUrl);
     },
   };
 };

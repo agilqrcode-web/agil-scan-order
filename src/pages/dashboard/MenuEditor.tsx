@@ -5,7 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { X, Save } from "lucide-react";
+import { Save, Trash2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -81,13 +81,7 @@ export default function MenuEditor() {
   const addMenuItemForm = useForm<MenuItemFormValues>({ resolver: zodResolver(menuItemSchema), defaultValues: { name: "", description: "", price: undefined, image_url: "" } });
   const editMenuItemForm = useForm<MenuItemFormValues>({ resolver: zodResolver(menuItemSchema) });
 
-  const {
-    bannerPreview,
-    handleBannerChange,
-    handleBannerRemove,
-    uploadBanner,
-    resetBannerState,
-  } = useMenuBannerUpload({
+  const { bannerPreview, handleBannerChange, handleBannerRemove, uploadBanner, resetBannerState } = useMenuBannerUpload({
     initialBannerUrl: menu?.banner_url || null,
     menuId: menuId || '',
     restaurantId: menu?.restaurant_id || '',
@@ -108,7 +102,6 @@ export default function MenuEditor() {
       const menuData = await menuResponse.json();
       setMenu(menuData);
       menuForm.reset(menuData);
-      // setBannerPreview(menuData.banner_url || null); // This line is now handled by the hook's initialBannerUrl
       
       const { data: categoriesData, error: categoriesError } = await supabase.from('categories').select('*').eq('restaurant_id', menuData.restaurant_id).order('position');
       if (categoriesError) throw categoriesError;
@@ -135,7 +128,6 @@ export default function MenuEditor() {
         body: JSON.stringify({ categories: categories.map(cat => ({ id: cat.id, position: cat.position })) }),
       });
       if (!response.ok) throw new Error("Failed to save category order.");
-      console.log("Category order saved successfully!");
     } catch (err: any) {
       console.error("Error saving category order:", err);
       setError(err.message || "Failed to save category order.");
@@ -148,7 +140,7 @@ export default function MenuEditor() {
     setSaveMessage(null);
 
     try {
-      const newBannerUrl = await uploadBanner(menu.banner_url); // Use the hook's uploadBanner function
+      const newBannerUrl = await uploadBanner();
 
       const updateData = {
         id: menuId,
@@ -167,12 +159,15 @@ export default function MenuEditor() {
         throw new Error((await response.json()).error || "Failed to update menu.");
       }
 
+      // CORREÇÃO: Atualiza o estado local para refletir a mudança imediatamente
+      setMenu(prevMenu => ({ ...prevMenu, ...updateData }));
+
       await handleSaveCategoryOrder();
 
       await queryClient.invalidateQueries({ queryKey: ['menus', menu.restaurant_id] });
       setSaveMessage({ text: "Cardápio atualizado com sucesso!", type: "success" });
 
-      resetBannerState(); // Use the hook's reset function
+      resetBannerState();
 
     } catch (err: any) {
       console.error("Error saving menu:", err);
@@ -275,8 +270,6 @@ export default function MenuEditor() {
         onBannerRemove={handleBannerRemove}
       />
 
-      
-
       <CategoriesList
         categories={categories}
         menuItems={menuItems}
@@ -365,7 +358,7 @@ export default function MenuEditor() {
                       {isSaving ? "Salvando..." : "Salvar Cardápio"}
                   </Button>
                   <Button onClick={() => navigate(-1)} variant="outline" size="default">
-                      <X className="mr-2 h-4 w-4" />Voltar
+                      <Trash2 className="mr-2 h-4 w-4" />Voltar
                   </Button>
               </div>
           </div>
