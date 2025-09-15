@@ -1,3 +1,4 @@
+import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -22,7 +23,8 @@ export function CheckoutTab({ tableNumber }: CheckoutTabProps) {
                 <div className="space-y-6">
                     <Card className="p-6 shadow-lg bg-white">
                         <CardHeader className="p-0 pb-4">
-                            <CardTitle>Resumo do Pedido</CardTitle>
+                            <CardTitle className="text-xl font-semibold text-gray-800">Resumo do Pedido</CardTitle>
+                            <Separator className="my-2" />
                         </CardHeader>
 
                         {cartItems.length === 0 ? (
@@ -43,12 +45,10 @@ export function CheckoutTab({ tableNumber }: CheckoutTabProps) {
                                                     className="h-16 w-16 rounded object-cover bg-secondary flex-shrink-0"
                                                 />
                                                 <div className="flex-1 flex flex-col">
-                                                    {/* Linha 1: Nome do Item */}
-                                                    <h3 className="font-semibold text-gray-900">{item.name}</h3>
+                                                    <h3 className="font-semibold text-gray-800">{item.name}</h3>
                                                     
-                                                    {/* Linha 2: Preço e Controles */}
                                                     <div className="flex justify-between items-center mt-2">
-                                                        <p className="text-sm text-gray-700 font-medium">R$ {item.price.toFixed(2).replace('.', ',')}</p>
+                                                        <p className="text-sm text-gray-600 font-medium">R$ {item.price.toFixed(2).replace('.', ',')}</p>
                                                         <div className="flex items-center">
                                                             <Button variant="outline" size="icon" className="h-8 w-8 rounded-r-none" onClick={() => updateQuantity(item.id, item.quantity - 1)}>-</Button>
                                                             <span className="w-8 text-center font-medium border-y h-8 flex items-center justify-center">{item.quantity}</span>
@@ -69,7 +69,7 @@ export function CheckoutTab({ tableNumber }: CheckoutTabProps) {
                                         <Input placeholder="Adicionar cupom" className="flex-1" />
                                         <Button variant="outline">Aplicar</Button>
                                     </div>
-                                    <dl className="space-y-1 text-sm text-gray-700 pt-4">
+                                    <dl className="space-y-1 text-sm text-gray-600 pt-4">
                                         <div className="flex justify-between">
                                             <dt>Sub-total</dt>
                                             <dd>R$ {totalPrice.toFixed(2).replace('.', ',')}</dd>
@@ -78,7 +78,7 @@ export function CheckoutTab({ tableNumber }: CheckoutTabProps) {
                                             <dt>Taxa de Serviço (10%)</dt>
                                             <dd>R$ {serviceFee.toFixed(2).replace('.', ',')}</dd>
                                         </div>
-                                        <div className="flex justify-between font-bold text-base text-gray-900 border-t pt-2 mt-2">
+                                        <div className="flex justify-between font-bold text-base text-gray-800 border-t pt-2 mt-2">
                                             <dt>Total</dt>
                                             <dd>R$ {finalTotal.toFixed(2).replace('.', ',')}</dd>
                                         </div>
@@ -93,29 +93,31 @@ export function CheckoutTab({ tableNumber }: CheckoutTabProps) {
                 <div className="space-y-6">
                     <Card className="p-6 shadow-lg bg-white">
                         <CardHeader className="p-0 pb-4">
-                            <CardTitle>Suas Informações</CardTitle>
-                            <CardDescription>Preencha seus dados para o pedido.</CardDescription>
+                            <CardTitle className="text-xl font-semibold text-gray-800">Suas Informações</CardTitle>
+                            <CardDescription className="text-sm text-gray-600">Preencha seus dados para o pedido.</CardDescription>
+                            <Separator className="my-2" />
                         </CardHeader>
                         <div className="space-y-4">
                             <div>
-                                <Label htmlFor="customer-name">Nome</Label>
-                                <Input id="customer-name" placeholder="Seu nome" />
+                                <Label htmlFor="customer-name" className="text-sm text-gray-600">Nome</Label>
+                                <Input id="customer-name" placeholder="Seu nome" className="text-sm text-gray-800" />
                             </div>
                             {tableNumber && (
-                                <div className="space-y-1">
-                                    <Label>Número da Mesa</Label>
-                                    <div className="w-full flex items-center justify-center text-lg font-bold text-primary bg-primary/10 rounded-md p-3">
+                                <div className="flex items-center gap-2">
+                                    <Label className="text-sm text-gray-600">Número da Mesa:</Label>
+                                    <span className="text-lg font-bold text-primary bg-primary/10 px-3 py-1 rounded-md">
                                         {tableNumber}
-                                    </div>
+                                    </span>
                                 </div>
                             )}
                         </div>
                     </Card>
                     <Card className="p-6 shadow-lg bg-white">
                         <CardHeader className="p-0 pb-4">
-                            <CardTitle>Observações</CardTitle>
+                            <CardTitle className="text-xl font-semibold text-gray-800">Observações</CardTitle>
+                            <Separator className="my-2" />
                         </CardHeader>
-                        <Textarea placeholder="Ex: tirar a cebola, ponto da carne mal passado, etc." />
+                        <Textarea placeholder="Ex: tirar a cebola, ponto da carne mal passado, etc." className="text-sm text-gray-800" />
                     </Card>
                 </div>
             </div>
