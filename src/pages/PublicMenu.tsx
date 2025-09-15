@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { usePublicMenu, MenuItem } from '@/hooks/usePublicMenu';
 import { CartProvider } from '@/contexts/CartContext';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
