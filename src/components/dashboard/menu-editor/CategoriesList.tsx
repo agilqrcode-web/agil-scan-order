@@ -1,3 +1,4 @@
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
@@ -61,6 +62,17 @@ export function CategoriesList({
                   onDeleteItem={handleDeleteMenuItem}
                 />
                 <Button size="sm" onClick={() => handleAddMenuItem(category.id)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Adicionar Item
+                </Button>
+              </div>
+            </Card>
+          ))
+        )}
+      </CardContent>
+    </Card>
+  );
+}category.id)}>
                   <Plus className="mr-2 h-4 w-4" />
                   Adicionar Item
                 </Button>

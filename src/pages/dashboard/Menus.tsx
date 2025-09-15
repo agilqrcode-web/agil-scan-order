@@ -114,7 +114,19 @@ export default function Menus() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Cardápios</h1>
-        <Button onClick={() => setIsAddMenuModalOpen(true)}><Plus className="mr-2 h-4 w-4" />Novo Cardápio</Button>
+                <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button onClick={() => setIsAddMenuModalOpen(true)}>
+                <Plus className="h-4 w-4 md:mr-2" />
+                <span className="hidden md:inline">Novo Cardápio</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Novo Cardápio</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
 
       {/* Add Menu Modal */}

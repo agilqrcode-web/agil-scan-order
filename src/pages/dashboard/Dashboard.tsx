@@ -69,10 +69,19 @@ export default function Dashboard() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Dashboard</h1>
-        <Button>
-          <Plus className="mr-2 h-4 w-4" />
-          Novo Restaurante
-        </Button>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 md:mr-2" />
+                <span className="hidden md:inline">Novo Restaurante</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Novo Restaurante</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

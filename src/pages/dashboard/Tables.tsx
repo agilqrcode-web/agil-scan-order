@@ -268,10 +268,19 @@ export default function Tables() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Mesas</h1>
-        <Button onClick={() => setIsAddTableModalOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Adicionar Mesa
-        </Button>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button onClick={() => setIsAddTableModalOpen(true)}>
+                <Plus className="h-4 w-4 md:mr-2" />
+                <span className="hidden md:inline">Adicionar Mesa</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Adicionar Mesa</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
 
       <Dialog open={isAddTableModalOpen} onOpenChange={setIsAddTableModalOpen}>

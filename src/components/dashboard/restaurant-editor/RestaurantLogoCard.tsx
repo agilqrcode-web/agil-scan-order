@@ -70,19 +70,15 @@ export function RestaurantLogoCard({ restaurant, onLogoUpdate }: RestaurantLogoC
                 />
 
                 <div className="flex justify-center gap-2">
-                    <Button variant="outline" size="icon" onClick={handleUploadClick} disabled={isUploading} aria-label="Escolher Imagem">
-                        <Upload className="h-4 w-4" />
-                    </Button>
-
-                    {logoPreview && logoPreview.startsWith('blob:') && (
-                         <Button size="icon" onClick={handleSaveLogo} disabled={isUploading} aria-label="Salvar Nova Logo">
-                            <Check className="h-4 w-4" />
+                    {!logoPreview ? (
+                        <Button variant="outline" size="icon" onClick={handleUploadClick} disabled={isUploading} aria-label="Escolher Imagem">
+                            <Upload className="h-4 w-4" />
+                        </Button>
+                    ) : (
+                        <Button variant="destructive" size="icon" onClick={handleRemoveLogo} disabled={isUploading} aria-label="Remover Logo">
+                            <Trash2 className="h-4 w-4" />
                         </Button>
                     )}
-
-                    <Button variant="destructive" size="icon" onClick={handleRemoveLogo} disabled={isUploading || !logoPreview} aria-label="Remover Logo">
-                        <Trash2 className="h-4 w-4" />
-                    </Button>
                 </div>
             </CardContent>
         </Card>
