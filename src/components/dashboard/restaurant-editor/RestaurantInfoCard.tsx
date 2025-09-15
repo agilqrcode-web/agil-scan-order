@@ -76,23 +76,27 @@ export function RestaurantInfoCard({ restaurant, onInputChange, onPaymentMethodC
     };
 
     const HoursRow = ({ day, label }: { day: keyof StructuredHours, label: string }) => (
-        <div className="flex items-center gap-4 p-2 border rounded-md">
-            <Checkbox
-                id={`check-${day}`}
-                checked={structuredHours[day].enabled}
-                onCheckedChange={(checked) => handleHoursChange(day, 'enabled', !!checked)}
-            />
-            <Label htmlFor={`check-${day}`} className="w-28">{label}</Label>
-            <div className="flex items-center gap-2 flex-grow">
+        <div className="flex flex-col items-start gap-3 p-3 border rounded-md sm:flex-row sm:items-center sm:gap-4">
+            <div className="flex items-center gap-4">
+                <Checkbox
+                    id={`check-${day}`}
+                    checked={structuredHours[day].enabled}
+                    onCheckedChange={(checked) => handleHoursChange(day, 'enabled', !!checked)}
+                />
+                <Label htmlFor={`check-${day}`} className="whitespace-nowrap">{label}</Label>
+            </div>
+            <div className="flex items-center gap-2 w-full sm:w-auto sm:flex-grow">
                 <Input
                     type="time"
+                    className="w-full"
                     value={structuredHours[day].open}
                     onChange={(e) => handleHoursChange(day, 'open', e.target.value)}
                     disabled={!structuredHours[day].enabled}
                 />
-                <span>-</span>
+                <span className="mx-1">-</span>
                 <Input
                     type="time"
+                    className="w-full"
                     value={structuredHours[day].close}
                     onChange={(e) => handleHoursChange(day, 'close', e.target.value)}
                     disabled={!structuredHours[day].enabled}

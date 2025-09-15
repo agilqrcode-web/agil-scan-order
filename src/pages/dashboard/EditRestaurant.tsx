@@ -143,7 +143,7 @@ export default function EditRestaurant() {
                 </div>
             </div>
 
-            <div className="sticky bottom-0 left-0 right-0 bg-card border-t shadow-sm p-4 z-10">
+            <div className="fixed bottom-0 left-0 right-0 bg-card border-t shadow-sm p-4 z-10">
                 <div className="flex items-center">
                     <div className="flex space-x-2 ml-auto">
                         <Button size="default" onClick={handleSave} disabled={isSaving}>
