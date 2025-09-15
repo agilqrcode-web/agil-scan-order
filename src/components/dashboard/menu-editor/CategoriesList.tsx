@@ -29,10 +29,19 @@ export function CategoriesList({
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Categorias</CardTitle>
-        <Button onClick={handleAddCategory}>
-          <Plus className="mr-2 h-4 w-4" />
-          Adicionar Categoria
-        </Button>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button onClick={handleAddCategory}>
+                <Plus className="h-4 w-4 md:mr-2" />
+                <span className="hidden md:inline">Adicionar Categoria</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Adicionar Categoria</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </CardHeader>
       <CardContent className="space-y-4">
         {categories.length === 0 ? (
@@ -62,17 +71,6 @@ export function CategoriesList({
                   onDeleteItem={handleDeleteMenuItem}
                 />
                 <Button size="sm" onClick={() => handleAddMenuItem(category.id)}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Adicionar Item
-                </Button>
-              </div>
-            </Card>
-          ))
-        )}
-      </CardContent>
-    </Card>
-  );
-}category.id)}>
                   <Plus className="mr-2 h-4 w-4" />
                   Adicionar Item
                 </Button>
