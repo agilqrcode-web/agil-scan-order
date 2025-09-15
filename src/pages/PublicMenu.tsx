@@ -44,7 +44,7 @@ function PublicMenuPage() {
               </TabsContent>
 
               <TabsContent value="info">
-                    <RestaurantInfoTab restaurant={menuData.restaurant} />
+                    <RestaurantInfoTab restaurant={restaurant} />
                 </TabsContent>
 
               <TabsContent value="checkout">
