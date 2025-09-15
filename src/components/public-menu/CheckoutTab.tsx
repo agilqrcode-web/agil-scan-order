@@ -6,7 +6,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { ShoppingCart, Trash2 } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 
-export function CheckoutTab({ tableNumber }: { tableNumber: number | null }) {
+interface CheckoutTabProps {
+  tableNumber: number | null;
+}
+
+export function CheckoutTab({ tableNumber }: CheckoutTabProps) {
     const { cartItems, updateQuantity, removeFromCart, totalPrice } = useCart();
     const serviceFee = totalPrice * 0.10;
     const finalTotal = totalPrice + serviceFee;
@@ -97,10 +101,14 @@ export function CheckoutTab({ tableNumber }: { tableNumber: number | null }) {
                                 <Label htmlFor="customer-name">Nome</Label>
                                 <Input id="customer-name" placeholder="Seu nome" />
                             </div>
-                            <div>
-                                <Label htmlFor="table-number">Número da Mesa</Label>
-                                <Input id="table-number" placeholder="Número da sua mesa" />
-                            </div>
+                            {tableNumber && (
+                                <div className="space-y-1">
+                                    <Label>Número da Mesa</Label>
+                                    <div className="w-full flex items-center justify-center text-lg font-bold text-primary bg-primary/10 rounded-md p-3">
+                                        {tableNumber}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </Card>
                     <Card className="p-6 shadow-lg bg-white">
@@ -116,14 +124,6 @@ export function CheckoutTab({ tableNumber }: { tableNumber: number | null }) {
             <div className="fixed bottom-0 left-0 right-0 z-50">
                 <div className="container mx-auto max-w-3xl h-20 flex items-center justify-end px-4 bg-white shadow-[0_-2px_10px_rgba(0,0,0,0.1)] border-t rounded-t-lg">
                     <Button size="lg" className="bg-orange-400 hover:bg-orange-500 text-white font-bold" disabled={cartItems.length === 0}>
-                        Fazer pedido
-                    </Button>
-                </div>
-            </div>
-        </div>
-    );
-}
-nge-500 text-white font-bold" disabled={cartItems.length === 0}>
                         Fazer pedido
                     </Button>
                 </div>
