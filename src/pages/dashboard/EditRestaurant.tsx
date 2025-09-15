@@ -127,7 +127,7 @@ export default function EditRestaurant() {
     }
 
     return (
-        <div className="space-y-6 pb-24"> {/* Added pb-24 for padding at the bottom */}
+        <div className="space-y-6 px-4 sm:px-6 pb-24"> {/* Added pb-24 for padding at the bottom */}
             <div className="grid gap-6 lg:grid-cols-3">
                 <div className="lg:col-span-2 space-y-6">
                     {restaurant && (
