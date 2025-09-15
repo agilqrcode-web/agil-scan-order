@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator"; // Importar Separator
 import { BookOpen, Calendar, Clock, MapPin, Phone, Wallet } from "lucide-react";
 
 // Definindo o tipo para os dados do restaurante que o componente espera
@@ -30,11 +31,12 @@ export function RestaurantInfoTab({ restaurant }: RestaurantInfoTabProps) {
                 <Card className="shadow-md flex-1">
                     <CardHeader>
                         <CardTitle className="flex items-center text-xl font-semibold text-slate-800">
-                            <MapPin className="h-6 w-6 mr-3 text-primary" />
+                            <MapPin className="h-5 w-5 mr-3 text-primary" />
                             Endereço e Contato
                         </CardTitle>
+                        <Separator className="my-2" />
                     </CardHeader>
-                    <CardContent className="space-y-4 text-base text-slate-600">
+                    <CardContent className="space-y-4 text-sm text-slate-600">
                         <div className="flex items-start">
                             <p>{restaurant.address || "Endereço não informado"}</p>
                         </div>
@@ -46,12 +48,13 @@ export function RestaurantInfoTab({ restaurant }: RestaurantInfoTabProps) {
                 <Card className="shadow-md flex-1">
                     <CardHeader>
                         <CardTitle className="flex items-center text-xl font-semibold text-slate-800">
-                            <BookOpen className="h-6 w-6 mr-3 text-primary" />
+                            <BookOpen className="h-5 w-5 mr-3 text-primary" />
                             Sobre Nós
                         </CardTitle>
+                        <Separator className="my-2" />
                     </CardHeader>
                     <CardContent>
-                        <p className="text-base text-slate-600 leading-relaxed">{restaurant.about_us || "Nenhuma descrição fornecida."}</p>
+                        <p className="text-sm text-slate-600 leading-relaxed">{restaurant.about_us || "Nenhuma descrição fornecida."}</p>
                     </CardContent>
                 </Card>
             </div>
@@ -60,24 +63,26 @@ export function RestaurantInfoTab({ restaurant }: RestaurantInfoTabProps) {
                 <Card className="shadow-md">
                     <CardHeader>
                         <CardTitle className="flex items-center text-xl font-semibold text-slate-800">
-                            <Clock className="h-6 w-6 mr-3 text-primary" />
+                            <Clock className="h-5 w-5 mr-3 text-primary" />
                             Horário de Funcionamento
                         </CardTitle>
+                        <Separator className="my-2" />
                     </CardHeader>
                     <CardContent className="space-y-2">
                         {openingHoursParagraphs.length > 0 ? (
-                            openingHoursParagraphs.map((line, index) => <p key={index} className="text-base text-slate-600">{line}</p>)
+                            openingHoursParagraphs.map((line, index) => <p key={index} className="text-sm text-slate-600">{line}</p>)
                         ) : (
-                            <p className="text-base text-slate-500 italic">Não informado</p>
+                            <p className="text-sm text-slate-500 italic">Não informado</p>
                         )}
                     </CardContent>
                 </Card>
                 <Card className="shadow-md">
                     <CardHeader>
                         <CardTitle className="flex items-center text-xl font-semibold text-slate-800">
-                            <Wallet className="h-6 w-6 mr-3 text-primary" />
+                            <Wallet className="h-5 w-5 mr-3 text-primary" />
                             Métodos de Pagamento
                         </CardTitle>
+                        <Separator className="my-2" />
                     </CardHeader>
                     <CardContent>
                         {paymentMethodsList.length > 0 ? (
@@ -89,19 +94,20 @@ export function RestaurantInfoTab({ restaurant }: RestaurantInfoTabProps) {
                                 ))}
                             </div>
                         ) : (
-                            <p className="text-base text-slate-500 italic">Não informado</p>
+                            <p className="text-sm text-slate-500 italic">Não informado</p>
                         )}
                     </CardContent>
                 </Card>
                 <Card className="shadow-md">
                     <CardHeader>
                         <CardTitle className="flex items-center text-xl font-semibold text-slate-800">
-                            <Calendar className="h-6 w-6 mr-3 text-primary" />
+                            <Calendar className="h-5 w-5 mr-3 text-primary" />
                             Reservas
                         </CardTitle>
+                        <Separator className="my-2" />
                     </CardHeader>
                     <CardContent>
-                        <p className="text-base text-slate-600">{restaurant.reservations_info || "Não informado"}</p>
+                        <p className="text-sm text-slate-600">{restaurant.reservations_info || "Não informado"}</p>
                     </CardContent>
                 </Card>
             </div>
