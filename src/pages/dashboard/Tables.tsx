@@ -410,7 +410,13 @@ export default function Tables() {
               const qrCodeImageHeight = 50; // mm
               const qrCodeX = (pageWidth - qrCodeImageWidth) / 2;
               doc.addImage(qrCodeDataUrl, 'PNG', qrCodeX, yOffset, qrCodeImageWidth, qrCodeImageHeight);
-              yOffset += qrCodeImageHeight + 10; // Move Y offset down
+              yOffset += qrCodeImageHeight + 5; // Move Y offset down
+
+              // 1.5. Add Link Text for Debugging
+              doc.setFontSize(8);
+              doc.setTextColor(100); // Gray color
+              doc.text(qrCodeValue, pageWidth / 2, yOffset, { align: 'center' });
+              yOffset += 10;
 
               // 2. Restaurant Name
               doc.setFontSize(18);
