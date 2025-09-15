@@ -68,26 +68,18 @@ export default async function handler(request, response) {
       // Update Menu
       {
         const { id, name, is_active, banner_url } = request.body;
-        console.log(`[API/Menus] Received PUT request to update menu ID: ${id}`);
         if (!id) {
-          console.error("[API/Menus] Missing required field 'id' for PUT request.");
           return response.status(400).json({ error: "Missing required field: id" });
         }
 
         const updateData = {};
         if (name) updateData.name = name;
         if (is_active !== undefined) updateData.is_active = is_active;
-        // Allow banner_url to be explicitly set to null to remove it
         if (banner_url !== undefined) updateData.banner_url = banner_url;
-        // Allow banner_url to be explicitly set to null to remove it
-        if (banner_url !== undefined) updateData.banner_url = banner_url;
-
 
         if (Object.keys(updateData).length === 0) {
           return response.status(400).json({ error: 'No update fields provided.' });
         }
-
-        console.log('[API/Menus] Data to be updated:', updateData);
 
         try {
           const { data, error } = await supabase
@@ -96,17 +88,13 @@ export default async function handler(request, response) {
             .eq('id', id)
             .select();
           if (error) {
-            console.error("[API/Menus] Supabase update error:", error);
             return response.status(500).json({ error: error.message });
           }
           if (!data || data.length === 0) {
-            console.log(`[API/Menus] Menu with ID ${id} not found or no changes made.`);
             return response.status(404).json({ error: 'Menu not found or no changes made' });
           }
-          console.log(`[API/Menus] Successfully updated menu with ID: ${id}`);
           return response.status(200).json(data[0]);
         } catch (error) {
-          console.error("[API/Menus] Server error during PUT request:", error);
           return response.status(500).json({ error: error.message });
         }
       }

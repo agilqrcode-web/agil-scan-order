@@ -1,50 +1,108 @@
-import { Card, CardHeader, CardTitle } from "@/components/ui/card";
-import { BookOpen, Calendar, Clock, MapPin, Wallet } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { BookOpen, Calendar, Clock, MapPin, Phone, Wallet } from "lucide-react";
 
-export function RestaurantInfoTab() {
+// Definindo o tipo para os dados do restaurante que o componente espera
+interface RestaurantData {
+    name: string;
+    address: string | null;
+    phone: string | null;
+    opening_hours: string | null;
+    about_us: string | null;
+    payment_methods: string | null;
+    reservations_info: string | null;
+}
+
+interface RestaurantInfoTabProps {
+    restaurant: RestaurantData;
+}
+
+export function RestaurantInfoTab({ restaurant }: RestaurantInfoTabProps) {
+    // Transforma a string de métodos de pagamento em uma lista para exibição
+    const paymentMethodsList = restaurant.payment_methods?.split(', ').filter(m => m) || [];
+
+    // Transforma a string de horário de funcionamento em parágrafos
+    const openingHoursParagraphs = restaurant.opening_hours?.split('|').map(line => line.trim()) || [];
+
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 md:p-0">
             {/* Coluna da Esquerda */}
-            <div className="space-y-6">
-                <Card className="p-6 shadow-lg bg-white">
-                    <CardHeader className="p-0 pb-4">
-                        <CardTitle className="flex items-center"><MapPin className="h-5 w-5 mr-3 text-primary" /> Endereço e Contato</CardTitle>
+            <div className="flex flex-col gap-6">
+                <Card className="shadow-md flex-1">
+                    <CardHeader>
+                        <CardTitle className="flex items-center text-xl font-semibold text-slate-800">
+                            <MapPin className="h-6 w-6 mr-3 text-primary" />
+                            Endereço e Contato
+                        </CardTitle>
                     </CardHeader>
-                    <div className="space-y-2 text-gray-700">
-                        <p>Rua Exemplo, 123 - Bairro Fictício, Cidade - UF</p>
-                        <p>(XX) XXXX-XXXX</p>
-                    </div>
+                    <CardContent className="space-y-4 text-base text-slate-600">
+                        <div className="flex items-start">
+                            <p>{restaurant.address || "Endereço não informado"}</p>
+                        </div>
+                        <div className="flex items-center">
+                            <p>{restaurant.phone || "Contato não informado"}</p>
+                        </div>
+                    </CardContent>
                 </Card>
-                <Card className="p-6 shadow-lg bg-white">
-                    <CardHeader className="p-0 pb-4">
-                        <CardTitle className="flex items-center"><BookOpen className="h-5 w-5 mr-3 text-primary" /> Sobre Nós</CardTitle>
+                <Card className="shadow-md flex-1">
+                    <CardHeader>
+                        <CardTitle className="flex items-center text-xl font-semibold text-slate-800">
+                            <BookOpen className="h-6 w-6 mr-3 text-primary" />
+                            Sobre Nós
+                        </CardTitle>
                     </CardHeader>
-                    <p className="text-gray-700">Um lugar aconchegante com a melhor comida da cidade!</p>
+                    <CardContent>
+                        <p className="text-base text-slate-600 leading-relaxed">{restaurant.about_us || "Nenhuma descrição fornecida."}</p>
+                    </CardContent>
                 </Card>
             </div>
             {/* Coluna da Direita */}
-            <div className="space-y-6">
-                <Card className="p-6 shadow-lg bg-white">
-                    <CardHeader className="p-0 pb-4">
-                        <CardTitle className="flex items-center"><Clock className="h-5 w-5 mr-3 text-primary" /> Horário de Funcionamento</CardTitle>
+            <div className="flex flex-col gap-6">
+                <Card className="shadow-md">
+                    <CardHeader>
+                        <CardTitle className="flex items-center text-xl font-semibold text-slate-800">
+                            <Clock className="h-6 w-6 mr-3 text-primary" />
+                            Horário de Funcionamento
+                        </CardTitle>
                     </CardHeader>
-                    <p className="text-gray-700">Segunda a Domingo: 00:00 - 00:00</p>
+                    <CardContent className="space-y-2">
+                        {openingHoursParagraphs.length > 0 ? (
+                            openingHoursParagraphs.map((line, index) => <p key={index} className="text-base text-slate-600">{line}</p>)
+                        ) : (
+                            <p className="text-base text-slate-500 italic">Não informado</p>
+                        )}
+                    </CardContent>
                 </Card>
-                <Card className="p-6 shadow-lg bg-white">
-                    <CardHeader className="p-0 pb-4">
-                        <CardTitle className="flex items-center"><Wallet className="h-5 w-5 mr-3 text-primary" /> Métodos de Pagamento</CardTitle>
+                <Card className="shadow-md">
+                    <CardHeader>
+                        <CardTitle className="flex items-center text-xl font-semibold text-slate-800">
+                            <Wallet className="h-6 w-6 mr-3 text-primary" />
+                            Métodos de Pagamento
+                        </CardTitle>
                     </CardHeader>
-                    <ul className="list-disc list-inside text-gray-700">
-                        <li>Dinheiro</li>
-                        <li>Cartão</li>
-                        <li>Pix</li>
-                    </ul>
+                    <CardContent>
+                        {paymentMethodsList.length > 0 ? (
+                            <div className="flex flex-wrap gap-3">
+                                {paymentMethodsList.map(method => (
+                                    <span key={method} className="bg-primary/10 text-primary font-semibold text-sm px-3 py-1 rounded-full">
+                                        {method}
+                                    </span>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-base text-slate-500 italic">Não informado</p>
+                        )}
+                    </CardContent>
                 </Card>
-                <Card className="p-6 shadow-lg bg-white">
-                    <CardHeader className="p-0 pb-4">
-                        <CardTitle className="flex items-center"><Calendar className="h-5 w-5 mr-3 text-primary" /> Reservas</CardTitle>
+                <Card className="shadow-md">
+                    <CardHeader>
+                        <CardTitle className="flex items-center text-xl font-semibold text-slate-800">
+                            <Calendar className="h-6 w-6 mr-3 text-primary" />
+                            Reservas
+                        </CardTitle>
                     </CardHeader>
-                    <p className="text-gray-700">A combinar</p>
+                    <CardContent>
+                        <p className="text-base text-slate-600">{restaurant.reservations_info || "Não informado"}</p>
+                    </CardContent>
                 </Card>
             </div>
         </div>
