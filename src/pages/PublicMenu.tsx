@@ -13,8 +13,22 @@ import { CheckoutTab } from '@/components/public-menu/CheckoutTab';
 import { MenuItemDetailModal } from '@/components/public-menu/MenuItemDetailModal';
 
 function PublicMenuPage() {
-  const { data, isLoading, isError, error, menuId } = usePublicMenu();
+  const { data, isLoading, isError, error, menuId, tableIdentifier } = usePublicMenu();
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
+  const [tableNumber, setTableNumber] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (tableIdentifier) {
+      fetch(`/api/tables?qr_identifier=${tableIdentifier}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.table_number) {
+            setTableNumber(data.table_number);
+          }
+        })
+        .catch(err => console.error("Failed to fetch table number:", err));
+    }
+  }, [tableIdentifier]);
 
   if (isLoading) {
     return <MenuLoadingSkeleton />;
@@ -48,7 +62,7 @@ function PublicMenuPage() {
                 </TabsContent>
 
               <TabsContent value="checkout">
-                <CheckoutTab />
+                <CheckoutTab tableNumber={tableNumber} />
               </TabsContent>
             </div>
           </div>

@@ -59,6 +59,31 @@ export default async function handler(request, response) {
           return response.status(500).json({ error: error.message });
         }
       }
+    case 'GET':
+      // Get table by QR identifier
+      {
+        const { qr_identifier } = request.query;
+        if (!qr_identifier) {
+          return response.status(400).json({ error: 'Missing qr_identifier parameter' });
+        }
+        try {
+          const { data, error } = await supabase
+            .from('restaurant_tables')
+            .select('table_number')
+            .eq('qr_code_identifier', qr_identifier)
+            .single();
+
+          if (error) {
+            if (error.code === 'PGRST116') { // Code for 'exact one row not found'
+              return response.status(404).json({ error: 'Table not found' });
+            }
+            throw error;
+          }
+          return response.status(200).json(data);
+        } catch (error) {
+          return response.status(500).json({ error: error.message });
+        }
+      }
     default:
       return response.status(405).json({ error: 'Method Not Allowed' });
   }

@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ShoppingCart, Trash2 } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 
-export function CheckoutTab() {
+export function CheckoutTab({ tableNumber }: { tableNumber: number | null }) {
     const { cartItems, updateQuantity, removeFromCart, totalPrice } = useCart();
     const serviceFee = totalPrice * 0.10;
     const finalTotal = totalPrice + serviceFee;
@@ -116,6 +116,14 @@ export function CheckoutTab() {
             <div className="fixed bottom-0 left-0 right-0 z-50">
                 <div className="container mx-auto max-w-3xl h-20 flex items-center justify-end px-4 bg-white shadow-[0_-2px_10px_rgba(0,0,0,0.1)] border-t rounded-t-lg">
                     <Button size="lg" className="bg-orange-400 hover:bg-orange-500 text-white font-bold" disabled={cartItems.length === 0}>
+                        Fazer pedido
+                    </Button>
+                </div>
+            </div>
+        </div>
+    );
+}
+nge-500 text-white font-bold" disabled={cartItems.length === 0}>
                         Fazer pedido
                     </Button>
                 </div>

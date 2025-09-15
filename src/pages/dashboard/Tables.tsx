@@ -37,6 +37,7 @@ export default function Tables() {
   const supabase = useSupabase();
   const [restaurantId, setRestaurantId] = useState<string | null>(null);
   const [restaurantName, setRestaurantName] = useState<string | null>(null);
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [tableCounts, setTableCounts] = useState({
     total_tables: 0,
     available_tables: 0,
@@ -223,6 +224,25 @@ export default function Tables() {
         }
         setRestaurantName(restaurantNameData as string);
 
+        // Fetch the first active menu for the restaurant
+        const { data: menuData, error: menuError } = await supabase
+          .from('menus')
+          .select('id')
+          .eq('restaurant_id', fetchedRestaurantId)
+          .eq('is_active', true)
+          .limit(1)
+          .single();
+
+        if (menuError) {
+          // It's okay if no menu is found, but log other errors
+          if (menuError.code !== 'PGRST116') { // PGRST116 = 'exact one row not found'
+            console.error("Error fetching active menu:", menuError);
+          }
+        }
+        if (menuData) {
+          setActiveMenuId(menuData.id);
+        }
+
       } catch (err) {
         console.error("Error fetching restaurant data:", err);
         setError("Failed to load restaurant data.");
@@ -335,7 +355,7 @@ export default function Tables() {
           {selectedTableQrCodeIdentifier && (
             <div className="p-4 border border-gray-200 rounded-lg">
               <QRCode
-                value={`https://agil-scan-order-neon.vercel.app/order/${selectedTableQrCodeIdentifier}`}
+                value={activeMenuId && selectedTableQrCodeIdentifier ? `https://agil-scan-order-neon.vercel.app/menus/${activeMenuId}?table=${selectedTableQrCodeIdentifier.qr_code_identifier}` : ''}
                 size={256}
                 level="H"
                 includeMargin={true}
@@ -344,9 +364,9 @@ export default function Tables() {
           )}
           <div className="flex gap-2 mt-4">
             <Button onClick={async () => {
-              if (!selectedTableQrCodeIdentifier) return;
+              if (!selectedTableQrCodeIdentifier || !activeMenuId) return;
 
-              const qrCodeValue = `https://agil-scan-order-neon.vercel.app/order/${selectedTableQrCodeIdentifier.qr_code_identifier}`;
+              const qrCodeValue = `https://agil-scan-order-neon.vercel.app/menus/${activeMenuId}?table=${selectedTableQrCodeIdentifier.qr_code_identifier}`;
               const instructionsText = 'Aponte a câmera do seu celular para este QR Code para acessar o cardápio digital e fazer seu pedido.';
 
               // Create a temporary canvas element for QR code rendering
