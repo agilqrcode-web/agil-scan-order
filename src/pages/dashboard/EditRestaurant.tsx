@@ -127,21 +127,8 @@ export default function EditRestaurant() {
     }
 
     return (
-        <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <h1 className="text-3xl font-bold">Editar Restaurante</h1>
-                <div className="flex items-center gap-2">
-                    <Button size="default" onClick={handleSave} disabled={isSaving}>
-                        {isSaving ? <Spinner size="small" className="mr-2" /> : null}
-                        {isSaving ? "Salvando..." : "Salvar Alterações"}
-                    </Button>
-                    <Button onClick={() => navigate('/dashboard')} variant="outline" size="default">
-                        Voltar
-                    </Button>
-                </div>
-            </div>
-
-            <div className="grid gap-6 lg:grid-cols-3">
+        <div className="space-y-6 pb-24"> {/* Added pb-24 for padding at the bottom */}
+            <div className="space-y-6 lg:grid lg:gap-6 lg:grid-cols-3 lg:space-y-0">
                 <div className="lg:col-span-2 space-y-6">
                     {restaurant && (
                         <>
@@ -153,6 +140,20 @@ export default function EditRestaurant() {
 
                 <div className="lg:col-span-1">
                     {restaurant && <RestaurantLogoCard restaurant={restaurant} onLogoUpdate={handleLogoUpdate} />}
+                </div>
+            </div>
+
+            <div className="fixed bottom-0 left-0 right-0 bg-card border-t shadow-sm p-4 z-10">
+                <div className="flex items-center">
+                    <div className="flex space-x-2 ml-auto">
+                        <Button size="default" onClick={handleSave} disabled={isSaving}>
+                            {isSaving ? <Spinner size="small" className="mr-2" /> : null}
+                            {isSaving ? "Salvando..." : "Salvar Alterações"}
+                        </Button>
+                        <Button onClick={() => window.location.href = 'https://agil-scan-order-neon.vercel.app/dashboard'} variant="outline" size="default">
+                            Voltar
+                        </Button>
+                    </div>
                 </div>
             </div>
         </div>
