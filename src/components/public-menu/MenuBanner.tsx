@@ -8,7 +8,7 @@ interface MenuBannerProps {
 
 export function MenuBanner({ menu }: MenuBannerProps) {
     return (
-        <Card className="mb-4 shadow-xl overflow-hidden rounded-lg">
+        <Card className="mb-2 shadow-xl overflow-hidden rounded-lg">
             <div className="w-full h-48 bg-gray-200 flex items-center justify-center">
                 {menu.banner_url ? (
                     <img src={menu.banner_url} alt={`Banner do ${menu.name}`} className="w-full h-full object-cover" />

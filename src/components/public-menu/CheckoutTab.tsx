@@ -87,7 +87,7 @@ export function CheckoutTab({ tableId, tableNumber }: CheckoutTabProps) {
 
     return (
         <div className="pb-28"> {/* Padding for the fixed bottom bar */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Coluna da Direita: Resumo do Pedido (Agora na esquerda no código para aparecer primeiro no mobile) */}
                 <div className="space-y-6">
                     <Card className="p-6 shadow-lg bg-white">

@@ -53,7 +53,7 @@ function PublicMenuPage() {
         <Tabs defaultValue="menu" className="w-full">
           <PublicMenuHeader restaurantName={restaurant.name} totalItems={totalItems} />
 
-          <div className="pt-20 pb-8">
+          <div className="pt-16 pb-8">
             <div className="container mx-auto px-4 max-w-3xl">
               <TabsContent value="menu">
                 <MenuBanner menu={menu} />

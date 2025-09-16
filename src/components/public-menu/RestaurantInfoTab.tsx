@@ -1,8 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator"; // Importar Separator
+import { Separator } from "@/components/ui/separator";
 import { BookOpen, Calendar, Clock, MapPin, Phone, Wallet } from "lucide-react";
 
-// Definindo o tipo para os dados do restaurante que o componente espera
 interface RestaurantData {
     name: string;
     address: string | null;
@@ -18,16 +17,13 @@ interface RestaurantInfoTabProps {
 }
 
 export function RestaurantInfoTab({ restaurant }: RestaurantInfoTabProps) {
-    // Transforma a string de métodos de pagamento em uma lista para exibição
     const paymentMethodsList = restaurant.payment_methods?.split(', ').filter(m => m) || [];
-
-    // Transforma a string de horário de funcionamento em parágrafos
     const openingHoursParagraphs = restaurant.opening_hours?.split('|').map(line => line.trim()) || [];
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 md:p-0">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 md:p-0">
             {/* Coluna da Esquerda */}
-            <div className="flex flex-col gap-6">
+            <div className="flex flex-col gap-4">
                 <Card className="shadow-md flex-1">
                     <CardHeader>
                         <CardTitle className="flex items-center text-xl font-semibold text-slate-800">
@@ -59,7 +55,7 @@ export function RestaurantInfoTab({ restaurant }: RestaurantInfoTabProps) {
                 </Card>
             </div>
             {/* Coluna da Direita */}
-            <div className="flex flex-col gap-6">
+            <div className="flex flex-col gap-4">
                 <Card className="shadow-md">
                     <CardHeader>
                         <CardTitle className="flex items-center text-xl font-semibold text-slate-800">

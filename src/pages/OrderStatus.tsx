@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { ShoppingCart } from 'lucide-react';
 
-// Interfaces duplicadas para clareza, poderiam ser importadas de um arquivo de tipos
+// Interfaces para clareza
 interface OrderItem {
   id: string;
   quantity: number;
@@ -24,9 +24,10 @@ interface Order {
   status: string;
   total_amount: number;
   created_at: string;
+  table_id: string; // Adicionado para a busca em cadeia
   restaurant_tables: {
     table_number: number;
-    restaurant_id: string; // Adicionado para obter o tableId
+    restaurant_id: string;
   };
   order_items: OrderItem[];
 }
@@ -54,7 +55,7 @@ export default function OrderStatus() {
           const errorData = await initialResponse.json();
           throw new Error(errorData.error || 'Falha ao buscar detalhes do pedido inicial.');
         }
-        const initialData = await initialResponse.json();
+        const initialData: Order[] = await initialResponse.json();
         
         if (!initialData || initialData.length === 0) {
           setError('Pedido não encontrado.');
@@ -87,7 +88,7 @@ export default function OrderStatus() {
   // Calcula os totais e informações consolidadas
   const { consolidatedItems, grandTotal, latestStatus, tableNumber, customerName } = useMemo(() => {
     if (orders.length === 0) {
-      return { consolidatedItems: [], grandTotal: 0, latestStatus: '' };
+      return { consolidatedItems: [], grandTotal: 0, latestStatus: '', tableNumber: null, customerName: '' };
     }
 
     const allItems = orders.flatMap(o => o.order_items);
@@ -166,8 +167,8 @@ export default function OrderStatus() {
           <div>
             <h2 className="text-xl font-semibold text-gray-800 mb-3">Itens Consumidos:</h2>
             <ul className="divide-y divide-gray-200">
-              {consolidatedItems.map(item => (
-                <li key={item.id} className="py-3 flex justify-between items-center">
+              {consolidatedItems.map((item, index) => (
+                <li key={`${item.id}-${index}`} className="py-3 flex justify-between items-center">
                   <div>
                     <p className="font-medium text-gray-900">{item.menu_items.name} (x{item.quantity})</p>
                     <p className="text-sm text-gray-600">R$ {item.price_at_time.toFixed(2).replace('.', ',')}</p>
