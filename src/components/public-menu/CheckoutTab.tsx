@@ -213,7 +213,7 @@ export function CheckoutTab({ tableId, tableNumber }: CheckoutTabProps) {
             {/* Barra Inferior Fixa */}
             <div className="fixed bottom-0 left-0 right-0 z-50">
                 <div className="container mx-auto max-w-3xl h-20 flex items-center justify-end px-4 bg-white shadow-[0_-2px_10px_rgba(0,0,0,0.1)] border-t rounded-t-lg">
-                    <Button size="lg" className="bg-orange-400 hover:bg-orange-500 text-white font-bold" disabled={cartItems.length === 0}>
+                    <Button size="lg" className="bg-orange-400 hover:bg-orange-500 text-white font-bold" disabled={cartItems.length === 0 || isSaving} onClick={handlePlaceOrder}>
                         Fazer pedido
                     </Button>
                 </div>
