@@ -38,51 +38,39 @@ export default async function handler(request, response) {
       }
     case 'GET':
       {
-        const { orderId, restaurantId: queryRestaurantId } = request.query; // Get orderId and potentially restaurantId from query
+        const { orderId } = request.query;
 
         try {
-          let query = supabase.from('orders').select(`
-            *,
-            restaurant_tables ( table_number, restaurant_id ),
-            order_items (
-              *,
-              menu_items ( name, price )
-            )
-          `);
-
+          // Se um orderId for fornecido, busca um único pedido (para a página de status do cliente)
           if (orderId) {
-            // If orderId is provided, fetch a single order
-            query = query.eq('id', orderId).single(); // Use .single() for a single result
-          } else {
-            // If no orderId, fetch all orders for the restaurant
-            // Get restaurantId from JWT (as before)
-            const { data: authRestaurantId, error: authRestaurantIdError } = await supabase.rpc('get_user_restaurant_id');
-            if (authRestaurantIdError) {
-              console.error('[API/Orders] Error getting restaurant ID from JWT:', authRestaurantIdError);
-              return response.status(401).json({ error: 'Unauthorized or no restaurant associated.' });
+            const { data, error } = await supabase
+              .from('orders')
+              .select(`
+                *,
+                restaurant_tables ( table_number, restaurant_id ),
+                order_items ( * , menu_items ( name, price ) )
+              `)
+              .eq('id', orderId)
+              .single();
+
+            if (error) {
+              if (error.code === 'PGRST116') { // 'exact one row not found'
+                return response.status(404).json({ error: 'Order not found' });
+              }
+              throw error;
             }
-            query = query.eq('restaurant_tables.restaurant_id', authRestaurantId).order('created_at', { ascending: false });
+            // A página de status do pedido espera um array, então envolvemos o objeto único em um array.
+            return response.status(200).json(data ? [data] : []);
           }
 
-          const { data, error } = await query;
+          // Se nenhum orderId for fornecido, busca todos os pedidos para o restaurante do usuário (para o dashboard)
+          const { data: restaurantId, error: restaurantIdError } = await supabase.rpc('get_user_restaurant_id');
+          if (restaurantIdError) throw restaurantIdError;
 
-          if (error) {
-            if (error.code === 'PGRST116' && orderId) { // 'exact one row not found' for single order
-              return response.status(404).json({ error: 'Order not found' });
-            }
-            console.error('[API/Orders] Supabase fetch orders error:', error);
-            return response.status(500).json({ error: error.message });
-          }
+          const { data: orders, error: ordersError } = await supabase.rpc('get_orders_for_restaurant', { p_restaurant_id: restaurantId });
+          if (ordersError) throw ordersError;
 
-          // If fetching a single order, data is an object. If fetching multiple, it's an array.
-          // Ensure consistent return type for single order fetch (array with one element)
-          if (orderId && data) {
-            return response.status(200).json([data]); // Wrap single object in array for consistency with frontend expectation
-          } else if (orderId && !data) {
-            return response.status(404).json({ error: 'Order not found' });
-          }
-
-          return response.status(200).json(data);
+          return response.status(200).json(orders);
 
         } catch (error) {
           console.error('[API/Orders] Server error during GET request:', error);
