@@ -3,9 +3,10 @@ import { Info, ShoppingCart, UtensilsCrossed } from 'lucide-react';
 
 interface PublicMenuHeaderProps {
   restaurantName: string;
+  totalItems: number;
 }
 
-export function PublicMenuHeader({ restaurantName }: PublicMenuHeaderProps) {
+export function PublicMenuHeader({ restaurantName, totalItems }: PublicMenuHeaderProps) {
   return (
     <div className="fixed top-0 left-0 right-0 z-50">
       <div className="container mx-auto max-w-3xl bg-white shadow-md p-2 flex items-center justify-between rounded-b-lg">
@@ -21,9 +22,14 @@ export function PublicMenuHeader({ restaurantName }: PublicMenuHeaderProps) {
             <Info className="h-4 w-4" />
             <span className="text-xs font-medium">Info</span>
           </TabsTrigger>
-          <TabsTrigger value="checkout" className="flex flex-col items-center justify-center p-1 text-gray-600 data-[state=active]:bg-white data-[state=active]:text-primary-600 rounded-md shadow-sm transition-all duration-200">
+          <TabsTrigger value="checkout" className="relative flex flex-col items-center justify-center p-1 text-gray-600 data-[state=active]:bg-white data-[state=active]:text-primary-600 rounded-md shadow-sm transition-all duration-200">
             <ShoppingCart className="h-4 w-4" />
             <span className="text-xs font-medium">Pedido</span>
+            {totalItems > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-4 w-4 flex items-center justify-center leading-none p-1">
+                {totalItems}
+              </span>
+            )}
           </TabsTrigger>
         </TabsList>
       </div>

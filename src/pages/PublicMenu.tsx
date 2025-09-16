@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { usePublicMenu, MenuItem } from '@/hooks/usePublicMenu';
-import { CartProvider } from '@/contexts/CartContext';
+import { CartProvider, useCart } from '@/contexts/CartContext';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { MenuLoadingSkeleton } from '@/components/public-menu/MenuLoadingSkeleton';
 import { MenuError } from '@/components/public-menu/MenuError';
@@ -50,7 +50,7 @@ function PublicMenuPage() {
     <>
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-200">
         <Tabs defaultValue="menu" className="w-full">
-          <PublicMenuHeader restaurantName={restaurant.name} />
+          <PublicMenuHeader restaurantName={restaurant.name} totalItems={totalItems} />
 
           <div className="pt-20 pb-8">
             <div className="container mx-auto px-4 max-w-3xl">
@@ -86,6 +86,9 @@ export default function PublicMenu() {
   return (
     <CartProvider>
       <PublicMenuPage />
+    </CartProvider>
+  );
+}
     </CartProvider>
   );
 }
