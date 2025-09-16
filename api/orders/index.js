@@ -16,19 +16,19 @@ export default async function handler(request, response) {
         }
 
         try {
-          // Call the RPC function to create the order and its items
           const { data: orderId, error } = await supabase.rpc('create_order_with_items', {
             p_table_id: table_id,
             p_customer_name: customer_name,
-            p_observations: observations, // observations can be null/undefined, so pass directly
+            p_observations: observations,
             p_items: items
           });
 
           if (error) {
-            console.error('[API/Orders] Supabase RPC error:', error);
+            console.error('[API/Orders] Supabase RPC error during creation:', error);
             return response.status(500).json({ error: error.message });
           }
 
+          console.log(`[API/Orders] SUCCESS: Order ${orderId} created successfully.`);
           return response.status(201).json({ orderId });
 
         } catch (error) {
@@ -41,12 +41,10 @@ export default async function handler(request, response) {
         const { orderId } = request.query;
 
         try {
-          // Se um orderId for fornecido, busca um único pedido (para a página de status do cliente)
           if (orderId) {
             const { data, error } = await supabase
               .from('orders')
-              .select(`
-                *,
+              .select(`*,
                 restaurant_tables ( table_number, restaurant_id ),
                 order_items ( * , menu_items ( name, price ) )
               `)
@@ -54,22 +52,26 @@ export default async function handler(request, response) {
               .single();
 
             if (error) {
-              if (error.code === 'PGRST116') { // 'exact one row not found'
+              if (error.code === 'PGRST116') {
                 return response.status(404).json({ error: 'Order not found' });
               }
               throw error;
             }
-            // A página de status do pedido espera um array, então envolvemos o objeto único em um array.
+            
+            console.log(`[API/Orders] SUCCESS: Fetched single order ${orderId}.`);
             return response.status(200).json(data ? [data] : []);
           }
 
-          // Se nenhum orderId for fornecido, busca todos os pedidos para o restaurante do usuário (para o dashboard)
           const { data: restaurantId, error: restaurantIdError } = await supabase.rpc('get_user_restaurant_id');
           if (restaurantIdError) throw restaurantIdError;
+
+          console.log('[API/Orders] DEBUG: Fetching orders for restaurant ID:', restaurantId);
 
           const { data: orders, error: ordersError } = await supabase.rpc('get_orders_for_restaurant', { p_restaurant_id: restaurantId });
           if (ordersError) throw ordersError;
 
+          console.log('[API/Orders] DEBUG: Data received from DB:', JSON.stringify(orders, null, 2));
+          console.log(`[API/Orders] SUCCESS: Fetched ${orders.length} orders for restaurant ${restaurantId}.`);
           return response.status(200).json(orders);
 
         } catch (error) {
