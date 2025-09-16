@@ -9,7 +9,7 @@ interface MenuBannerProps {
 
 export function MenuBanner({ menu, restaurant }: MenuBannerProps) {
     return (
-        <div className="relative mb-16"> {/* Aumentar margem inferior para dar espaço para a logo */}
+        <div className="relative mb-4"> {/* Margem inferior ajustada */}
             <Card className="shadow-xl overflow-hidden rounded-lg">
                 <div className="w-full h-48 bg-gray-200 flex items-center justify-center">
                     {menu.banner_url ? (
@@ -19,7 +19,7 @@ export function MenuBanner({ menu, restaurant }: MenuBannerProps) {
                     )}
                 </div>
             </Card>
-            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2">
+            <div className="absolute top-1/2 left-4 -translate-y-1/2"> {/* Posicionamento da logo */}
                 <div className="w-32 h-32 rounded-full bg-gray-300 border-4 border-white shadow-lg overflow-hidden flex items-center justify-center">
                     {restaurant.logo_url ? (
                         <img src={restaurant.logo_url} alt={`Logo de ${restaurant.name}`} className="w-full h-full object-cover" />
