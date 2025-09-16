@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ShoppingCart, Trash2 } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 import { useToast } from "@/components/ui/use-toast";
+import { useState } from 'react';
 
 interface CheckoutTabProps {
   tableId: string | null;
