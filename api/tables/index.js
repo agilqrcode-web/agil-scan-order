@@ -69,7 +69,7 @@ export default async function handler(request, response) {
         try {
           const { data, error } = await supabase
             .from('restaurant_tables')
-            .select('table_number')
+            .select('id, table_number')
             .eq('qr_code_identifier', qr_identifier)
             .single();
 

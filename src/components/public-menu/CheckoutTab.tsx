@@ -6,15 +6,95 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ShoppingCart, Trash2 } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
+import { useToast } from "@/components/ui/use-toast";
 
 interface CheckoutTabProps {
+  tableId: string | null;
   tableNumber: number | null;
 }
 
-export function CheckoutTab({ tableNumber }: CheckoutTabProps) {
-    const { cartItems, updateQuantity, removeFromCart, totalPrice } = useCart();
+export function CheckoutTab({ tableId, tableNumber }: CheckoutTabProps) {
+    const { cartItems, updateQuantity, removeFromCart, totalPrice, clearCart } = useCart();
+    const { toast } = useToast();
+    const [customerName, setCustomerName] = useState('');
+    const [observations, setObservations] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
+
     const serviceFee = totalPrice * 0.10;
     const finalTotal = totalPrice + serviceFee;
+
+    const handlePlaceOrder = async () => {
+        if (cartItems.length === 0) {
+            toast({
+                variant: "destructive",
+                title: "Carrinho vazio",
+                description: "Adicione itens ao carrinho antes de fazer o pedido.",
+            });
+            return;
+        }
+
+        if (!tableId) {
+            toast({
+                variant: "destructive",
+                title: "Mesa não identificada",
+                description: "Não foi possível identificar o número da mesa. Tente escanear o QR Code novamente.",
+            });
+            return;
+        }
+
+        if (!customerName.trim()) {
+            toast({
+                variant: "destructive",
+                title: "Nome obrigatório",
+                description: "Por favor, preencha seu nome para o pedido.",
+            });
+            return;
+        }
+
+        setIsSaving(true);
+
+        const formattedItems = cartItems.map(item => ({
+            menu_item_id: item.id,
+            quantity: item.quantity,
+            price_at_time: item.price,
+        }));
+
+        try {
+            const response = await fetch('/api/orders', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    table_id: tableId,
+                    customer_name: customerName,
+                    observations: observations,
+                    items: formattedItems,
+                }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Falha ao fazer o pedido.');
+            }
+
+            toast({
+                title: "Pedido realizado!",
+                description: "Seu pedido foi enviado com sucesso.",
+            });
+            clearCart();
+            setCustomerName('');
+            setObservations('');
+
+        } catch (error: any) {
+            console.error("Erro ao fazer pedido:", error);
+            toast({
+                variant: "destructive",
+                title: "Erro",
+                description: error.message || "Não foi possível enviar o pedido. Tente novamente.",
+            });
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
     return (
         <div className="pb-28"> {/* Padding for the fixed bottom bar */}
@@ -100,7 +180,7 @@ export function CheckoutTab({ tableNumber }: CheckoutTabProps) {
                         <div className="space-y-4">
                             <div>
                                 <Label htmlFor="customer-name" className="text-sm text-gray-600">Nome</Label>
-                                <Input id="customer-name" placeholder="Seu nome" className="text-sm text-gray-800" />
+                                <Input id="customer-name" placeholder="Seu nome" className="text-sm text-gray-800" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
                             </div>
                             {tableNumber && (
                                 <div className="flex items-center gap-2">
@@ -117,7 +197,7 @@ export function CheckoutTab({ tableNumber }: CheckoutTabProps) {
                             <CardTitle className="text-xl font-semibold text-gray-800">Observações</CardTitle>
                             <Separator className="my-2" />
                         </CardHeader>
-                        <Textarea placeholder="Ex: tirar a cebola, ponto da carne mal passado, etc." className="text-sm text-gray-800" />
+                        <Textarea placeholder="Ex: tirar a cebola, ponto da carne mal passado, etc." className="text-sm text-gray-800" value={observations} onChange={(e) => setObservations(e.target.value)} />
                     </Card>
                 </div>
             </div>
