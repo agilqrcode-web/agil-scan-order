@@ -53,7 +53,7 @@ export default async function handler(request, response) {
       }
     case 'GET':
       {
-        const { orderId } = request.query;
+        const { orderId, tableId } = request.query;
 
         // Se um orderId for fornecido, a ação é PÚBLICA (para o cliente ver o status)
         if (orderId) {
@@ -76,12 +76,35 @@ export default async function handler(request, response) {
                 console.log(`[API/Orders] SUCCESS: Publicly fetched single order ${orderId}.`);
                 return response.status(200).json(data ? [data] : []);
             } catch (error) {
-                console.error('[API/Orders] Server error during public GET request:', error);
+                console.error('[API/Orders] Server error during public GET request for single order:', error);
                 return response.status(500).json({ error: error.message });
             }
         }
 
-        // Se nenhum orderId for fornecido, a ação é PRIVADA (para o dashboard)
+        // Se um tableId for fornecido, a ação também é PÚBLICA (para consolidar a conta do cliente)
+        if (tableId) {
+            const supabaseAdmin = createSupabaseAdminClient();
+            try {
+                const { data, error } = await supabaseAdmin
+                    .from('orders')
+                    .select(`*,
+                        restaurant_tables ( table_number, restaurant_id ),
+                        order_items ( * , menu_items ( name, price ) )
+                    `)
+                    .eq('table_id', tableId)
+                    .order('created_at', { ascending: true }); // Ordenar do mais antigo para o mais novo
+
+                if (error) { throw error; }
+
+                console.log(`[API/Orders] SUCCESS: Publicly fetched ${data.length} orders for table ${tableId}.`);
+                return response.status(200).json(data);
+            } catch (error) {
+                console.error('[API/Orders] Server error during public GET request for table orders:', error);
+                return response.status(500).json({ error: error.message });
+            }
+        }
+
+        // Se nenhum parâmetro for fornecido, a ação é PRIVADA (para o dashboard)
         const token = request.headers.authorization;
         if (!token) {
             return response.status(401).json({ error: 'Unauthorized: No token provided' });
