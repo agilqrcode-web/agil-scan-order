@@ -1,10 +1,35 @@
 import { createClient } from '@supabase/supabase-js';
+import { clerkClient, getAuth } from '@clerk/nextjs/server';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+// Função auxiliar para criar um cliente Supabase autenticado em nome do usuário
+const createSupabaseClient = (token) => {
+  return createClient(SUPABASE_URL, process.env.VITE_SUPABASE_ANON_KEY, {
+    global: {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  });
+};
 
 export default async function handler(request, response) {
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const auth = getAuth(request);
+  const { getToken } = auth;
+
+  if (!auth.userId) {
+    return response.status(401).json({ error: 'Unauthorized' });
+  }
+
+  // Obter o token usando o template customizado do Supabase
+  const supabaseToken = await getToken({ template: 'agilqrcode' });
+  if (!supabaseToken) {
+      return response.status(401).json({ error: 'Could not get Supabase token.' });
+  }
+
+  // Criar um cliente Supabase que age em nome do usuário
+  const supabase = createSupabaseClient(supabaseToken);
 
   switch (request.method) {
     case 'POST':
@@ -65,12 +90,14 @@ export default async function handler(request, response) {
           const { data: restaurantId, error: restaurantIdError } = await supabase.rpc('get_user_restaurant_id');
           if (restaurantIdError) throw restaurantIdError;
 
-          console.log('[API/Orders] DEBUG: Fetching orders for restaurant ID:', restaurantId);
+          if (!restaurantId) {
+            console.error('[API/Orders] Could not find a restaurant ID for the authenticated user.');
+            return response.status(404).json({ error: 'No restaurant associated with this user.' });
+          }
 
           const { data: orders, error: ordersError } = await supabase.rpc('get_orders_for_restaurant', { p_restaurant_id: restaurantId });
           if (ordersError) throw ordersError;
 
-          console.log('[API/Orders] DEBUG: Data received from DB:', JSON.stringify(orders, null, 2));
           console.log(`[API/Orders] SUCCESS: Fetched ${orders.length} orders for restaurant ${restaurantId}.`);
           return response.status(200).json(orders);
 

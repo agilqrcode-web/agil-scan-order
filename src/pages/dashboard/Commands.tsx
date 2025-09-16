@@ -1,3 +1,4 @@
+import { useAuth } from "@clerk/clerk-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -56,16 +57,22 @@ const statusLabels: { [key: string]: string } = {
   finalized: "Finalizado",
 };
 
-// Função para buscar os pedidos
-const fetchOrders = async (): Promise<Order[]> => {
-  const response = await fetch('/api/orders');
-  if (!response.ok) {
-    throw new Error('Failed to fetch orders');
-  }
-  return response.json();
-};
-
 export default function Commands() {
+  const { getToken } = useAuth();
+
+  const fetchOrders = async (): Promise<Order[]> => {
+    const token = await getToken({ template: "agilqrcode" });
+    const response = await fetch('/api/orders', {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    if (!response.ok) {
+      throw new Error('Failed to fetch orders');
+    }
+    return response.json();
+  };
+
   const { data: orders, isLoading, isError, error } = useQuery<Order[], Error>({
     queryKey: ['orders'],
     queryFn: fetchOrders,
