@@ -18,6 +18,7 @@ interface CheckoutTabProps {
 export function CheckoutTab({ tableId, tableNumber }: CheckoutTabProps) {
     const { cartItems, updateQuantity, removeFromCart, totalPrice, clearCart } = useCart();
     const { toast } = useToast();
+    const navigate = useNavigate(); // Inicialização do navigate
     const [customerName, setCustomerName] = useState('');
     const [observations, setObservations] = useState('');
     const [isSaving, setIsSaving] = useState(false);
