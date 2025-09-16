@@ -107,7 +107,7 @@ export default function OrderStatus() {
         <CardHeader className="p-0 pb-4">
           <CardTitle className="text-2xl font-bold text-gray-800 flex items-center">
             <ShoppingCart className="h-6 w-6 mr-3 text-primary" />
-            Status do Pedido #{order.restaurant_tables.table_number}
+            Pedido mesa {order.restaurant_tables.table_number}
           </CardTitle>
           <p className="text-sm text-gray-600 mt-2">
             Pedido realizado por <span className="font-semibold">{order.customer_name}</span> em {new Date(order.created_at).toLocaleString()}.
@@ -159,7 +159,7 @@ export default function OrderStatus() {
           )}
 
           <div className="text-center pt-6">
-            <Button onClick={() => navigate('/')} variant="outline">Fazer Novo Pedido</Button>
+            <Button onClick={() => navigate(-1)} variant="outline">Voltar ao Cardápio</Button>
           </div>
         </CardContent>
       </div>
