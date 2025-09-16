@@ -2,35 +2,28 @@ import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 // Função auxiliar para criar um cliente Supabase autenticado em nome do usuário
-const createSupabaseClient = (token) => {
-  // Remove o prefixo 'Bearer ' se ele existir
+const createSupabaseClientForUser = (token) => {
   const jwt = token.startsWith('Bearer ') ? token.slice(7) : token;
-  
   return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    global: {
-      headers: {
-        Authorization: `Bearer ${jwt}`,
-      },
-    },
+    global: { headers: { Authorization: `Bearer ${jwt}` } },
   });
 };
 
+// Função para criar um cliente Supabase com privilégios de administrador
+const createSupabaseAdminClient = () => {
+    return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+}
+
 export default async function handler(request, response) {
-  // Extrai o token do cabeçalho da requisição
-  const token = request.headers.authorization;
-
-  if (!token) {
-    return response.status(401).json({ error: 'Unauthorized: No token provided' });
-  }
-
-  // Cria um cliente Supabase que age em nome do usuário
-  const supabase = createSupabaseClient(token);
 
   switch (request.method) {
     case 'POST':
       {
+        // Para criar um pedido, usamos o cliente admin, pois é uma ação pública
+        const supabaseAdmin = createSupabaseAdminClient();
         const { table_id, customer_name, observations, items } = request.body;
 
         if (!table_id || !customer_name || !items || !Array.isArray(items) || items.length === 0) {
@@ -38,7 +31,7 @@ export default async function handler(request, response) {
         }
 
         try {
-          const { data: orderId, error } = await supabase.rpc('create_order_with_items', {
+          const { data: orderId, error } = await supabaseAdmin.rpc('create_order_with_items', {
             p_table_id: table_id,
             p_customer_name: customer_name,
             p_observations: observations,
@@ -60,12 +53,17 @@ export default async function handler(request, response) {
       }
     case 'GET':
       {
+        // Para ler pedidos, exigimos autenticação e agimos em nome do usuário
+        const token = request.headers.authorization;
+        if (!token) {
+            return response.status(401).json({ error: 'Unauthorized: No token provided' });
+        }
+        const supabaseForUser = createSupabaseClientForUser(token);
         const { orderId } = request.query;
 
         try {
-          // Se um orderId for fornecido, busca um único pedido (para a página de status do cliente)
           if (orderId) {
-            const { data, error } = await supabase
+            const { data, error } = await supabaseForUser
               .from('orders')
               .select(`*,
                 restaurant_tables ( table_number, restaurant_id ),
@@ -85,24 +83,17 @@ export default async function handler(request, response) {
             return response.status(200).json(data ? [data] : []);
           }
 
-          // Se nenhum orderId for fornecido, busca todos os pedidos para o restaurante do usuário (para o dashboard)
-          const { data: restaurantId, error: restaurantIdError } = await supabase.rpc('get_user_restaurant_id');
-          if (restaurantIdError) {
-            console.error('[API/Orders] Error fetching restaurant ID:', restaurantIdError);
-            throw restaurantIdError;
-          }
+          const { data: restaurantId, error: restaurantIdError } = await supabaseForUser.rpc('get_user_restaurant_id');
+          if (restaurantIdError) throw restaurantIdError;
 
           if (!restaurantId) {
             return response.status(404).json({ error: 'No restaurant associated with this user.' });
           }
 
-          const { data: orders, error: ordersError } = await supabase.rpc('get_orders_for_restaurant', { p_restaurant_id: restaurantId });
-          if (ordersError) {
-            console.error('[API/Orders] Error fetching orders for restaurant:', ordersError);
-            throw ordersError;
-          }
+          const { data: orders, error: ordersError } = await supabaseForUser.rpc('get_orders_for_restaurant', { p_restaurant_id: restaurantId });
+          if (ordersError) throw ordersError;
 
-          console.log(`[API/Orders] SUCCESS: Fetched ${orders.length} orders for restaurant ${restaurantId}.`);
+          console.log(`[API/Orders] SUCCESS: Fetched ${orders ? orders.length : 0} orders for restaurant ${restaurantId}.`);
           return response.status(200).json(orders);
 
         } catch (error) {

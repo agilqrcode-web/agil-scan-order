@@ -8,7 +8,7 @@ import { ShoppingCart, Trash2 } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 import { useToast } from "@/components/ui/use-toast";
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom'; // Forçando rebuild
+import { useNavigate } from 'react-router-dom';
 
 interface CheckoutTabProps {
   tableId: string | null;
@@ -18,7 +18,7 @@ interface CheckoutTabProps {
 export function CheckoutTab({ tableId, tableNumber }: CheckoutTabProps) {
     const { cartItems, updateQuantity, removeFromCart, totalPrice, clearCart } = useCart();
     const { toast } = useToast();
-    const navigate = useNavigate(); // Inicialização do navigate
+    const navigate = useNavigate();
     const [customerName, setCustomerName] = useState('');
     const [observations, setObservations] = useState('');
     const [isSaving, setIsSaving] = useState(false);
@@ -27,47 +27,34 @@ export function CheckoutTab({ tableId, tableNumber }: CheckoutTabProps) {
     const finalTotal = totalPrice + serviceFee;
 
     const handlePlaceOrder = async () => {
-        console.log("handlePlaceOrder called");
         if (cartItems.length === 0) {
-            toast({
-                variant: "destructive",
-                title: "Carrinho vazio",
-                description: "Adicione itens ao carrinho antes de fazer o pedido.",
-            });
+            toast({ variant: "destructive", title: "Carrinho vazio" });
             return;
         }
-
         if (!tableId) {
-            toast({
-                variant: "destructive",
-                title: "Mesa não identificada",
-                description: "Não foi possível identificar o número da mesa. Tente escanear o QR Code novamente.",
-            });
+            toast({ variant: "destructive", title: "Mesa não identificada" });
             return;
         }
-
         if (!customerName.trim()) {
-            toast({
-                variant: "destructive",
-                title: "Nome obrigatório",
-                description: "Por favor, preencha seu nome para o pedido.",
-            });
+            toast({ variant: "destructive", title: "Nome obrigatório" });
             return;
         }
 
         setIsSaving(true);
         console.log("Validation passed, attempting API call");
 
-        const formattedItems = cartItems.map(item => ({
-            menu_item_id: item.id,
-            quantity: item.quantity,
-            price_at_time: item.price,
-        }));
-
         try {
+            const formattedItems = cartItems.map(item => ({
+                menu_item_id: item.id,
+                quantity: item.quantity,
+                price_at_time: item.price,
+            }));
+
             const response = await fetch('/api/orders', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                },
                 body: JSON.stringify({
                     table_id: tableId,
                     customer_name: customerName,
@@ -81,13 +68,10 @@ export function CheckoutTab({ tableId, tableNumber }: CheckoutTabProps) {
                 throw new Error(errorData.error || 'Falha ao fazer o pedido.');
             }
 
-            const { orderId } = await response.json(); // Assuming API returns { orderId: UUID }
+            const { orderId } = await response.json();
             console.log("API call successful, orderId:", orderId);
 
-            toast({
-                title: "Pedido realizado!",
-                description: "Seu pedido foi enviado com sucesso.",
-            });
+            toast({ title: "Pedido realizado!", description: "Seu pedido foi enviado com sucesso." });
             clearCart();
             setCustomerName('');
             setObservations('');
@@ -95,11 +79,7 @@ export function CheckoutTab({ tableId, tableNumber }: CheckoutTabProps) {
 
         } catch (error: any) {
             console.error("API call failed, error:", error);
-            toast({
-                variant: "destructive",
-                title: "Erro",
-                description: error.message || "Não foi possível enviar o pedido. Tente novamente.",
-            });
+            toast({ variant: "destructive", title: "Erro", description: error.message });
         } finally {
             setIsSaving(false);
         }
