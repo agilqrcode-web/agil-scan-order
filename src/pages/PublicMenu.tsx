@@ -7,7 +7,7 @@ import { MenuError } from '@/components/public-menu/MenuError';
 import { MenuNotFound } from '@/components/public-menu/MenuNotFound';
 import { PublicMenuHeader } from '@/components/public-menu/PublicMenuHeader';
 import { MenuBanner } from '@/components/public-menu/MenuBanner';
-import { MenuContent } => '@/components/public-menu/MenuContent';
+import { MenuContent } from '@/components/public-menu/MenuContent';
 import { RestaurantInfoTab } from '@/components/public-menu/RestaurantInfoTab';
 import { CheckoutTab } from '@/components/public-menu/CheckoutTab';
 import { MenuItemDetailModal } from '@/components/public-menu/MenuItemDetailModal';
