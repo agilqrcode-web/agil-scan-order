@@ -53,52 +53,58 @@ export default async function handler(request, response) {
       }
     case 'GET':
       {
-        // Para ler pedidos, exigimos autenticação e agimos em nome do usuário
+        const { orderId } = request.query;
+
+        // Se um orderId for fornecido, a ação é PÚBLICA (para o cliente ver o status)
+        if (orderId) {
+            const supabaseAdmin = createSupabaseAdminClient();
+            try {
+                const { data, error } = await supabaseAdmin
+                    .from('orders')
+                    .select(`*,
+                        restaurant_tables ( table_number, restaurant_id ),
+                        order_items ( * , menu_items ( name, price ) )
+                    `)
+                    .eq('id', orderId)
+                    .single();
+
+                if (error) {
+                    if (error.code === 'PGRST116') { return response.status(404).json({ error: 'Order not found' }); }
+                    throw error;
+                }
+                
+                console.log(`[API/Orders] SUCCESS: Publicly fetched single order ${orderId}.`);
+                return response.status(200).json(data ? [data] : []);
+            } catch (error) {
+                console.error('[API/Orders] Server error during public GET request:', error);
+                return response.status(500).json({ error: error.message });
+            }
+        }
+
+        // Se nenhum orderId for fornecido, a ação é PRIVADA (para o dashboard)
         const token = request.headers.authorization;
         if (!token) {
             return response.status(401).json({ error: 'Unauthorized: No token provided' });
         }
         const supabaseForUser = createSupabaseClientForUser(token);
-        const { orderId } = request.query;
 
         try {
-          if (orderId) {
-            const { data, error } = await supabaseForUser
-              .from('orders')
-              .select(`*,
-                restaurant_tables ( table_number, restaurant_id ),
-                order_items ( * , menu_items ( name, price ) )
-              `)
-              .eq('id', orderId)
-              .single();
+            const { data: restaurantId, error: restaurantIdError } = await supabaseForUser.rpc('get_user_restaurant_id');
+            if (restaurantIdError) throw restaurantIdError;
 
-            if (error) {
-              if (error.code === 'PGRST116') {
-                return response.status(404).json({ error: 'Order not found' });
-              }
-              throw error;
+            if (!restaurantId) {
+                return response.status(404).json({ error: 'No restaurant associated with this user.' });
             }
-            
-            console.log(`[API/Orders] SUCCESS: Fetched single order ${orderId}.`);
-            return response.status(200).json(data ? [data] : []);
-          }
 
-          const { data: restaurantId, error: restaurantIdError } = await supabaseForUser.rpc('get_user_restaurant_id');
-          if (restaurantIdError) throw restaurantIdError;
+            const { data: orders, error: ordersError } = await supabaseForUser.rpc('get_orders_for_restaurant', { p_restaurant_id: restaurantId });
+            if (ordersError) throw ordersError;
 
-          if (!restaurantId) {
-            return response.status(404).json({ error: 'No restaurant associated with this user.' });
-          }
-
-          const { data: orders, error: ordersError } = await supabaseForUser.rpc('get_orders_for_restaurant', { p_restaurant_id: restaurantId });
-          if (ordersError) throw ordersError;
-
-          console.log(`[API/Orders] SUCCESS: Fetched ${orders ? orders.length : 0} orders for restaurant ${restaurantId}.`);
-          return response.status(200).json(orders);
+            console.log(`[API/Orders] SUCCESS: Fetched ${orders ? orders.length : 0} orders for restaurant ${restaurantId}.`);
+            return response.status(200).json(orders);
 
         } catch (error) {
-          console.error('[API/Orders] Server error during GET request:', error);
-          return response.status(500).json({ error: error.message });
+            console.error('[API/Orders] Server error during private GET request:', error);
+            return response.status(500).json({ error: error.message });
         }
       }
     default:
