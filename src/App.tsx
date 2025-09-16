@@ -27,6 +27,7 @@ import Menus from "./pages/dashboard/Menus";
 import MenuEditor from "./pages/dashboard/MenuEditor";
 import EditRestaurant from "./pages/dashboard/EditRestaurant";
 import PublicMenu from "./pages/PublicMenu";
+import OrderStatus from "./pages/OrderStatus";
 
 const queryClient = new QueryClient();
 
