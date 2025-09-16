@@ -1,35 +1,32 @@
 import { createClient } from '@supabase/supabase-js';
-import { clerkClient, getAuth } from '@clerk/nextjs/server';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY;
 
 // Função auxiliar para criar um cliente Supabase autenticado em nome do usuário
 const createSupabaseClient = (token) => {
-  return createClient(SUPABASE_URL, process.env.VITE_SUPABASE_ANON_KEY, {
+  // Remove o prefixo 'Bearer ' se ele existir
+  const jwt = token.startsWith('Bearer ') ? token.slice(7) : token;
+  
+  return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     global: {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${jwt}`,
       },
     },
   });
 };
 
 export default async function handler(request, response) {
-  const auth = getAuth(request);
-  const { getToken } = auth;
+  // Extrai o token do cabeçalho da requisição
+  const token = request.headers.authorization;
 
-  if (!auth.userId) {
-    return response.status(401).json({ error: 'Unauthorized' });
+  if (!token) {
+    return response.status(401).json({ error: 'Unauthorized: No token provided' });
   }
 
-  // Obter o token usando o template customizado do Supabase
-  const supabaseToken = await getToken({ template: 'agilqrcode' });
-  if (!supabaseToken) {
-      return response.status(401).json({ error: 'Could not get Supabase token.' });
-  }
-
-  // Criar um cliente Supabase que age em nome do usuário
-  const supabase = createSupabaseClient(supabaseToken);
+  // Cria um cliente Supabase que age em nome do usuário
+  const supabase = createSupabaseClient(token);
 
   switch (request.method) {
     case 'POST':
@@ -66,6 +63,7 @@ export default async function handler(request, response) {
         const { orderId } = request.query;
 
         try {
+          // Se um orderId for fornecido, busca um único pedido (para a página de status do cliente)
           if (orderId) {
             const { data, error } = await supabase
               .from('orders')
@@ -87,16 +85,22 @@ export default async function handler(request, response) {
             return response.status(200).json(data ? [data] : []);
           }
 
+          // Se nenhum orderId for fornecido, busca todos os pedidos para o restaurante do usuário (para o dashboard)
           const { data: restaurantId, error: restaurantIdError } = await supabase.rpc('get_user_restaurant_id');
-          if (restaurantIdError) throw restaurantIdError;
+          if (restaurantIdError) {
+            console.error('[API/Orders] Error fetching restaurant ID:', restaurantIdError);
+            throw restaurantIdError;
+          }
 
           if (!restaurantId) {
-            console.error('[API/Orders] Could not find a restaurant ID for the authenticated user.');
             return response.status(404).json({ error: 'No restaurant associated with this user.' });
           }
 
           const { data: orders, error: ordersError } = await supabase.rpc('get_orders_for_restaurant', { p_restaurant_id: restaurantId });
-          if (ordersError) throw ordersError;
+          if (ordersError) {
+            console.error('[API/Orders] Error fetching orders for restaurant:', ordersError);
+            throw ordersError;
+          }
 
           console.log(`[API/Orders] SUCCESS: Fetched ${orders.length} orders for restaurant ${restaurantId}.`);
           return response.status(200).json(orders);
