@@ -38,37 +38,51 @@ export default async function handler(request, response) {
       }
     case 'GET':
       {
-        // For GET requests, we need the restaurant_id.
-        // This typically comes from the user's JWT.
-        // For now, we'll assume the user is authenticated and we can get their restaurant_id via RPC.
-        // In a real scenario, you'd parse the JWT directly here.
+        const { orderId, restaurantId: queryRestaurantId } = request.query; // Get orderId and potentially restaurantId from query
+
         try {
-          const { data: restaurantId, error: restaurantIdError } = await supabase.rpc('get_user_restaurant_id');
-
-          if (restaurantIdError) {
-            console.error('[API/Orders] Error getting restaurant ID:', restaurantIdError);
-            return response.status(401).json({ error: 'Unauthorized or no restaurant associated.' });
-          }
-
-          const { data: orders, error: ordersError } = await supabase
-            .from('orders')
-            .select(`
+          let query = supabase.from('orders').select(`
+            *,
+            restaurant_tables ( table_number, restaurant_id ), // Also select restaurant_id from table
+            order_items (
               *,
-              restaurant_tables ( table_number ),
-              order_items (
-                *,
-                menu_items ( name, price )
-              )
-            `)
-            .eq('restaurant_tables.restaurant_id', restaurantId)
-            .order('created_at', { ascending: false });
+              menu_items ( name, price )
+            )
+          `);
 
-          if (ordersError) {
-            console.error('[API/Orders] Supabase fetch orders error:', ordersError);
-            return response.status(500).json({ error: ordersError.message });
+          if (orderId) {
+            // If orderId is provided, fetch a single order
+            query = query.eq('id', orderId).single(); // Use .single() for a single result
+          } else {
+            // If no orderId, fetch all orders for the restaurant
+            // Get restaurantId from JWT (as before)
+            const { data: authRestaurantId, error: authRestaurantIdError } = await supabase.rpc('get_user_restaurant_id');
+            if (authRestaurantIdError) {
+              console.error('[API/Orders] Error getting restaurant ID from JWT:', authRestaurantIdError);
+              return response.status(401).json({ error: 'Unauthorized or no restaurant associated.' });
+            }
+            query = query.eq('restaurant_tables.restaurant_id', authRestaurantId).order('created_at', { ascending: false });
           }
 
-          return response.status(200).json(orders);
+          const { data, error } = await query;
+
+          if (error) {
+            if (error.code === 'PGRST116' && orderId) { // 'exact one row not found' for single order
+              return response.status(404).json({ error: 'Order not found' });
+            }
+            console.error('[API/Orders] Supabase fetch orders error:', error);
+            return response.status(500).json({ error: error.message });
+          }
+
+          // If fetching a single order, data is an object. If fetching multiple, it's an array.
+          // Ensure consistent return type for single order fetch (array with one element)
+          if (orderId && data) {
+            return response.status(200).json([data]); // Wrap single object in array for consistency with frontend expectation
+          } else if (orderId && !data) {
+            return response.status(404).json({ error: 'Order not found' });
+          }
+
+          return response.status(200).json(data);
 
         } catch (error) {
           console.error('[API/Orders] Server error during GET request:', error);
