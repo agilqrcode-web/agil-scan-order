@@ -43,7 +43,7 @@ export default async function handler(request, response) {
         try {
           let query = supabase.from('orders').select(`
             *,
-            restaurant_tables ( table_number, restaurant_id ), // Also select restaurant_id from table
+            restaurant_tables ( table_number, restaurant_id ),
             order_items (
               *,
               menu_items ( name, price )
