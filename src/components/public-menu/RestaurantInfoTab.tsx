@@ -84,7 +84,7 @@ export function RestaurantInfoTab({ restaurant }: RestaurantInfoTabProps) {
                         {paymentMethodsList.length > 0 ? (
                             <div className="flex flex-wrap gap-3">
                                 {paymentMethodsList.map(method => (
-                                    <span key={method} className="bg-primary/10 text-primary font-semibold text-sm px-3 py-1 rounded-full">
+                                    <span key={method} className="bg-green-100 text-green-800 font-semibold text-sm px-3 py-1 rounded-full border border-green-200">
                                         {method}
                                     </span>
                                 ))}

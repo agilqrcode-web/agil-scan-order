@@ -163,7 +163,7 @@ export function CheckoutTab({ tableId, tableNumber }: CheckoutTabProps) {
                             {tableNumber && (
                                 <div className="flex items-center gap-2">
                                     <Label className="text-sm text-gray-600">Número da Mesa:</Label>
-                                    <span className="text-lg font-bold text-primary bg-primary/10 px-3 py-1 rounded-md">{tableNumber}</span>
+                                    <span className="text-lg font-bold bg-green-100 text-green-800 px-3 py-1 rounded-md border border-green-200">{tableNumber}</span>
                                 </div>
                             )}
                         </div>
