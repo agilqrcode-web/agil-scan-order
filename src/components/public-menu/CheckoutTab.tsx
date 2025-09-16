@@ -8,6 +8,7 @@ import { ShoppingCart, Trash2 } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 import { useToast } from "@/components/ui/use-toast";
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 interface CheckoutTabProps {
   tableId: string | null;
@@ -84,6 +85,7 @@ export function CheckoutTab({ tableId, tableNumber }: CheckoutTabProps) {
             clearCart();
             setCustomerName('');
             setObservations('');
+            navigate(`/order-status/${orderId}`);
 
         } catch (error: any) {
             console.error("Erro ao fazer pedido:", error);

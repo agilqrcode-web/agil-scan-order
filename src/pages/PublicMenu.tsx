@@ -7,13 +7,14 @@ import { MenuError } from '@/components/public-menu/MenuError';
 import { MenuNotFound } from '@/components/public-menu/MenuNotFound';
 import { PublicMenuHeader } from '@/components/public-menu/PublicMenuHeader';
 import { MenuBanner } from '@/components/public-menu/MenuBanner';
-import { MenuContent } from '@/components/public-menu/MenuContent';
+import { MenuContent } => '@/components/public-menu/MenuContent';
 import { RestaurantInfoTab } from '@/components/public-menu/RestaurantInfoTab';
 import { CheckoutTab } from '@/components/public-menu/CheckoutTab';
 import { MenuItemDetailModal } from '@/components/public-menu/MenuItemDetailModal';
 
 function PublicMenuPage() {
   const { data, isLoading, isError, error, menuId, tableIdentifier } = usePublicMenu();
+  const { totalItems } = useCart();
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [tableNumberDisplay, setTableNumberDisplay] = useState<number | null>(null);
   const [tableId, setTableId] = useState<string | null>(null);
@@ -86,9 +87,6 @@ export default function PublicMenu() {
   return (
     <CartProvider>
       <PublicMenuPage />
-    </CartProvider>
-  );
-}
     </CartProvider>
   );
 }

@@ -76,6 +76,7 @@ const App = () => {
               </Route>
               
               <Route path="/menus/:menuId" element={<PublicMenu />} />
+              <Route path="/order-status/:orderId" element={<OrderStatus />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
