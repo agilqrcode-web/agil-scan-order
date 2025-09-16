@@ -26,6 +26,7 @@ export function CheckoutTab({ tableId, tableNumber }: CheckoutTabProps) {
     const finalTotal = totalPrice + serviceFee;
 
     const handlePlaceOrder = async () => {
+        console.log("handlePlaceOrder called");
         if (cartItems.length === 0) {
             toast({
                 variant: "destructive",
@@ -54,6 +55,7 @@ export function CheckoutTab({ tableId, tableNumber }: CheckoutTabProps) {
         }
 
         setIsSaving(true);
+        console.log("Validation passed, attempting API call");
 
         const formattedItems = cartItems.map(item => ({
             menu_item_id: item.id,
@@ -78,6 +80,9 @@ export function CheckoutTab({ tableId, tableNumber }: CheckoutTabProps) {
                 throw new Error(errorData.error || 'Falha ao fazer o pedido.');
             }
 
+            const { orderId } = await response.json(); // Assuming API returns { orderId: UUID }
+            console.log("API call successful, orderId:", orderId);
+
             toast({
                 title: "Pedido realizado!",
                 description: "Seu pedido foi enviado com sucesso.",
@@ -88,7 +93,7 @@ export function CheckoutTab({ tableId, tableNumber }: CheckoutTabProps) {
             navigate(`/order-status/${orderId}`);
 
         } catch (error: any) {
-            console.error("Erro ao fazer pedido:", error);
+            console.error("API call failed, error:", error);
             toast({
                 variant: "destructive",
                 title: "Erro",
