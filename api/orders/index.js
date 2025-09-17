@@ -51,6 +51,65 @@ export default async function handler(request, response) {
           return response.status(500).json({ error: error.message });
         }
       }
+    case 'PUT':
+      {
+        const { orderId, newStatus } = request.body;
+
+        if (!orderId || !newStatus) {
+          return response.status(400).json({ error: 'Missing orderId or newStatus.' });
+        }
+
+        // Autenticação: Apenas usuários logados podem atualizar o status
+        const token = request.headers.authorization;
+        if (!token) {
+            return response.status(401).json({ error: 'Unauthorized: No token provided' });
+        }
+        const supabaseForUser = createSupabaseClientForUser(token);
+
+        try {
+          // Verificar se o usuário tem permissão para atualizar este pedido
+          // (i.e., se o pedido pertence ao restaurante do usuário logado)
+          const { data: restaurantId, error: restaurantIdError } = await supabaseForUser.rpc('get_user_restaurant_id');
+          if (restaurantIdError) throw restaurantIdError;
+
+          if (!restaurantId) {
+            return response.status(404).json({ error: 'No restaurant associated with this user.' });
+          }
+
+          // Verificar se o pedido existe e pertence ao restaurante do usuário
+          const { data: order, error: orderError } = await supabaseForUser
+            .from('orders')
+            .select('id, restaurant_tables(restaurant_id)')
+            .eq('id', orderId)
+            .single();
+
+          if (orderError || !order) {
+            return response.status(404).json({ error: 'Order not found or not accessible.' });
+          }
+
+          if (order.restaurant_tables.restaurant_id !== restaurantId) {
+            return response.status(403).json({ error: 'Forbidden: Order does not belong to your restaurant.' });
+          }
+
+          // Chamar a função RPC para atualizar o status
+          const { error: rpcError } = await supabaseForUser.rpc('update_order_status', {
+            p_order_id: orderId,
+            p_new_status: newStatus
+          });
+
+          if (rpcError) {
+            console.error('[API/Orders] Supabase RPC error during status update:', rpcError);
+            return response.status(500).json({ error: rpcError.message });
+          }
+
+          console.log(`[API/Orders] SUCCESS: Order ${orderId} status updated to ${newStatus}.`);
+          return response.status(200).json({ message: 'Order status updated successfully.' });
+
+        } catch (error) {
+          console.error('[API/Orders] Server error during PUT request:', error);
+          return response.status(500).json({ error: error.message });
+        }
+      }
     case 'GET':
       {
         const { orderId, tableId } = request.query;
