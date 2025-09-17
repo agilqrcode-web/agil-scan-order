@@ -20,7 +20,7 @@ const statusColors: { [key: string]: string } = {
 
 const statusLabels: { [key: string]: string } = {
   pending: "Pendente",
-  preparing: "Preparando",
+  preparing: "Em Preparação",
   ready: "Pronto",
   finalized: "Finalizado",
 };
@@ -48,12 +48,12 @@ export function OrderCard({ order }: OrderCardProps) {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to update order status.');
+        throw new Error(errorData.error || 'Falha ao atualizar status.');
       }
       return response.json();
     },
-    onSuccess: () => {
-      toast({ title: "Status atualizado!", description: "O pedido foi aceito." });
+    onSuccess: (data, variables) => {
+      toast({ title: "Status atualizado!", description: `O status do pedido foi alterado para ${statusLabels[variables.newStatus]}.` });
       queryClient.invalidateQueries({ queryKey: ['orders'] }); // Invalidate orders query to refetch data
     },
     onError: (error) => {
@@ -63,6 +63,14 @@ export function OrderCard({ order }: OrderCardProps) {
 
   const handleAcceptOrder = () => {
     updateOrderStatusMutation.mutate({ orderId: order.id, newStatus: 'preparing' });
+  };
+
+  const handleReadyOrder = () => {
+    updateOrderStatusMutation.mutate({ orderId: order.id, newStatus: 'ready' });
+  };
+
+  const handleDeliverOrder = () => {
+    updateOrderStatusMutation.mutate({ orderId: order.id, newStatus: 'finalized' });
   };
 
   return (
@@ -92,9 +100,29 @@ export function OrderCard({ order }: OrderCardProps) {
                 {updateOrderStatusMutation.isPending ? 'Aceitando...' : <><CheckCircle className="mr-1 h-3 w-3" />Aceitar</>}
               </Button>
             )}
-            {order.status === 'preparing' && <Button size="sm" variant="secondary"><CheckCircle className="mr-1 h-3 w-3" />Pronto</Button>}
-            {order.status === 'ready' && <Button size="sm" variant="secondary"><CheckCircle className="mr-1 h-3 w-3" />Entregar</Button>}
-            {order.status !== 'finalized' && <Button size="sm" variant="destructive"><XCircle className="h-3 w-3" /></Button>}
+            {order.status === 'preparing' && (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={handleReadyOrder}
+                disabled={updateOrderStatusMutation.isPending}
+              >
+                {updateOrderStatusMutation.isPending ? 'Pronto...' : <><CheckCircle className="mr-1 h-3 w-3" />Pronto</>}
+              </Button>
+            )}
+            {order.status === 'ready' && (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={handleDeliverOrder}
+                disabled={updateOrderStatusMutation.isPending}
+              >
+                {updateOrderStatusMutation.isPending ? 'Entregando...' : <><CheckCircle className="mr-1 h-3 w-3" />Entregar</>}
+              </Button>
+            )}
+            {order.status !== 'finalized' && (
+              <Button size="sm" variant="destructive"><XCircle className="h-3 w-3" /></Button>
+            )}
           </div>
         </div>
       </CardContent>
