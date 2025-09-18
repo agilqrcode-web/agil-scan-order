@@ -340,7 +340,7 @@ export default function MenuEditor() {
       />
 
       {/* NEW: Fixed bottom bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-card border-t shadow-sm p-4 z-10">
+      <div className="fixed bottom-0 left-0 right-0 bg-card border-t shadow-sm p-4 z-50">
           <div className="flex items-center">
               {saveMessage && (
                 <div className={`p-2 rounded-md text-sm font-semibold ${saveMessage.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
@@ -358,7 +358,7 @@ export default function MenuEditor() {
                       {isSaving ? "Salvando..." : "Salvar Cardápio"}
                   </Button>
                   <Button onClick={() => navigate(-1)} variant="outline" size="default">
-                      <Trash2 className="mr-2 h-4 w-4" />Voltar
+                      Voltar
                   </Button>
               </div>
           </div>
