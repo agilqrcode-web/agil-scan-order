@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { useTables, AddTableFormValues } from "@/components/dashboard/tables/useTables";
+import { useTables, AddTableFormValues } from "@/hooks/useTables";
 import { TablesHeader } from "@/components/dashboard/tables/TablesHeader";
 import { TableStats } from "@/components/dashboard/tables/TableStats";
 import { TableList } from "@/components/dashboard/tables/TableList";

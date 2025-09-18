@@ -18,9 +18,9 @@ export default function Dashboard() {
   const { userId } = useAuth();
   const supabase = useSupabase();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
-  const [tableCounts, setTableCounts] = useState({
-    total_tables: 0,
-  });
+  const [tableCounts, setTableCounts] = useState({ total_tables: 0 });
+  const [dailyOrderCount, setDailyOrderCount] = useState(0);
+  const [dailyCustomerCount, setDailyCustomerCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,7 +32,6 @@ export default function Dashboard() {
       }
 
       try {
-        // Fetch restaurants user is associated with
         const { data: restaurantData, error: restaurantError } = await supabase
           .from('restaurant_users')
           .select('restaurants ( id, name )')
@@ -43,16 +42,28 @@ export default function Dashboard() {
         const fetchedRestaurants = restaurantData.map(item => item.restaurants).filter(Boolean) as Restaurant[];
         setRestaurants(fetchedRestaurants);
 
-        // Fetch table counts for the first restaurant for now
         if (fetchedRestaurants.length > 0) {
-          const { data: tableCountData, error: tableCountError } = await supabase
-            .rpc('get_table_counts_for_restaurant', { p_restaurant_id: fetchedRestaurants[0].id });
+          const restaurantId = fetchedRestaurants[0].id;
 
-          if (tableCountError) throw tableCountError;
-          
-          if (tableCountData && tableCountData.length > 0) {
-            setTableCounts(tableCountData[0]);
+          const [
+            tableCountResult,
+            dailyOrderResult,
+            dailyCustomerResult
+          ] = await Promise.all([
+            supabase.rpc('get_table_counts_for_restaurant', { p_restaurant_id: restaurantId }),
+            supabase.rpc('get_daily_order_count', { p_restaurant_id: restaurantId }),
+            supabase.rpc('get_daily_customer_count', { p_restaurant_id: restaurantId })
+          ]);
+
+          if (tableCountResult.error) throw tableCountResult.error;
+          if (dailyOrderResult.error) throw dailyOrderResult.error;
+          if (dailyCustomerResult.error) throw dailyCustomerResult.error;
+
+          if (tableCountResult.data && tableCountResult.data.length > 0) {
+            setTableCounts(tableCountResult.data[0]);
           }
+          setDailyOrderCount(dailyOrderResult.data || 0);
+          setDailyCustomerCount(dailyCustomerResult.data || 0);
         }
 
       } catch (err) {
@@ -130,7 +141,13 @@ export default function Dashboard() {
             <ShoppingCart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">0</div>
+            {loading ? (
+                <Skeleton className="h-8 w-1/2" />
+            ) : error ? (
+                <div className="text-red-500 text-sm">{error}</div>
+            ) : (
+                <div className="text-2xl font-bold">{dailyOrderCount}</div>
+            )}
             <p className="text-xs text-muted-foreground">
               Pedidos recebidos hoje
             </p>
@@ -143,9 +160,15 @@ export default function Dashboard() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">0</div>
+            {loading ? (
+                <Skeleton className="h-8 w-1/2" />
+            ) : error ? (
+                <div className="text-red-500 text-sm">{error}</div>
+            ) : (
+                <div className="text-2xl font-bold">{dailyCustomerCount}</div>
+            )}
             <p className="text-xs text-muted-foreground">
-              Clientes atendidos
+              Clientes atendidos hoje
             </p>
           </CardContent>
         </Card>
