@@ -68,7 +68,6 @@ export default async function handler(request, response) {
 
         try {
           // Verificar se o usuário tem permissão para atualizar este pedido
-          // (i.e., se o pedido pertence ao restaurante do usuário logado)
           const { data: restaurantId, error: restaurantIdError } = await supabaseForUser.rpc('get_user_restaurant_id');
           if (restaurantIdError) throw restaurantIdError;
 
@@ -110,11 +109,61 @@ export default async function handler(request, response) {
           return response.status(500).json({ error: error.message });
         }
       }
+    case 'DELETE':
+      {
+        const { orderId } = request.query;
+
+        if (!orderId) {
+          return response.status(400).json({ error: 'Missing orderId parameter.' });
+        }
+
+        const token = request.headers.authorization;
+        if (!token) {
+            return response.status(401).json({ error: 'Unauthorized: No token provided' });
+        }
+        const supabaseForUser = createSupabaseClientForUser(token);
+
+        try {
+          const { data: restaurantId, error: restaurantIdError } = await supabaseForUser.rpc('get_user_restaurant_id');
+          if (restaurantIdError) throw restaurantIdError;
+
+          if (!restaurantId) {
+            return response.status(404).json({ error: 'No restaurant associated with this user.' });
+          }
+
+          const { data: order, error: orderError } = await supabaseForUser
+            .from('orders')
+            .select('id, restaurant_tables(restaurant_id)')
+            .eq('id', orderId)
+            .single();
+
+          if (orderError || !order) {
+            return response.status(404).json({ error: 'Order not found or not accessible.' });
+          }
+
+          if (order.restaurant_tables.restaurant_id !== restaurantId) {
+            return response.status(403).json({ error: 'Forbidden: Order does not belong to your restaurant.' });
+          }
+
+          const { error: deleteError } = await supabaseForUser.from('orders').delete().eq('id', orderId);
+
+          if (deleteError) {
+            console.error('[API/Orders] Supabase error during deletion:', deleteError);
+            return response.status(500).json({ error: deleteError.message });
+          }
+
+          console.log(`[API/Orders] SUCCESS: Order ${orderId} deleted successfully.`);
+          return response.status(200).json({ message: 'Order deleted successfully.' });
+
+        } catch (error) {
+          console.error('[API/Orders] Server error during DELETE request:', error);
+          return response.status(500).json({ error: error.message });
+        }
+      }
     case 'GET':
       {
         const { orderId, tableId } = request.query;
 
-        // Se um orderId for fornecido, a ação é PÚBLICA (para o cliente ver o status)
         if (orderId) {
             const supabaseAdmin = createSupabaseAdminClient();
             try {
@@ -140,7 +189,6 @@ export default async function handler(request, response) {
             }
         }
 
-        // Se um tableId for fornecido, a ação também é PÚBLICA (para consolidar a conta do cliente)
         if (tableId) {
             const supabaseAdmin = createSupabaseAdminClient();
             try {
@@ -151,7 +199,7 @@ export default async function handler(request, response) {
                         order_items ( * , menu_items ( name, price ) )
                     `)
                     .eq('table_id', tableId)
-                    .order('created_at', { ascending: true }); // Ordenar do mais antigo para o mais novo
+                    .order('created_at', { ascending: true });
 
                 if (error) { throw error; }
 
@@ -163,7 +211,6 @@ export default async function handler(request, response) {
             }
         }
 
-        // Se nenhum parâmetro for fornecido, a ação é PRIVADA (para o dashboard)
         const token = request.headers.authorization;
         if (!token) {
             return response.status(401).json({ error: 'Unauthorized: No token provided' });

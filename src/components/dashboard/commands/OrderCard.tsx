@@ -1,14 +1,15 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Eye, CheckCircle, XCircle } from "lucide-react";
+import { Eye, CheckCircle, Trash2 } from "lucide-react";
 import { Order } from "@/types/order";
-import { useAuth } from "@clerk/clerk-react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useToast } from "@/components/ui/use-toast";
 
 interface OrderCardProps {
   order: Order;
+  onUpdateStatus: (orderId: string, newStatus: string) => void;
+  onViewDetails: (order: Order) => void;
+  onDelete: (orderId: string) => void;
+  isUpdating: boolean;
 }
 
 const statusColors: { [key: string]: string } = {
@@ -25,54 +26,7 @@ const statusLabels: { [key: string]: string } = {
   finalized: "Finalizado",
 };
 
-export function OrderCard({ order }: OrderCardProps) {
-  const { getToken } = useAuth();
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-
-  const updateOrderStatusMutation = useMutation({
-    mutationFn: async ({ orderId, newStatus }: { orderId: string; newStatus: string }) => {
-      const token = await getToken({ template: "agilqrcode" });
-      if (!token) {
-        throw new Error("Authentication token not available.");
-      }
-
-      const response = await fetch('/api/orders', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ orderId, newStatus }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Falha ao atualizar status.');
-      }
-      return response.json();
-    },
-    onSuccess: (data, variables) => {
-      toast({ title: "Status atualizado!", description: `O status do pedido foi alterado para ${statusLabels[variables.newStatus]}.` });
-      queryClient.invalidateQueries({ queryKey: ['orders'] }); // Invalidate orders query to refetch data
-    },
-    onError: (error) => {
-      toast({ variant: "destructive", title: "Erro ao atualizar status", description: error.message });
-    },
-  });
-
-  const handleAcceptOrder = () => {
-    updateOrderStatusMutation.mutate({ orderId: order.id, newStatus: 'preparing' });
-  };
-
-  const handleReadyOrder = () => {
-    updateOrderStatusMutation.mutate({ orderId: order.id, newStatus: 'ready' });
-  };
-
-  const handleDeliverOrder = () => {
-    updateOrderStatusMutation.mutate({ orderId: order.id, newStatus: 'finalized' });
-  };
-
+export function OrderCard({ order, onUpdateStatus, onViewDetails, onDelete, isUpdating }: OrderCardProps) {
   return (
     <Card key={order.id} className="hover:shadow-md transition-shadow">
       <CardContent className="p-4">
@@ -90,38 +44,42 @@ export function OrderCard({ order }: OrderCardProps) {
             </p>
           </div>
           <div className="flex gap-2 flex-wrap mt-2 sm:mt-0">
-            <Button size="sm" variant="outline"><Eye className="h-3 w-3" /></Button>
+            <Button size="sm" variant="outline" onClick={() => onViewDetails(order)}>
+              <Eye className="h-3 w-3" />
+            </Button>
             {order.status === 'pending' && (
               <Button
                 size="sm"
-                onClick={handleAcceptOrder}
-                disabled={updateOrderStatusMutation.isPending}
+                onClick={() => onUpdateStatus(order.id, 'preparing')}
+                disabled={isUpdating}
               >
-                {updateOrderStatusMutation.isPending ? 'Aceitando...' : <><CheckCircle className="mr-1 h-3 w-3" />Aceitar</>}
+                {isUpdating ? 'Aceitando...' : <><CheckCircle className="mr-1 h-3 w-3" />Aceitar</>}
               </Button>
             )}
             {order.status === 'preparing' && (
               <Button
                 size="sm"
                 variant="secondary"
-                onClick={handleReadyOrder}
-                disabled={updateOrderStatusMutation.isPending}
+                onClick={() => onUpdateStatus(order.id, 'ready')}
+                disabled={isUpdating}
               >
-                {updateOrderStatusMutation.isPending ? 'Pronto...' : <><CheckCircle className="mr-1 h-3 w-3" />Pronto</>}
+                {isUpdating ? 'Pronto...' : <><CheckCircle className="mr-1 h-3 w-3" />Pronto</>}
               </Button>
             )}
             {order.status === 'ready' && (
               <Button
                 size="sm"
                 variant="secondary"
-                onClick={handleDeliverOrder}
-                disabled={updateOrderStatusMutation.isPending}
+                onClick={() => onUpdateStatus(order.id, 'finalized')}
+                disabled={isUpdating}
               >
-                {updateOrderStatusMutation.isPending ? 'Entregando...' : <><CheckCircle className="mr-1 h-3 w-3" />Entregar</>}
+                {isUpdating ? 'Entregando...' : <><CheckCircle className="mr-1 h-3 w-3" />Entregar</>}
               </Button>
             )}
             {order.status !== 'finalized' && (
-              <Button size="sm" variant="destructive"><XCircle className="h-3 w-3" /></Button>
+              <Button size="sm" variant="destructive" onClick={() => onDelete(order.id)}>
+                <Trash2 className="h-3 w-3" />
+              </Button>
             )}
           </div>
         </div>
