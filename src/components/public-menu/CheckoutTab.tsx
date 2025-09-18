@@ -25,6 +25,10 @@ export function CheckoutTab({ tableId, tableNumber }: CheckoutTabProps) {
     const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
 
     useEffect(() => {
+        const storedCustomerName = sessionStorage.getItem('customerName');
+        if (storedCustomerName) {
+            setCustomerName(storedCustomerName);
+        }
         const storedOrderId = sessionStorage.getItem('activeOrderId');
         if (storedOrderId) {
             setActiveOrderId(storedOrderId);
@@ -77,10 +81,12 @@ export function CheckoutTab({ tableId, tableNumber }: CheckoutTabProps) {
             
             // Salva o ID do pedido na sessão para criar o botão de retorno
             sessionStorage.setItem('activeOrderId', orderId);
+            // Salva o nome do cliente na sessão para pré-preencher
+            sessionStorage.setItem('customerName', customerName);
 
             toast({ title: "Pedido realizado!", description: "Seu pedido foi enviado com sucesso." });
             clearCart();
-            setCustomerName('');
+            setCustomerName(''); // Limpa o campo após o pedido, mas o sessionStorage mantém o valor
             setObservations('');
             navigate(`/order-status/${orderId}`);
 
@@ -113,7 +119,7 @@ export function CheckoutTab({ tableId, tableNumber }: CheckoutTabProps) {
                                 <div className="flow-root">
                                     <ul className="-my-4 divide-y divide-gray-200">
                                         {cartItems.map(item => (
-                                            <li key={item.id} className="flex items-start py-4 gap-4">
+                                            <li key={item.id} className="py-3 flex justify-between items-center">
                                                 <img src={item.image_url || '/placeholder.svg'} alt={item.name} className="h-16 w-16 rounded object-cover bg-secondary flex-shrink-0" />
                                                 <div className="flex-1 flex flex-col">
                                                     <h3 className="font-semibold text-gray-800">{item.name}</h3>
