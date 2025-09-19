@@ -11,7 +11,6 @@ import { Order } from "@/types/order";
 import { OrderSummary } from "@/components/dashboard/commands/OrderSummary";
 import { OrderFilterBar } from "@/components/dashboard/commands/OrderFilterBar";
 import { OrderDetailModal } from "@/components/dashboard/commands/OrderDetailModal";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/components/ui/use-toast";
 
 interface GroupedOrders {
@@ -187,12 +186,4 @@ export default function Commands() {
     </>
   );
 }
-alogFooter>
-            <AlertDialogCancel onClick={() => setSelectedOrder(null)}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete}>Excluir</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
-  );
-}
+

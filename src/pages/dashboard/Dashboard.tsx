@@ -7,7 +7,7 @@ import { useAuth } from "@clerk/clerk-react";
 import { useSupabase } from "@/contexts/SupabaseContext";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/use-toast";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+
 
 // Novos componentes importados
 import { DashboardSummary } from "@/components/dashboard/main/DashboardSummary";
@@ -157,13 +157,6 @@ export default function Dashboard() {
         description={`Esta ação não pode ser desfeita. O restaurante "${restaurantToDelete?.name}" será excluído permanentemente.`}
         confirmText="Excluir"
       />
-    </>
-  );
-}ialogCancel onClick={() => setRestaurantToDelete(null)}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete}>Excluir</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   );
 }

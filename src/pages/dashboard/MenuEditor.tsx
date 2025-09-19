@@ -40,6 +40,11 @@ const menuItemSchema = z.object({
     category_id: z.string().optional(),
   });
 
+const categorySchema = z.object({
+  id: z.string().optional(),
+  name: z.string().min(1, "Nome da categoria é obrigatório"),
+});
+
 export type MenuFormValues = z.infer<typeof menuSchema>;
 export type CategoryFormValues = z.infer<typeof categorySchema>;
 export type MenuItemFormValues = z.infer<typeof menuItemSchema>;
