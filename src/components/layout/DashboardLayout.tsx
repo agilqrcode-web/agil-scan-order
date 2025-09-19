@@ -17,15 +17,13 @@ import {
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarMenu,
-  SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
   SidebarTrigger,
-  useSidebar,
 } from "@/components/ui/sidebar";
 import { NavLink } from "react-router-dom";
 import { useTheme } from "next-themes";
-import { useSidebar as useSidebarContext } from "@/components/ui/sidebar"; // Renamed to avoid conflict
+import { useSidebar } from "@/components/ui/sidebar";
 import { 
   Home, 
   UserIcon, 
@@ -39,22 +37,22 @@ import {
   Sun,
   Moon,
   Monitor,
-  Utensils
+  Utensils,
+  ArrowLeft
 } from "lucide-react";
-
-import { useSidebar as useSidebarContext } from "@/components/ui/sidebar"; // Renamed to avoid conflict
-import { MobileBottomNavbar } from "@/components/layout/MobileBottomNavbar"; // New import
+import { MobileBottomNavbar } from "@/components/layout/MobileBottomNavbar";
+import { PageHeaderProvider, usePageHeader } from "@/contexts/PageHeaderContext"; // Importar o context e o hook
+import React from "react";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: Home },
-  
   { name: "Mesas", href: "/dashboard/tables", icon: Table },
   { name: "Comandas", href: "/dashboard/commands", icon: Command },
   { name: "Cardápio", href: "/dashboard/menus", icon: Utensils },
 ];
 
 function DashboardSidebar() {
-  const { isMobile, setOpenMobile, state } = useSidebar(); // Access isMobile, setOpenMobile, and state from useSidebar
+  const { isMobile, setOpenMobile, state } = useSidebar();
 
   return (
     <Sidebar collapsible="icon">
@@ -76,11 +74,7 @@ function DashboardSidebar() {
                         isActive ? "bg-primary text-primary-foreground" : "text-sidebar-foreground"
                       )
                     }
-                    onClick={() => {
-                      if (isMobile) {
-                        setOpenMobile(false); // Close sidebar on mobile after click
-                      }
-                    }}
+                    onClick={() => { if (isMobile) setOpenMobile(false); }}
                   >
                     <item.icon className="h-4 w-4" />
                     <span className={cn(state === "collapsed" && "hidden")}>{item.name}</span>
@@ -95,134 +89,120 @@ function DashboardSidebar() {
   );
 }
 
-function DashboardHeader({ isMobile }: { isMobile: boolean }) {
+function DashboardHeader() {
+  const { isMobile } = useSidebar();
   const { setTheme, theme } = useTheme();
   const { user } = useUser();
   const { signOut } = useClerk();
   const navigate = useNavigate();
+  
+  // Consumir o contexto do cabeçalho
+  const { title, backButtonHref, headerActions } = usePageHeader();
 
-  const handleSignOut = () => {
-    signOut();
-  };
+  const handleSignOut = () => signOut();
+
+  // Determina se os ícones globais devem ser mostrados no mobile
+  const showGlobalIcons = !backButtonHref && !headerActions;
 
   return (
-    <header className="h-12 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="flex h-full items-center justify-between px-4">
-        <div className="flex items-center gap-4">
-          {!isMobile && <SidebarTrigger />}
-          
-        </div>
-        
-        <div className="flex items-center gap-4">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                {theme === "light" ? <Sun className="h-4 w-4" /> : 
-                 theme === "dark" ? <Moon className="h-4 w-4" /> : 
-                 <Monitor className="h-4 w-4" />}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setTheme("light")}>
-                <Sun className="mr-2 h-4 w-4" />
-                Claro
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setTheme("dark")}>
-                <Moon className="mr-2 h-4 w-4" />
-                Escuro
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setTheme("system")}>
-                <Monitor className="mr-2 h-4 w-4" />
-                Sistema
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard/notifications")}>
-            <Bell className="h-4 w-4" />
+    <header className="h-14 flex items-center border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4">
+      <div className="flex-1 flex items-center gap-2">
+        {backButtonHref ? (
+          <Button variant="ghost" size="icon" onClick={() => navigate(backButtonHref)}>
+            <ArrowLeft className="h-5 w-5" />
           </Button>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src={user?.imageUrl} />
-                  <AvatarFallback>
-                    {user?.firstName?.charAt(0).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem disabled>
-                {user?.emailAddresses[0]?.emailAddress}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => { console.log("Navigating to /dashboard/profile"); navigate("/dashboard/profile"); }}>
-                <UserIcon className="mr-2 h-4 w-4" />
-                Perfil
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => { console.log("Navigating to /dashboard/signature"); navigate("/dashboard/signature"); }}>
-                <FileSignature className="mr-2 h-4 w-4" />
-                Assinatura
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => { console.log("Navigating to /dashboard/settings"); navigate("/dashboard/settings"); }}>
-                <Settings className="mr-2 h-4 w-4" />
-                Configurações
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => { console.log("Navigating to /dashboard/platform-guide"); navigate("/dashboard/platform-guide"); }}>
-                <BookOpen className="mr-2 h-4 w-4" />
-                Guia da Plataforma
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleSignOut}>
-                <LogOut className="mr-2 h-4 w-4" />
-                Sair
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+        ) : (
+          !isMobile && <SidebarTrigger />
+        )}
+        <h1 className="text-lg font-semibold">{title}</h1>
+      </div>
+      
+      <div className="flex-1 flex items-center justify-end gap-2">
+        {/* Ações de página (Desktop) */}
+        <div className="hidden md:flex items-center gap-2">
+            {headerActions}
         </div>
+
+        {/* Ícones Globais */}
+        {(isMobile && showGlobalIcons) || !isMobile ? (
+          <>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  {theme === "light" ? <Sun className="h-4 w-4" /> : theme === "dark" ? <Moon className="h-4 w-4" /> : <Monitor className="h-4 w-4" />}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setTheme("light")}><Sun className="mr-2 h-4 w-4" />Claro</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTheme("dark")}><Moon className="mr-2 h-4 w-4" />Escuro</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTheme("system")}><Monitor className="mr-2 h-4 w-4" />Sistema</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard/notifications")}>
+              <Bell className="h-4 w-4" />
+            </Button>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                  <Avatar className="h-8 w-8"><AvatarImage src={user?.imageUrl} /><AvatarFallback>{user?.firstName?.charAt(0).toUpperCase()}</AvatarFallback></Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem disabled>{user?.emailAddresses[0]?.emailAddress}</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/dashboard/profile")}><UserIcon className="mr-2 h-4 w-4" />Perfil</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/dashboard/signature")}><FileSignature className="mr-2 h-4 w-4" />Assinatura</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/dashboard/settings")}><Settings className="mr-2 h-4 w-4" />Configurações</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/dashboard/platform-guide")}><BookOpen className="mr-2 h-4 w-4" />Guia da Plataforma</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleSignOut}><LogOut className="mr-2 h-4 w-4" />Sair</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </>
+        ) : null}
       </div>
     </header>
   );
 }
 
 function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
-  const { isMobile } = useSidebarContext(); // Now this hook is called within the provider's scope
+  const { isMobile } = useSidebar();
+  const { fabAction, backButtonHref, headerActions } = usePageHeader();
+
+  // Esconde a barra de navegação principal no mobile se a página for de edição (tiver ações)
+  const showMobileNavbar = isMobile && !backButtonHref && !headerActions;
 
   return (
-    <div className={cn(
-      "min-h-screen flex w-full",
-      isMobile ? "flex-col" : "flex-row" // Stack on mobile, side-by-side on desktop
-    )}>
-      {/* Desktop Sidebar */}
-      <div className={cn(isMobile ? "hidden" : "block")}>
-        <DashboardSidebar />
+    <div className={cn("min-h-screen w-full flex", isMobile ? "flex-col" : "flex-row")}>
+      {!isMobile && <DashboardSidebar />}
+
+      <div className={cn("flex-1 flex flex-col", showMobileNavbar ? "pb-16" : "pb-0")}>
+        <DashboardHeader />
+        <main className="flex-1 p-6">{children}</main>
       </div>
 
-      <div className={cn(
-        "flex-1 flex flex-col",
-        isMobile ? "pb-16" : "pb-0" // Add padding for bottom navbar on mobile
-      )}>
-        <DashboardHeader isMobile={isMobile} />
-        <main className="flex-1 p-6">
-          {children} {/* Render Outlet here */}
-        </main>
-      </div>
+      {/* FAB (Mobile) */}
+      {isMobile && fabAction && (
+        <div className="fixed bottom-6 right-6 z-50">
+            {fabAction}
+        </div>
+      )}
 
-      {/* Mobile Bottom Navbar */}
-      <div className={cn(isMobile ? "block" : "hidden")}>
-        <MobileBottomNavbar />
-      </div>
+      {showMobileNavbar && <MobileBottomNavbar />}
     </div>
   );
 }
 
 export default function DashboardLayout() {
+  const location = useLocation();
   return (
     <SidebarProvider>
-      <DashboardLayoutContent>
-        <Outlet key={location.pathname} />
-      </DashboardLayoutContent>
+      <PageHeaderProvider>
+        <DashboardLayoutContent>
+          <Outlet key={location.pathname} />
+        </DashboardLayoutContent>
+      </PageHeaderProvider>
     </SidebarProvider>
   );
 }
