@@ -12,7 +12,7 @@ export function RestaurantDetailsCard({ restaurant, onInputChange }: RestaurantD
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Detalhes do Restaurante</CardTitle>
+                <CardTitle>Atualizar Detalhes do Restaurante</CardTitle>
                 <CardDescription>Atualize o nome e outras informações básicas do seu restaurante.</CardDescription>
             </CardHeader>
             <CardContent>

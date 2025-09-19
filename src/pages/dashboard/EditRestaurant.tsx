@@ -70,7 +70,7 @@ export default function EditRestaurant() {
         );
 
         setHeader({
-            title: "Editar Restaurante",
+            title: "",
             backButtonHref: "/dashboard",
             headerActions: saveAction, // Ação para Desktop
             fabAction: saveAction,     // Ação para Mobile (FAB)

@@ -9,21 +9,25 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-interface DeleteConfirmationDialogProps {
+interface ConfirmationDialogProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   onConfirm: () => void;
   title: string;
   description: string;
+  confirmText?: string;
+  cancelText?: string;
 }
 
-export function DeleteConfirmationDialog({
+export function ConfirmationDialog({
   isOpen,
   onOpenChange,
   onConfirm,
   title,
   description,
-}: DeleteConfirmationDialogProps) {
+  confirmText = "Confirmar",
+  cancelText = "Cancelar",
+}: ConfirmationDialogProps) {
   return (
     <AlertDialog open={isOpen} onOpenChange={onOpenChange}>
       <AlertDialogContent>
@@ -32,8 +36,8 @@ export function DeleteConfirmationDialog({
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-          <AlertDialogAction onClick={onConfirm}>Excluir</AlertDialogAction>
+          <AlertDialogCancel>{cancelText}</AlertDialogCancel>
+          <AlertDialogAction onClick={onConfirm}>{confirmText}</AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

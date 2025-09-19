@@ -97,10 +97,13 @@ export default function Tables() {
         activeMenuId={activeMenuId}
       />
 
-      <DeleteTableDialog
+      <ConfirmationDialog
         isOpen={isDeleteConfirmModalOpen}
         onOpenChange={setIsDeleteConfirmModalOpen}
         onConfirm={confirmDelete}
+        title="Tem certeza?"
+        description="Esta ação não pode ser desfeita. Isso excluirá permanentemente a mesa e todos os dados associados a ela."
+        confirmText="Excluir"
       />
     </div>
   );

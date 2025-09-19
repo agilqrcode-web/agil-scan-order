@@ -1,15 +1,18 @@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Store, QrCode, ShoppingCart, Users, Pencil, Trash2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@clerk/clerk-react";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useSupabase } from "@/contexts/SupabaseContext";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+
+// Novos componentes importados
+import { DashboardSummary } from "@/components/dashboard/main/DashboardSummary";
+import { RestaurantListCard } from "@/components/dashboard/main/RestaurantListCard";
+import { RecentOrdersCard } from "@/components/dashboard/main/RecentOrdersCard";
 
 interface Restaurant {
   id: string;
@@ -39,10 +42,8 @@ export default function Dashboard() {
         return;
       }
       try {
-        const { data: restaurantData, error: restaurantError } = await supabase
-          .from('restaurant_users')
-          .select('restaurants ( id, name )')
-          .eq('user_id', userId);
+        // A lógica de busca de dados permanece a mesma
+        const { data: restaurantData, error: restaurantError } = await supabase.from('restaurant_users').select('restaurants ( id, name )').eq('user_id', userId);
         if (restaurantError) throw restaurantError;
         const fetchedRestaurants = restaurantData.map(item => item.restaurants).filter(Boolean) as Restaurant[];
         setRestaurants(fetchedRestaurants);
@@ -64,7 +65,6 @@ export default function Dashboard() {
           setDailyCustomerCount(dailyCustomerResult.data || 0);
         }
       } catch (err) {
-        console.error("Error fetching dashboard data:", err);
         setError("Failed to load dashboard data.");
       } finally {
         setLoading(false);
@@ -88,8 +88,7 @@ export default function Dashboard() {
     },
     onSuccess: () => {
       toast({ title: "Restaurante excluído com sucesso!" });
-      // Refetch data after deletion
-      window.location.reload(); // Simple reload for now, query invalidation is better
+      window.location.reload(); // Recarrega a página para atualizar a lista
     },
     onError: (err: Error) => {
       toast({ variant: "destructive", title: "Erro", description: err.message });
@@ -129,109 +128,38 @@ export default function Dashboard() {
           </TooltipProvider>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Restaurantes</CardTitle>
-                <Store className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                {loading ? <Skeleton className="h-8 w-1/2" /> : error ? <div className="text-red-500 text-sm">{error}</div> : <div className="text-2xl font-bold">{restaurants.length}</div>}
-                <p className="text-xs text-muted-foreground">Total de restaurantes</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Mesas Ativas</CardTitle>
-                <QrCode className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                {loading ? <Skeleton className="h-8 w-1/2" /> : error ? <div className="text-red-500 text-sm">{error}</div> : <div className="text-2xl font-bold">{tableCounts.total_tables}</div>}
-                <p className="text-xs text-muted-foreground">Mesas com QR Code</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Pedidos Hoje</CardTitle>
-                <ShoppingCart className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                {loading ? <Skeleton className="h-8 w-1/2" /> : error ? <div className="text-red-500 text-sm">{error}</div> : <div className="text-2xl font-bold">{dailyOrderCount}</div>}
-                <p className="text-xs text-muted-foreground">Pedidos recebidos hoje</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Clientes</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                {loading ? <Skeleton className="h-8 w-1/2" /> : error ? <div className="text-red-500 text-sm">{error}</div> : <div className="text-2xl font-bold">{dailyCustomerCount}</div>}
-                <p className="text-xs text-muted-foreground">Clientes atendidos hoje</p>
-              </CardContent>
-            </Card>
-        </div>
+        <DashboardSummary
+            loading={loading}
+            error={error}
+            restaurantCount={restaurants.length}
+            tableCount={tableCounts.total_tables}
+            dailyOrderCount={dailyOrderCount}
+            dailyCustomerCount={dailyCustomerCount}
+        />
 
         <div className="grid gap-4 md:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>Gerenciar Restaurantes</CardTitle>
-              <CardDescription>Edite ou exclua seus restaurantes existentes.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {loading ? (
-                  Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)
-                ) : error ? (
-                   <div className="text-red-500 text-sm">{error}</div>
-                ) : restaurants.length > 0 ? (
-                  restaurants.map(restaurant => (
-                    <div key={restaurant.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-secondary">
-                      <div className="flex items-center gap-3">
-                        <img src="/placeholder.svg" alt={`Logo de ${restaurant.name}`} className="h-9 w-9 rounded-md object-cover" />
-                        <span className="font-medium">{restaurant.name}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => navigate(`/dashboard/restaurants/${restaurant.id}/edit`)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button variant="destructive" size="icon" className="h-8 w-8" onClick={() => handleDeleteClick(restaurant)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-sm text-muted-foreground text-center py-4">Nenhum restaurante encontrado.</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>Pedidos Recentes</CardTitle>
-              <CardDescription>Seus últimos pedidos aparecerão aqui</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-6">
-                <ShoppingCart className="mx-auto h-12 w-12 text-muted-foreground" />
-                <p className="mt-2 text-sm text-muted-foreground">Nenhum pedido ainda</p>
-              </div>
-            </CardContent>
-          </Card>
+            <RestaurantListCard
+                loading={loading}
+                error={error}
+                restaurants={restaurants}
+                onEdit={(restaurantId) => navigate(`/dashboard/restaurants/${restaurantId}/edit`)}
+                onDelete={handleDeleteClick}
+            />
+            <RecentOrdersCard />
         </div>
       </div>
 
-      <AlertDialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta ação não pode ser desfeita. O restaurante "{restaurantToDelete?.name}" será excluído permanentemente.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setRestaurantToDelete(null)}>Cancelar</AlertDialogCancel>
+      <ConfirmationDialog
+        isOpen={isDeleteModalOpen}
+        onOpenChange={setIsDeleteModalOpen}
+        onConfirm={confirmDelete}
+        title="Tem certeza?"
+        description={`Esta ação não pode ser desfeita. O restaurante "${restaurantToDelete?.name}" será excluído permanentemente.`}
+        confirmText="Excluir"
+      />
+    </>
+  );
+}ialogCancel onClick={() => setRestaurantToDelete(null)}>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDelete}>Excluir</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
