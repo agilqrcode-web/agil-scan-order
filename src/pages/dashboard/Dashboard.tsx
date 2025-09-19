@@ -7,6 +7,7 @@ import { useAuth } from "@clerk/clerk-react";
 import { useSupabase } from "@/contexts/SupabaseContext";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/use-toast";
+import { ConfirmationDialog } from "@/components/ui/ConfirmationDialog";
 
 
 // Novos componentes importados

@@ -6,7 +6,7 @@ import { TableStats } from "@/components/dashboard/tables/TableStats";
 import { TableList } from "@/components/dashboard/tables/TableList";
 import { AddTableModal } from "@/components/dashboard/tables/AddTableModal";
 import { QrCodeModal } from "@/components/dashboard/tables/QrCodeModal";
-import { DeleteTableDialog } from "@/components/dashboard/tables/DeleteTableDialog";
+import { ConfirmationDialog } from "@/components/ui/ConfirmationDialog";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 

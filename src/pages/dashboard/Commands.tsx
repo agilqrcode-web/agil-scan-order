@@ -12,6 +12,7 @@ import { OrderSummary } from "@/components/dashboard/commands/OrderSummary";
 import { OrderFilterBar } from "@/components/dashboard/commands/OrderFilterBar";
 import { OrderDetailModal } from "@/components/dashboard/commands/OrderDetailModal";
 import { useToast } from "@/components/ui/use-toast";
+import { ConfirmationDialog } from "@/components/ui/ConfirmationDialog";
 
 interface GroupedOrders {
   [tableNumber: string]: {
