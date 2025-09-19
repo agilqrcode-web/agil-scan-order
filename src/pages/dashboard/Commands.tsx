@@ -13,6 +13,7 @@ import { OrderFilterBar } from "@/components/dashboard/commands/OrderFilterBar";
 import { OrderDetailModal } from "@/components/dashboard/commands/OrderDetailModal";
 import { useToast } from "@/components/ui/use-toast";
 import { ConfirmationDialog } from "@/components/ui/ConfirmationDialog";
+import { useNotifications } from "@/contexts/NotificationsContext";
 
 interface GroupedOrders {
   [tableNumber: string]: {
@@ -26,6 +27,18 @@ export default function Commands() {
   const { getToken } = useAuth();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { unreadCount, clearAllNotifications } = useNotifications();
+
+  React.useEffect(() => {
+    if (unreadCount > 0) {
+      toast({
+        title: "Novos Pedidos!",
+        description: `Você tem ${unreadCount} novo(s) pedido(s) aguardando.`, 
+      });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      clearAllNotifications();
+    }
+  }, [unreadCount, queryClient, toast, clearAllNotifications]);
 
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);

@@ -7,6 +7,7 @@ import { Pencil, Trash2 } from "lucide-react";
 interface Restaurant {
   id: string;
   name: string;
+  logo_url: string | null;
 }
 
 interface RestaurantListCardProps {
@@ -17,7 +18,7 @@ interface RestaurantListCardProps {
     onDelete: (restaurant: Restaurant) => void;
 }
 
-export function RestaurantListCard({ loading, error, restaurants, onEdit, onDelete }: RestaurantListCardProps) {
+export function RestaurantListCard({ loading, error, restaurants, onEdit, onDelete }: RestaurantListCardCardProps) {
     return (
         <Card>
             <CardHeader>
@@ -37,7 +38,7 @@ export function RestaurantListCard({ loading, error, restaurants, onEdit, onDele
                             <div key={restaurant.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-secondary">
                                 <div className="flex items-center gap-3">
                                     <img
-                                        src="/placeholder.svg"
+                                        src={restaurant.logo_url || "/placeholder.svg"}
                                         alt={`Logo de ${restaurant.name}`}
                                         className="h-9 w-9 rounded-md object-cover"
                                     />

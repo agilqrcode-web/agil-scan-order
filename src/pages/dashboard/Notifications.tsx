@@ -2,66 +2,26 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Bell, Check, CheckCheck, Trash2, Settings } from "lucide-react";
-
-const notifications = [
-  {
-    id: 1,
-    title: "Novo pedido recebido",
-    message: "Mesa 5 fez um pedido de R$ 45,90",
-    time: "2 min atrás",
-    read: false,
-    type: "order"
-  },
-  {
-    id: 2,
-    title: "Pagamento aprovado",
-    message: "Assinatura mensal renovada com sucesso",
-    time: "1 hora atrás",
-    read: false,
-    type: "payment"
-  },
-  {
-    id: 3,
-    title: "Meta de vendas atingida",
-    message: "Parabéns! Você superou a meta do mês",
-    time: "3 horas atrás",
-    read: true,
-    type: "achievement"
-  },
-  {
-    id: 4,
-    title: "Novo recurso disponível",
-    message: "Confira as novas funcionalidades de relatórios",
-    time: "1 dia atrás",
-    read: true,
-    type: "feature"
-  },
-  {
-    id: 5,
-    title: "Pedido cancelado",
-    message: "Mesa 3 cancelou o pedido #CMD001",
-    time: "2 dias atrás",
-    read: true,
-    type: "order"
-  }
-];
-
-const typeColors = {
-  order: "bg-blue-100 text-blue-800",
-  payment: "bg-green-100 text-green-800",
-  achievement: "bg-purple-100 text-purple-800",
-  feature: "bg-orange-100 text-orange-800"
-};
-
-const typeLabels = {
-  order: "Pedido",
-  payment: "Pagamento",
-  achievement: "Conquista",
-  feature: "Recurso"
-};
+import { useNotifications } from "@/contexts/NotificationsContext";
+import { OrderNotification } from "@/hooks/useRealtimeOrders";
 
 export default function Notifications() {
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const { newOrderNotifications, unreadCount, markAsRead, clearAllNotifications } = useNotifications();
+
+  const handleMarkAllAsRead = () => {
+    newOrderNotifications.forEach(notif => {
+      if (!notif.isRead) {
+        markAsRead(notif.id);
+      }
+    });
+  };
+
+  const handleDeleteNotification = (id: string) => {
+    // For now, clearAllNotifications will remove all. 
+    // In a real app, you'd have a backend endpoint to delete a specific notification.
+    // For this implementation, we'll just mark as read if it's an individual delete.
+    markAsRead(id);
+  };
 
   return (
     <div className="space-y-6">
@@ -77,7 +37,7 @@ export default function Notifications() {
             <Settings className="mr-2 h-4 w-4 sm:mr-2" />
             <span className="hidden sm:inline">Configurar</span>
           </Button>
-          <Button variant="outline">
+          <Button variant="outline" onClick={handleMarkAllAsRead} disabled={unreadCount === 0}>
             <CheckCheck className="mr-2 h-4 w-4 sm:mr-2" />
             <span className="hidden sm:inline">Marcar todas como lidas</span>
           </Button>
@@ -91,7 +51,7 @@ export default function Notifications() {
             <Bell className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{notifications.length}</div>
+            <div className="text-2xl font-bold">{newOrderNotifications.length}</div>
             <p className="text-xs text-muted-foreground">
               Notificações recebidas
             </p>
@@ -118,7 +78,8 @@ export default function Notifications() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              {notifications.filter(n => n.time.includes('min') || n.time.includes('hora')).length}
+              {/* For simplicity, we'll count all unread as 'today' for now */}
+              {unreadCount}
             </div>
             <p className="text-xs text-muted-foreground">
               Notificações recebidas hoje
@@ -136,59 +97,66 @@ export default function Notifications() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {notifications.map((notification) => (
-              <div
-                key={notification.id}
-                className={`flex items-start gap-4 p-4 border rounded-lg transition-colors ${
-                  notification.read ? 'bg-background' : 'bg-accent/50'
-                }`}
-              >
-                <div className={`p-2 rounded-full ${notification.read ? 'bg-gray-100' : 'bg-primary/10'}`}>
-                  <Bell className={`h-4 w-4 ${notification.read ? 'text-gray-500' : 'text-primary'}`} />
-                </div>
-
-                <div className="flex-1 space-y-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className={`font-medium ${!notification.read ? 'font-semibold' : ''} min-w-0`}>
-                      {notification.title}
-                    </h3>
-                    <Badge 
-                      variant="outline" 
-                      className={typeColors[notification.type as keyof typeof typeColors]}
-                    >
-                      {typeLabels[notification.type as keyof typeof typeLabels]}
-                    </Badge>
-                    {!notification.read && (
-                      <div className="w-2 h-2 bg-primary rounded-full"></div>
-                    )}
-                  </div>
-                  
-                  <p className="text-sm text-muted-foreground">
-                    {notification.message}
-                  </p>
-                  
-                  <p className="text-xs text-muted-foreground">
-                    {notification.time}
-                  </p>
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  {!notification.read && (
-                    <Button size="sm" variant="ghost" className="w-full">
-                      <Check className="h-3 w-3" />
-                    </Button>
-                  )}
-                  <Button size="sm" variant="ghost" className="w-full">
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </div>
+            {newOrderNotifications.length === 0 ? (
+              <div className="text-center text-muted-foreground py-12">
+                <Bell className="mx-auto h-12 w-12" />
+                <p className="mt-4">Nenhuma notificação de pedido no momento.</p>
               </div>
-            ))}
+            ) : (
+              newOrderNotifications.map((notification: OrderNotification) => (
+                <div
+                  key={notification.id}
+                  className={`flex items-start gap-4 p-4 border rounded-lg transition-colors ${
+                    notification.isRead ? 'bg-background' : 'bg-accent/50'
+                  }`}
+                >
+                  <div className={`p-2 rounded-full ${notification.isRead ? 'bg-gray-100' : 'bg-primary/10'}`}>
+                    <Bell className={`h-4 w-4 ${notification.isRead ? 'text-gray-500' : 'text-primary'}`} />
+                  </div>
+
+                  <div className="flex-1 space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className={`font-medium ${!notification.isRead ? 'font-semibold' : ''} min-w-0`}>
+                        Novo Pedido - Mesa {notification.table_id || 'N/A'}
+                      </h3>
+                      <Badge 
+                        variant="outline" 
+                        className="bg-blue-100 text-blue-800"
+                      >
+                        Pedido
+                      </Badge>
+                      {!notification.isRead && (
+                        <div className="w-2 h-2 bg-primary rounded-full"></div>
+                      )}
+                    </div>
+                    
+                    <p className="text-sm text-muted-foreground">
+                      Total: R$ {notification.total_amount.toFixed(2).replace('.', ',')}
+                    </p>
+                    
+                    <p className="text-xs text-muted-foreground">
+                      Recebido em: {new Date(notification.created_at).toLocaleTimeString()}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    {!notification.isRead && (
+                      <Button size="sm" variant="ghost" className="w-full" onClick={() => markAsRead(notification.id)}>
+                        <Check className="h-3 w-3" />
+                      </Button>
+                    )}
+                    <Button size="sm" variant="ghost" className="w-full" onClick={() => handleDeleteNotification(notification.id)}>
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
 
           <div className="mt-6 text-center">
-            <Button variant="outline">
-              Carregar mais notificações
+            <Button variant="outline" onClick={clearAllNotifications} disabled={newOrderNotifications.length === 0}>
+              Limpar todas as notificações
             </Button>
           </div>
         </CardContent>
