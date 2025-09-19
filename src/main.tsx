@@ -13,56 +13,39 @@ if (!PUBLISHABLE_KEY) {
 }
 
 function SupabaseProvider({ children }) {
-  const { isSignedIn, getToken, sessionId } = useAuth();
-  const [supabase, setSupabase] = useState(null);
+  const { isSignedIn, getToken } = useAuth();
+  // Initialize with a public client immediately.
+  const [supabase, setSupabase] = useState(() => createSupabaseClient());
+
+  // Memoize the token refresh function.
+  const refreshSupabaseToken = React.useCallback(async () => {
+    if (isSignedIn) {
+      try {
+        console.log("Refreshing Supabase token on focus/visibility change...");
+        const clerkToken = await getToken({ template: 'agilqrcode' });
+        const newSupabaseClient = createSupabaseClient(clerkToken);
+        setSupabase(newSupabaseClient);
+        console.log("Supabase client refreshed with new token.");
+      } catch (error) {
+        console.error("Error refreshing Supabase token:", error);
+      }
+    }
+  }, [isSignedIn, getToken]);
 
   useEffect(() => {
-    console.log("SupabaseProvider useEffect triggered.");
-    console.log("isSignedIn:", isSignedIn, "sessionId:", sessionId);
+    // Initial check when the component mounts or user signs in.
+    refreshSupabaseToken();
 
-    let intervalId: NodeJS.Timeout; // Declare intervalId here
+    // Set up event listeners to refresh the token when the tab becomes active.
+    window.addEventListener('visibilitychange', refreshSupabaseToken);
+    window.addEventListener('focus', refreshSupabaseToken);
 
-    async function initializeSupabaseClient() {
-      console.log("initializeSupabaseClient called.");
-      if (isSignedIn) {
-        try {
-          console.log("Attempting to get Clerk token...");
-          // Force a refresh of the token if it's near expiration or expired
-          const clerkToken = await getToken({ template: 'agilqrcode', force: true });
-          console.log("Clerk token obtained (or refreshed). Length:", clerkToken?.length);
-          const newSupabaseClient = createSupabaseClient(clerkToken);
-          setSupabase(newSupabaseClient);
-          console.log("Supabase client initialized/refreshed with Clerk token.");
-        } catch (error) {
-          console.error("Error getting Clerk token or initializing Supabase client:", error);
-          setSupabase(createSupabaseClient());
-          console.log("Supabase client initialized as public due to error.");
-        }
-      } else {
-        setSupabase(createSupabaseClient());
-        console.log("Supabase client initialized as public (not signed in).");
-      }
-    }
-
-    initializeSupabaseClient();
-
-    // Set up a timer to re-initialize the Supabase client before the token expires
-    // Clerk JWT lifetime is 3600 seconds (1 hour). Refresh every 55 minutes (3300 seconds).
-    if (isSignedIn) {
-      intervalId = setInterval(() => {
-        console.log("Proactively refreshing Supabase client due to timer.");
-        initializeSupabaseClient();
-      }, 3300 * 1000); // 3300 seconds * 1000 ms/s
-    }
-
-    // Cleanup function for useEffect
+    // Cleanup function to remove event listeners.
     return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
+      window.removeEventListener('visibilitychange', refreshSupabaseToken);
+      window.removeEventListener('focus', refreshSupabaseToken);
     };
-
-  }, [isSignedIn, getToken, sessionId]);
+  }, [refreshSupabaseToken]);
 
   return (
     <SupabaseContext.Provider value={supabase}>
