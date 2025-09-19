@@ -6,6 +6,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import { useToast } from "@/components/ui/use-toast";
+import { useAuth } from "@clerk/clerk-react"; // <-- 1. IMPORTAÇÃO ADICIONADA
 
 // Definição manual do tipo Restaurant, baseada no schema.sql
 export interface Restaurant {
@@ -27,6 +28,7 @@ export default function EditRestaurant() {
     const navigate = useNavigate();
     const { restaurantId } = useParams<{ restaurantId: string }>();
     const { toast } = useToast();
+    const { getToken } = useAuth(); // <-- 1. USO DO HOOK
 
     const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
     const [loading, setLoading] = useState(true);
@@ -43,6 +45,7 @@ export default function EditRestaurant() {
         const fetchRestaurant = async () => {
             try {
                 setLoading(true);
+                // A busca inicial pode ser pública, mas a atualização precisa de autenticação.
                 const response = await fetch(`/api/restaurants?id=${restaurantId}`);
                 if (!response.ok) {
                     throw new Error("Falha ao buscar os dados do restaurante.");
@@ -93,14 +96,19 @@ export default function EditRestaurant() {
 
         setIsSaving(true);
         try {
+            const token = await getToken({ template: "agilqrcode" }); // <-- 2. OBTENÇÃO DO TOKEN
             const response = await fetch('/api/restaurants', {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}` // <-- 3. ENVIO DO TOKEN
+                },
                 body: JSON.stringify({ id: restaurant.id, ...restaurant }),
             });
 
             if (!response.ok) {
-                throw new Error("Falha ao salvar as alterações.");
+                const errorData = await response.json();
+                throw new Error(errorData.error || "Falha ao salvar as alterações.");
             }
 
             toast({
@@ -127,7 +135,7 @@ export default function EditRestaurant() {
     }
 
     return (
-        <div className="space-y-6 pb-24"> {/* Added pb-24 for padding at the bottom */}
+        <div className="space-y-6 pb-24"> 
             <div className="space-y-6 lg:grid lg:gap-6 lg:grid-cols-3 lg:space-y-0">
                 <div className="lg:col-span-2 space-y-6">
                     {restaurant && (
