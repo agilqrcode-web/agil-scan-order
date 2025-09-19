@@ -6,7 +6,7 @@ import { Order } from "@/types/order";
 
 interface OrderCardProps {
   order: Order;
-  onUpdateStatus: (orderId: string, newStatus: string) => void;
+  onUpdateStatus: (variables: { orderId: string; newStatus: string }) => void;
   onViewDetails: (order: Order) => void;
   onDelete: (orderId: string) => void;
   isUpdating: boolean;
@@ -50,7 +50,7 @@ export function OrderCard({ order, onUpdateStatus, onViewDetails, onDelete, isUp
             {order.status === 'pending' && (
               <Button
                 size="sm"
-                onClick={() => onUpdateStatus(order.id, 'preparing')}
+                onClick={() => onUpdateStatus({ orderId: order.id, newStatus: 'preparing' })}
                 disabled={isUpdating}
               >
                 {isUpdating ? 'Aceitando...' : <><CheckCircle className="mr-1 h-3 w-3" />Aceitar</>}
@@ -60,7 +60,7 @@ export function OrderCard({ order, onUpdateStatus, onViewDetails, onDelete, isUp
               <Button
                 size="sm"
                 variant="secondary"
-                onClick={() => onUpdateStatus(order.id, 'ready')}
+                onClick={() => onUpdateStatus({ orderId: order.id, newStatus: 'ready' })}
                 disabled={isUpdating}
               >
                 {isUpdating ? 'Pronto...' : <><CheckCircle className="mr-1 h-3 w-3" />Pronto</>}
@@ -70,7 +70,7 @@ export function OrderCard({ order, onUpdateStatus, onViewDetails, onDelete, isUp
               <Button
                 size="sm"
                 variant="secondary"
-                onClick={() => onUpdateStatus(order.id, 'finalized')}
+                onClick={() => onUpdateStatus({ orderId: order.id, newStatus: 'finalized' })}
                 disabled={isUpdating}
               >
                 {isUpdating ? 'Entregando...' : <><CheckCircle className="mr-1 h-3 w-3" />Entregar</>}
