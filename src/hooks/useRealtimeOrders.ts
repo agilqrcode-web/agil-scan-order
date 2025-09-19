@@ -23,13 +23,14 @@ export function useRealtimeOrders() {
   }, []);
 
   useEffect(() => {
+    console.log('Attempting to subscribe to orders_channel...');
     const channel = supabase
       .channel('orders_channel')
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'orders' },
         (payload) => {
-          console.log('New order received!', payload);
+          console.log('New order INSERT event received!', payload);
           const newOrder = payload.new as Order;
           setNewOrderNotifications((prev) => [
             { ...newOrder, isRead: false },
@@ -37,9 +38,12 @@ export function useRealtimeOrders() {
           ]);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Supabase Realtime channel status:', status);
+      });
 
     return () => {
+      console.log('Unsubscribing from orders_channel.');
       supabase.removeChannel(channel);
     };
   }, [supabase]);
