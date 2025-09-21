@@ -9,7 +9,7 @@ export type AddTableFormValues = {
 };
 
 export function useTables() {
-  const { userId } = useAuth();
+  const { userId, getToken } = useAuth(); // Obter getToken
   const supabase = useSupabase();
   const [restaurantId, setRestaurantId] = useState<string | null>(null);
   const [restaurantName, setRestaurantName] = useState<string | null>(null);
@@ -104,13 +104,18 @@ export function useTables() {
   }, [restaurantId, fetchTableCounts, fetchTables, fetchExistingTableNumbers]);
 
   const addTable = async (values: AddTableFormValues) => {
-    if (!restaurantId) {
-      throw new Error("Restaurant ID not found. Cannot add table.");
+    if (!restaurantId || !getToken) {
+      throw new Error("Restaurant ID or getToken not found. Cannot add table.");
     }
+
+    const token = await getToken({ template: "agilqrcode" });
 
     const response = await fetch("/api/tables", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+      },
       body: JSON.stringify({
         restaurant_id: restaurantId,
         table_number: values.table_number,
@@ -128,8 +133,17 @@ export function useTables() {
   };
 
   const deleteTable = async (tableId: string) => {
+    if (!getToken) {
+      throw new Error("getToken not found. Cannot delete table.");
+    }
+
+    const token = await getToken({ template: "agilqrcode" });
+
     const response = await fetch(`/api/tables?table_id=${tableId}`, {
       method: "DELETE",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
     });
 
     if (!response.ok) {
