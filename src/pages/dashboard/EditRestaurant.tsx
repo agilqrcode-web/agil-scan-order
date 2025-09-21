@@ -5,7 +5,6 @@ import { RestaurantLogoCard } from "@/components/dashboard/restaurant-editor/Res
 import { useNavigate, useParams } from "react-router-dom";
 import { useEffect, useState, useCallback } from "react";
 import { Spinner } from "@/components/ui/spinner";
-import { Spinner } from "@/components/ui/spinner";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@clerk/clerk-react";
 import { usePageHeader } from "@/contexts/PageHeaderContext";
