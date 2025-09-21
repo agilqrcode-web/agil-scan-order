@@ -13,35 +13,39 @@ if (!PUBLISHABLE_KEY) {
 }
 
 function SupabaseProvider({ children }) {
-  // 1. Create a single Supabase client instance and store it in state.
-  const [supabase] = useState(() => createSupabaseClient());
-  const { getToken, isSignedIn } = useAuth();
+  const { isSignedIn, getToken } = useAuth();
+  // Initialize with a public client immediately.
+  const [supabase, setSupabase] = useState(() => createSupabaseClient());
+
+  // Memoize the token refresh function.
+  const refreshSupabaseToken = React.useCallback(async () => {
+    if (isSignedIn) {
+      try {
+        console.log("Refreshing Supabase token on focus/visibility change...");
+        const clerkToken = await getToken({ template: 'agilqrcode' });
+        const newSupabaseClient = createSupabaseClient(clerkToken);
+        setSupabase(newSupabaseClient);
+        console.log("Supabase client refreshed with new token.");
+      } catch (error) {
+        console.error("Error refreshing Supabase token:", error);
+      }
+    }
+  }, [isSignedIn, getToken]);
 
   useEffect(() => {
-    // 2. This effect runs whenever the user's sign-in state changes.
-    const setSession = async () => {
-      if (isSignedIn) {
-        try {
-          // 3. Get the token from Clerk.
-          const clerkToken = await getToken({ template: 'agilqrcode' });
-          if (clerkToken) {
-            // 4. Set the session in the Supabase client.
-            // This updates the authentication state without recreating the client.
-            await supabase.auth.setSession({ access_token: clerkToken, refresh_token: clerkToken });
-            console.log("Supabase session updated with Clerk token.");
-          }
-        } catch (error) {
-          console.error("Error setting Supabase session:", error);
-        }
-      } else {
-        // If the user signs out, clear the session.
-        await supabase.auth.signOut();
-        console.log("Supabase session cleared.");
-      }
-    };
+    // Initial check when the component mounts or user signs in.
+    refreshSupabaseToken();
 
-    setSession();
-  }, [isSignedIn, getToken, supabase]);
+    // Set up event listeners to refresh the token when the tab becomes active.
+    window.addEventListener('visibilitychange', refreshSupabaseToken);
+    window.addEventListener('focus', refreshSupabaseToken);
+
+    // Cleanup function to remove event listeners.
+    return () => {
+      window.removeEventListener('visibilitychange', refreshSupabaseToken);
+      window.removeEventListener('focus', refreshSupabaseToken);
+    };
+  }, [refreshSupabaseToken]);
 
   return (
     <SupabaseContext.Provider value={supabase}>
