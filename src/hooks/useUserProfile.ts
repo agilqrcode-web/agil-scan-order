@@ -16,7 +16,7 @@ export function useUserProfile() {
 
       console.log(`useUserProfile: Fetching profile for Clerk user ID: ${user.id}`);
       try {
-        const token = await getToken(); // Obter o token para o Supabase
+        const token = await getToken({ template: 'agilqrcode' }); // Use o template correto
         if (!token) {
           throw new Error('Failed to get authentication token.');
         }
