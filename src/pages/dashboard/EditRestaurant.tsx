@@ -3,7 +3,7 @@ import { RestaurantDetailsCard } from "@/components/dashboard/restaurant-editor/
 import { RestaurantInfoCard } from "@/components/dashboard/restaurant-editor/RestaurantInfoCard";
 import { RestaurantLogoCard } from "@/components/dashboard/restaurant-editor/RestaurantLogoCard";
 import { useNavigate, useParams } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@clerk/clerk-react";
@@ -49,30 +49,60 @@ export default function EditRestaurant() {
         restaurantId: restaurant?.id ?? '',
     });
 
-    useEffect(() => {
-        if (!restaurantId) {
-            setError("ID do restaurante não encontrado.");
+    const fetchRestaurant = useCallback(async () => {
+        if (!restaurantId || !getToken) return;
+        try {
+            setLoading(true);
+            const token = await getToken({ template: "agilqrcode" });
+            const response = await fetch(`/api/restaurants?id=${restaurantId}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!response.ok) throw new Error("Falha ao buscar os dados do restaurante.");
+            const data = await response.json();
+            setRestaurant(data);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Ocorreu um erro desconhecido.");
+        } finally {
             setLoading(false);
-            return;
         }
-        const fetchRestaurant = async () => {
-            try {
-                setLoading(true);
-                const token = await getToken({ template: "agilqrcode" });
-                const response = await fetch(`/api/restaurants?id=${restaurantId}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (!response.ok) throw new Error("Falha ao buscar os dados do restaurante.");
-                const data = await response.json();
-                setRestaurant(data);
-            } catch (err) {
-                setError(err instanceof Error ? err.message : "Ocorreu um erro desconhecido.");
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchRestaurant();
     }, [restaurantId, getToken]);
+
+    useEffect(() => {
+        fetchRestaurant();
+    }, [fetchRestaurant]);
+
+    const handleSave = useCallback(async () => {
+        if (!restaurant) return;
+        setIsSaving(true);
+        try {
+            const finalLogoUrl = await processLogoChange(restaurant.logo_url);
+            const dataToSave = { 
+                ...restaurant, 
+                logo_url: finalLogoUrl 
+            };
+
+            const token = await getToken({ template: "agilqrcode" });
+            const response = await fetch('/api/restaurants', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify(dataToSave),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || "Falha ao salvar as alterações.");
+            }
+
+            const updatedRestaurant = await response.json();
+            setRestaurant(updatedRestaurant);
+
+            toast({ title: "Sucesso!", description: "As informações do restaurante foram atualizadas." });
+        } catch (err) {
+            toast({ variant: "destructive", title: "Erro ao salvar", description: (err as Error).message });
+        } finally {
+            setIsSaving(false);
+        }
+    }, [restaurant, getToken, processLogoChange, toast]);
 
     useEffect(() => {
         const saveAction = (
@@ -89,7 +119,7 @@ export default function EditRestaurant() {
         });
 
         return () => clearHeader();
-    }, [isSaving, loading, restaurant, handleSave]);
+    }, [isSaving, loading, restaurant, handleSave, setHeader, clearHeader]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | { target: { id: string, value: string } }) => {
         const { id, value } = e.target;
@@ -103,43 +133,6 @@ export default function EditRestaurant() {
         setRestaurant({ ...restaurant, payment_methods: newMethods.join(', ') });
     };
 
-    const handleSave = async () => {
-        if (!restaurant) return;
-        setIsSaving(true);
-        try {
-            // 1. Process logo change (upload/delete from storage) and get the final URL
-            const finalLogoUrl = await processLogoChange(restaurant.logo_url);
-
-            // 2. Prepare the complete data to be saved
-            const dataToSave = { 
-                ...restaurant, 
-                logo_url: finalLogoUrl 
-            };
-
-            // 3. Save everything to the database via the API
-            const token = await getToken({ template: "agilqrcode" });
-            const response = await fetch('/api/restaurants', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify(dataToSave),
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || "Falha ao salvar as alterações.");
-            }
-
-            const updatedRestaurant = await response.json();
-            setRestaurant(updatedRestaurant); // Update state with data from DB
-
-            toast({ title: "Sucesso!", description: "As informações do restaurante foram atualizadas." });
-        } catch (err) {
-            toast({ variant: "destructive", title: "Erro ao salvar", description: (err as Error).message });
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
     if (loading) return <div className="flex justify-center items-center h-64"><Spinner size="large" /></div>;
     if (error) return <div className="text-red-500 text-center">{error}</div>;
 
@@ -151,14 +144,14 @@ export default function EditRestaurant() {
                         <>
                             <RestaurantDetailsCard restaurant={restaurant} onInputChange={handleInputChange} />
                             <RestaurantInfoCard restaurant={restaurant} onInputChange={handleInputChange} onPaymentMethodChange={handlePaymentMethodChange} />
-                        </> 
+                        </>
                     )}
                 </div>
                 <div className="lg:col-span-1">
                     {restaurant && (
                         <RestaurantLogoCard 
                             logoPreview={logoPreview}
-                            isUploading={isSaving} // Use the main saving state
+                            isUploading={isSaving}
                             handleFileChange={handleFileChange}
                             handleRemovePreview={handleRemovePreview}
                         />
