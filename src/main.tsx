@@ -15,20 +15,28 @@ if (!PUBLISHABLE_KEY) {
 
 function SupabaseProvider({ children }) {
   const { isSignedIn, getToken } = useAuth();
-  const [supabase, setSupabase] = useState(() => createSupabaseClient());
+  const [supabase, setSupabase] = useState(() => {
+    console.log('SupabaseProvider: Initializing Supabase client.');
+    return createSupabaseClient();
+  });
 
   useEffect(() => {
     const updateSupabaseClient = async () => {
+      console.log(`SupabaseProvider: useEffect triggered. isSignedIn: ${isSignedIn}`);
       if (isSignedIn) {
         try {
+          console.log('SupabaseProvider: Attempting to get Clerk token...');
           const clerkToken = await getToken({ template: 'agilqrcode' });
+          console.log(`SupabaseProvider: Clerk token obtained (length: ${clerkToken?.length || 0}).`);
           const newSupabaseClient = createSupabaseClient(clerkToken);
           setSupabase(newSupabaseClient);
+          console.log('SupabaseProvider: Supabase client updated with Clerk token.');
         } catch (error) {
-          console.error("Error updating Supabase client:", error);
+          console.error("SupabaseProvider: Error updating Supabase client:", error);
         }
       } else {
         setSupabase(createSupabaseClient());
+        console.log('SupabaseProvider: Supabase client reset to unauthenticated.');
       }
     };
     updateSupabaseClient();
@@ -44,7 +52,8 @@ function SupabaseProvider({ children }) {
 // This new component ensures that SupabaseProvider is only rendered
 // after Clerk has loaded, preventing a race condition.
 function AppWithProviders() {
-  const { isLoaded } = useAuth();
+  const { isLoaded, isSignedIn } = useAuth();
+  console.log(`AppWithProviders: Clerk isLoaded: ${isLoaded}, isSignedIn: ${isSignedIn}`);
 
   if (!isLoaded) {
     // You can render a global loading spinner here if you like

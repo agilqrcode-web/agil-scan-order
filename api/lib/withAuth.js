@@ -21,16 +21,20 @@ const createSupabaseClient = (token) => {
  */
 export function withAuth(handler) {
   return async (req, res) => {
+    console.log('withAuth: Middleware entered.');
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.warn('withAuth: Unauthorized - No token provided or invalid format.');
       return res.status(401).json({ error: 'Unauthorized: No token provided.' });
     }
 
     const token = authHeader.split(' ')[1];
+    console.log(`withAuth: Token received (length: ${token?.length || 0}).`);
 
     try {
       // Cria um cliente Supabase que age em nome do usuário.
+      console.log('withAuth: Creating Supabase client with token...');
       const supabase = createSupabaseClient(token);
       
       // Extrai o ID do usuário do token para referência futura, se necessário.
@@ -38,11 +42,12 @@ export function withAuth(handler) {
       // Esta é uma decodificação simples para obter os dados do payload.
       const decodedPayload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
       const user = { id: decodedPayload.sub };
+      console.log(`withAuth: Supabase client created for user: ${user.id}`);
 
       // Injeta o cliente supabase e o usuário na requisição e chama o handler original.
       return handler(req, res, { supabase, user });
     } catch (error) {
-      console.error('Auth middleware error:', error);
+      console.error('withAuth: Auth middleware error:', error);
       return res.status(401).json({ error: 'Unauthorized: Invalid token.' });
     }
   };

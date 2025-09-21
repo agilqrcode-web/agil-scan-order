@@ -16,8 +16,11 @@ export function useUserProfile() {
 
       console.log(`useUserProfile: Fetching profile for Clerk user ID: ${user.id}`);
       try {
+        console.log('useUserProfile: Attempting to get Clerk token...');
         const token = await getToken({ template: 'agilqrcode' }); // Use o template correto
+        console.log(`useUserProfile: Clerk token obtained (length: ${token?.length || 0}).`);
         if (!token) {
+          console.error('useUserProfile: Failed to get authentication token.');
           throw new Error('Failed to get authentication token.');
         }
 
