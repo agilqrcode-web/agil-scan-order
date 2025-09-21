@@ -13,6 +13,7 @@ import { useMenuBannerUpload } from '@/hooks/useMenuBannerUpload';
 import { usePageHeader } from '@/contexts/PageHeaderContext';
 import { useToast } from "@/components/ui/use-toast";
 import { Spinner } from '@/components/ui/spinner';
+import { useAuth } from '@clerk/clerk-react';
 
 // Import extracted components
 import { MenuDetailsCard } from '@/components/dashboard/menu-editor/MenuDetailsCard';
@@ -52,6 +53,7 @@ export type MenuItemFormValues = z.infer<typeof menuItemSchema>;
 export default function MenuEditor() {
   const { menuId } = useParams();
   const supabase = useSupabase();
+  const { getToken } = useAuth();
   const queryClient = useQueryClient();
   const { setHeader, clearHeader } = usePageHeader();
   const { toast } = useToast();
@@ -85,11 +87,19 @@ export default function MenuEditor() {
     return categories.map(cat => cat.name.toLowerCase());
   }, [categories]);
 
+  const fetchWithAuth = useCallback(async (url: string, options: RequestInit = {}) => {
+    if (!getToken) throw new Error("getToken function not available");
+    const token = await getToken({ template: "agilqrcode" });
+    const headers = new Headers(options.headers);
+    headers.append('Authorization', `Bearer ${token}`);
+    return fetch(url, { ...options, headers });
+  }, [getToken]);
+
   const fetchMenuData = useCallback(async () => {
     if (!menuId || !supabase) { setLoading(false); return; }
     setLoading(true);
     try {
-      const menuResponse = await fetch(`/api/menus?id=${menuId}`);
+      const menuResponse = await fetchWithAuth(`/api/menus?id=${menuId}`);
       if (!menuResponse.ok) throw new Error("Failed to fetch menu details.");
       const menuData = await menuResponse.json();
       setMenu(menuData);
@@ -112,13 +122,13 @@ export default function MenuEditor() {
   useEffect(() => { fetchMenuData(); }, [fetchMenuData]);
 
   const handleSaveCategoryOrder = useCallback(async () => {
-    const response = await fetch("/api/categories", {
+    const response = await fetchWithAuth("/api/categories", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ categories: categories.map(cat => ({ id: cat.id, position: cat.position })) }),
     });
     if (!response.ok) throw new Error("Failed to save category order.");
-  }, [categories]);
+  }, [categories, fetchWithAuth]);
 
   const handleSaveMenu = useCallback(async (values: MenuFormValues) => {
     if (!menuId || !menu || !supabase) return;
@@ -127,7 +137,7 @@ export default function MenuEditor() {
     const savePromise = (async () => {
         const newBannerUrl = await uploadBanner();
         const updateData = { id: menuId, name: values.name, is_active: values.is_active, banner_url: newBannerUrl };
-        const response = await fetch("/api/menus", {
+        const response = await fetchWithAuth("/api/menus", {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(updateData),
@@ -152,7 +162,7 @@ export default function MenuEditor() {
     } finally {
         setIsSaving(false);
     }
-  }, [menuId, menu, supabase, queryClient, uploadBanner, resetBannerState, handleSaveCategoryOrder, toast]);
+  }, [menuId, menu, supabase, queryClient, uploadBanner, resetBannerState, handleSaveCategoryOrder, toast, fetchWithAuth]);
 
   useEffect(() => {
     const saveAction = (
@@ -176,13 +186,13 @@ export default function MenuEditor() {
     try {
       const isNew = !category.id;
       const body = isNew ? { ...category, restaurant_id: menu.restaurant_id, position: categories.length } : { ...category };
-      const response = await fetch("/api/categories", { method: isNew ? "POST" : "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const response = await fetchWithAuth("/api/categories", { method: isNew ? "POST" : "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       if (!response.ok) throw new Error("Failed to save category.");
       fetchMenuData();
     } catch (err: any) {
       setError(err.message || "Failed to save category.");
     }
-  }, [menuId, menu, categories.length, fetchMenuData]);
+  }, [menuId, menu, categories.length, fetchMenuData, fetchWithAuth]);
 
   const handleMoveCategory = useCallback((index: number, direction: 'up' | 'down') => {
     const newCategories = [...categories];
@@ -197,36 +207,36 @@ export default function MenuEditor() {
 
   const handleDeleteCategory = useCallback(async (categoryId: string) => {
     try {
-      const response = await fetch("/api/categories", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: categoryId }) });
+      const response = await fetchWithAuth("/api/categories", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: categoryId }) });
       if (!response.ok) throw new Error("Failed to delete category.");
       fetchMenuData();
     } catch (err: any) {
       setError(err.message || "Failed to delete category.");
     }
-  }, [fetchMenuData]);
+  }, [fetchMenuData, fetchWithAuth]);
 
   const handleSaveMenuItem = useCallback(async (item: MenuItemFormValues) => {
     if (!menuId) return;
     try {
       const method = item.id ? "PUT" : "POST";
       const body = item.id ? item : { ...item, menu_id: menuId, category_id: selectedCategoryIdForMenuItem };
-      const response = await fetch("/api/menu-items", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const response = await fetchWithAuth("/api/menu-items", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       if (!response.ok) throw new Error("Failed to save menu item.");
       fetchMenuData();
     } catch (err: any) {
       setError(err.message || "Failed to save menu item.");
     }
-  }, [menuId, selectedCategoryIdForMenuItem, fetchMenuData]);
+  }, [menuId, selectedCategoryIdForMenuItem, fetchMenuData, fetchWithAuth]);
 
   const handleDeleteMenuItem = useCallback(async (itemId: string) => {
     try {
-      const response = await fetch("/api/menu-items", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: itemId }) });
+      const response = await fetchWithAuth("/api/menu-items", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: itemId }) });
       if (!response.ok) throw new Error("Failed to delete menu item.");
       fetchMenuData();
     } catch (err: any) {
       setError(err.message || "Failed to delete menu item.");
     }
-  }, [fetchMenuData]);
+  }, [fetchMenuData, fetchWithAuth]);
 
   const handleItemNameInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;

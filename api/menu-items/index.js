@@ -1,11 +1,6 @@
-import { createClient } from '@supabase/supabase-js';
+import { withAuth } from '../lib/withAuth.js';
 
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-export default async function handler(request, response) {
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
+async function handler(request, response, { supabase }) {
   switch (request.method) {
     case 'POST':
       // Create Menu Item
@@ -93,3 +88,5 @@ export default async function handler(request, response) {
       return response.status(405).json({ error: 'Method Not Allowed' });
   }
 }
+
+export default withAuth(handler);
