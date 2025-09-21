@@ -14,38 +14,32 @@ if (!PUBLISHABLE_KEY) {
 
 function SupabaseProvider({ children }) {
   const { isSignedIn, getToken } = useAuth();
-  // Initialize with a public client immediately.
   const [supabase, setSupabase] = useState(() => createSupabaseClient());
 
-  // Memoize the token refresh function.
-  const refreshSupabaseToken = React.useCallback(async () => {
-    if (isSignedIn) {
-      try {
-        console.log("Refreshing Supabase token on focus/visibility change...");
-        const clerkToken = await getToken({ template: 'agilqrcode' });
-        const newSupabaseClient = createSupabaseClient(clerkToken);
-        setSupabase(newSupabaseClient);
-        console.log("Supabase client refreshed with new token.");
-      } catch (error) {
-        console.error("Error refreshing Supabase token:", error);
-      }
-    }
-  }, [isSignedIn, getToken]);
-
   useEffect(() => {
-    // Initial check when the component mounts or user signs in.
-    refreshSupabaseToken();
-
-    // Set up event listeners to refresh the token when the tab becomes active.
-    window.addEventListener('visibilitychange', refreshSupabaseToken);
-    window.addEventListener('focus', refreshSupabaseToken);
-
-    // Cleanup function to remove event listeners.
-    return () => {
-      window.removeEventListener('visibilitychange', refreshSupabaseToken);
-      window.removeEventListener('focus', refreshSupabaseToken);
+    const updateSupabaseClient = async () => {
+      if (isSignedIn) {
+        try {
+          console.log("User is signed in. Updating Supabase client with new token.");
+          const clerkToken = await getToken({ template: 'agilqrcode' });
+          const newSupabaseClient = createSupabaseClient(clerkToken);
+          setSupabase(newSupabaseClient);
+        } catch (error) {
+          console.error("Error updating Supabase client:", error);
+        }
+      } else {
+        // If user signs out, create a new public (unauthenticated) client.
+        console.log("User is signed out. Creating new public Supabase client.");
+        setSupabase(createSupabaseClient());
+      }
     };
-  }, [refreshSupabaseToken]);
+
+    updateSupabaseClient();
+
+    // No event listeners for focus or visibility change needed anymore.
+    // This logic is now purely reactive to the authentication state.
+
+  }, [isSignedIn, getToken]); // Effect runs when auth state changes
 
   return (
     <SupabaseContext.Provider value={supabase}>
