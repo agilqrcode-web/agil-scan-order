@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,7 @@ import { useForm, UseFormReturn } from "react-hook-form";
 import * as z from "zod";
 import { useSupabase } from '@/contexts/SupabaseContext';
 import { Spinner } from '@/components/ui/spinner';
-import { Trash2 } from 'lucide-react';
+import { ImageUploader } from './ImageUploader';
 
 const menuItemSchema = z.object({
   id: z.string().optional(),
@@ -42,34 +42,20 @@ export function EditMenuItemModal({
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const supabase = useSupabase();
 
   const watchedImageUrl = editMenuItemForm.watch("image_url");
 
   useEffect(() => {
     if (isOpen) {
-      // When the modal opens, sync the preview with the form's current image URL
       setImagePreview(watchedImageUrl || null);
-      // Reset file input state
       setImageFile(null);
     } else {
-      // Reset everything when modal closes
-      resetImageState(true); // Pass true to not clear the form value immediately
+      setImageFile(null);
+      setImagePreview(null);
+      setIsUploading(false);
     }
   }, [isOpen, watchedImageUrl]);
-
-  const resetImageState = (keepFormValue = false) => {
-    setImageFile(null);
-    setImagePreview(null);
-    setIsUploading(false);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-    if (!keepFormValue) {
-        editMenuItemForm.setValue("image_url", "");
-    }
-  };
 
   const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -83,7 +69,6 @@ export function EditMenuItemModal({
   const handleRemoveImage = () => {
     setImageFile(null);
     setImagePreview(null);
-    // The handleSave logic will see the preview is null and handle deletion/URL update
   };
 
   const handleSave = async (values: MenuItemFormValues) => {
@@ -94,7 +79,6 @@ export function EditMenuItemModal({
     const originalImageUrl = editMenuItemForm.getValues("image_url");
 
     try {
-        // Case 1: New image was selected
         if (imageFile) {
             const fileExt = imageFile.name.split('.').pop();
             const fileName = `${Date.now()}.${fileExt}`;
@@ -109,7 +93,6 @@ export function EditMenuItemModal({
             const { data } = supabase.storage.from('menu-item-images').getPublicUrl(filePath);
             imageUrl = data.publicUrl;
 
-            // If there was an old image, delete it from storage
             if (originalImageUrl) {
                 const oldFileName = originalImageUrl.split('/').pop();
                 if (oldFileName) {
@@ -117,7 +100,6 @@ export function EditMenuItemModal({
                 }
             }
         } 
-        // Case 2: Existing image was removed (no new file, but preview is gone)
         else if (originalImageUrl && !imagePreview) {
             const bucketName = 'menu-item-images';
             const oldImagePath = originalImageUrl.substring(originalImageUrl.indexOf(bucketName) + bucketName.length + 1);
@@ -129,20 +111,11 @@ export function EditMenuItemModal({
 
     } catch (error) {
         console.error("Error during image handling or saving:", error);
-        // Optionally show a toast
     } finally {
         setIsUploading(false);
         onOpenChange(false);
     }
   };
-
-          <ImageUploader 
-            inputId="item-image-edit"
-            label="Imagem"
-            imagePreview={imagePreview}
-            onFileChange={handleImageFileChange}
-            onRemove={handleRemoveImage}
-          />
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -173,33 +146,13 @@ export function EditMenuItemModal({
             )}
           </div>
           
-          <ImageUploader />
-
-          <DialogFooter>
-            {isUploading ? (
-                <Button disabled>
-                    <Spinner className="mr-2 h-4 w-4" />
-                    Salvando...
-                </Button>
-            ) : (
-                <Button type="submit">Salvar Alterações</Button>
-            )}
-            <Button variant="outline" type="button" onClick={() => onOpenChange(false)} disabled={isUploading}>
-              Cancelar
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-       <Input id="itemPriceEdit" type="number" step="0.01" {...editMenuItemForm.register("price")} className="col-span-3" />
-            {editMenuItemForm.formState.errors.price && (
-              <p className="col-span-4 text-right text-sm text-red-500">{editMenuItemForm.formState.errors.price.message}</p>
-            )}
-          </div>
-          
-          <ImageUploader />
+          <ImageUploader 
+            inputId="item-image-edit"
+            label="Imagem"
+            imagePreview={imagePreview}
+            onFileChange={handleImageFileChange}
+            onRemove={handleRemoveImage}
+          />
 
           <DialogFooter>
             {isUploading ? (

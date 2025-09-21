@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,7 @@ import { useForm, UseFormReturn } from "react-hook-form";
 import * as z from "zod";
 import { useSupabase } from '@/contexts/SupabaseContext';
 import { Spinner } from '@/components/ui/spinner';
-import { Trash2 } from 'lucide-react';
+import { ImageUploader } from './ImageUploader';
 
 const menuItemSchema = z.object({
   id: z.string().optional(),
@@ -49,16 +49,12 @@ export function AddMenuItemModal({
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const supabase = useSupabase();
 
   const resetImageState = () => {
     setImageFile(null);
     setImagePreview(null);
     setIsUploading(false);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
     addMenuItemForm.setValue("image_url", "");
   };
 
@@ -97,7 +93,6 @@ export function AddMenuItemModal({
       if (uploadError) {
         console.error("Error uploading image:", uploadError);
         setIsUploading(false);
-        // Optionally: show an error toast to the user
         return;
       }
 
@@ -113,13 +108,6 @@ export function AddMenuItemModal({
     onOpenChange(false);
   };
 
-      <ImageUploader 
-        inputId="item-image-add-suggested"
-        label="Imagem"
-        imagePreview={imagePreview}
-        onFileChange={handleImageFileChange}
-        onRemove={resetImageState}
-      />
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px]">
@@ -149,13 +137,25 @@ export function AddMenuItemModal({
               </div>
               <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="itemDescriptionSuggested" className="text-right">Descrição</Label><Input id="itemDescriptionSuggested" {...addMenuItemForm.register("description")} className="col-span-3" placeholder="(Opcional)" /></div>
               <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="itemPriceSuggested" className="text-right">Preço</Label><Input id="itemPriceSuggested" type="number" step="0.01" {...addMenuItemForm.register("price")} className="col-span-3" placeholder="Ex: 35.90" />{addMenuItemForm.formState.errors.price && <p className="col-span-4 text-right text-sm text-red-500">{addMenuItemForm.formState.errors.price.message}</p>}</div>
-              <ImageUploader />
+              <ImageUploader 
+                inputId="item-image-add-suggested"
+                label="Imagem"
+                imagePreview={imagePreview}
+                onFileChange={handleImageFileChange}
+                onRemove={resetImageState}
+              />
             </TabsContent>
             <TabsContent value="personalizado" className="py-4 space-y-4">
               <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="itemNameCustom" className="text-right">Nome</Label><Input id="itemNameCustom" {...addMenuItemForm.register("name")} className="col-span-3" placeholder="Ex: Prato da Casa" autoComplete="off" />{addMenuItemForm.formState.errors.name && <p className="col-span-4 text-right text-sm text-red-500">{addMenuItemForm.formState.errors.name.message}</p>}</div>
               <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="itemDescriptionCustom" className="text-right">Descrição</Label><Input id="itemDescriptionCustom" {...addMenuItemForm.register("description")} className="col-span-3" placeholder="Ex: Ingredientes especiais..." /></div>
               <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="itemPriceCustom" className="text-right">Preço</Label><Input id="itemPriceCustom" type="number" step="0.01" {...addMenuItemForm.register("price")} className="col-span-3" placeholder="Ex: 42.00" />{addMenuItemForm.formState.errors.price && <p className="col-span-4 text-right text-sm text-red-500">{addMenuItemForm.formState.errors.price.message}</p>}</div>
-              <ImageUploader />
+              <ImageUploader 
+                inputId="item-image-add-custom"
+                label="Imagem"
+                imagePreview={imagePreview}
+                onFileChange={handleImageFileChange}
+                onRemove={resetImageState}
+              />
             </TabsContent>
           </Tabs>
           <DialogFooter>
@@ -176,27 +176,3 @@ export function AddMenuItemModal({
     </Dialog>
   );
 }
-
-e="text-right">Preço</Label><Input id="itemPriceCustom" type="number" step="0.01" {...addMenuItemForm.register("price")} className="col-span-3" placeholder="Ex: 42.00" />{addMenuItemForm.formState.errors.price && <p className="col-span-4 text-right text-sm text-red-500">{addMenuItemForm.formState.errors.price.message}</p>}</div>
-              <ImageUploader />
-            </TabsContent>
-          </Tabs>
-          <DialogFooter>
-            {isUploading ? (
-              <Button disabled>
-                <Spinner className="mr-2 h-4 w-4" />
-                Salvando...
-              </Button>
-            ) : (
-              <Button type="submit">Adicionar Item</Button>
-            )}
-            <Button variant="outline" type="button" onClick={() => onOpenChange(false)} disabled={isUploading}>
-              Cancelar
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
