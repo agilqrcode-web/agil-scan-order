@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { ImageIcon, Upload, Trash2 } from "lucide-react";
 import { useRef } from "react";
+// import { Spinner } from "@/components/ui/spinner"; // Removido
 
 interface RestaurantLogoCardProps {
     logoPreview: string | null;
@@ -10,11 +11,11 @@ interface RestaurantLogoCardProps {
     handleRemovePreview: () => void;
 }
 
-export function RestaurantLogoCard({ 
-    logoPreview, 
-    isUploading, 
-    handleFileChange, 
-    handleRemovePreview 
+export function RestaurantLogoCard({
+    logoPreview,
+    isUploading,
+    handleFileChange,
+    handleRemovePreview
 }: RestaurantLogoCardProps) {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -27,7 +28,7 @@ export function RestaurantLogoCard({
             <CardContent className="flex flex-col items-center gap-4">
                 <div className="w-48 h-48 rounded-lg bg-muted flex items-center justify-center overflow-hidden">
                     {isUploading ? (
-                        <Spinner size="large" />
+                        <span className="text-sm text-muted-foreground">Carregando...</span> // Substituído Spinner
                     ) : logoPreview ? (
                         <img src={logoPreview} alt="Pré-visualização da logo" className="w-full h-full object-cover" />
                     ) : (
