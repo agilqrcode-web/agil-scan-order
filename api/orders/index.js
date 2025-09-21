@@ -161,32 +161,53 @@ async function publicHandler(request, response) {
           return response.status(500).json({ error: error.message });
         }
       }
-    case 'GET': // This GET is for a customer checking a specific order status
+    case 'GET':
       {
-        const { orderId } = request.query;
-        if (!orderId) {
-            return response.status(400).json({ error: 'Missing orderId parameter for public GET' });
-        }
-        try {
-            const { data, error } = await supabaseAdmin
-                .from('orders')
-                .select(`*,
-                    restaurant_tables ( table_number, restaurant_id ),
-                    order_items ( * , menu_items ( name, price ) )
-                `)
-                .eq('id', orderId)
-                .single();
+        const { orderId, tableId } = request.query;
 
-            if (error) {
-                if (error.code === 'PGRST116') { return response.status(404).json({ error: 'Order not found' }); }
-                throw error;
+        if (orderId) {
+            try {
+                const { data, error } = await supabaseAdmin
+                    .from('orders')
+                    .select(`*,
+                        restaurant_tables ( table_number, restaurant_id ),
+                        order_items ( * , menu_items ( name, price ) )
+                    `)
+                    .eq('id', orderId)
+                    .single();
+
+                if (error) {
+                    if (error.code === 'PGRST116') { return response.status(404).json({ error: 'Order not found' }); }
+                    throw error;
+                }
+                
+                console.log(`[API/Orders] SUCCESS: Publicly fetched single order ${orderId}.`);
+                return response.status(200).json(data);
+            } catch (error) {
+                console.error('[API/Orders] Server error during public GET request for single order:', error);
+                return response.status(500).json({ error: error.message });
             }
-            
-            console.log(`[API/Orders] SUCCESS: Publicly fetched single order ${orderId}.`);
-            return response.status(200).json(data ? [data] : []);
-        } catch (error) {
-            console.error('[API/Orders] Server error during public GET request for single order:', error);
-            return response.status(500).json({ error: error.message });
+        } else if (tableId) {
+            try {
+                const { data, error } = await supabaseAdmin
+                    .from('orders')
+                    .select(`*,
+                        restaurant_tables ( table_number, restaurant_id ),
+                        order_items ( * , menu_items ( name, price ) )
+                    `)
+                    .eq('table_id', tableId)
+                    .order('created_at', { ascending: true });
+
+                if (error) { throw error; }
+
+                console.log(`[API/Orders] SUCCESS: Publicly fetched ${data.length} orders for table ${tableId}.`);
+                return response.status(200).json(data);
+            } catch (error) {
+                console.error('[API/Orders] Server error during public GET request for table orders:', error);
+                return response.status(500).json({ error: error.message });
+            }
+        } else {
+            return response.status(400).json({ error: 'Missing orderId or tableId parameter for public GET' });
         }
       }
     default:
@@ -211,4 +232,3 @@ export default async function handler(request, response) {
   // Todos os outros métodos (PUT, DELETE, e GET sem params) são privados e precisam de autenticação
   return withAuth(authenticatedHandler)(request, response);
 }
-
