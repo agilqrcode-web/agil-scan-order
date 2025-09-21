@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { withAuth } from '../lib/withAuth';
+import { withAuth } from '../lib/withAuth.js';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
