@@ -5,6 +5,7 @@ import './index.css';
 import { createSupabaseClient } from "@/integrations/supabase/client";
 import React, { useEffect, useState } from 'react';
 import { SupabaseContext } from "@/contexts/SupabaseContext";
+import { Spinner } from '@/components/ui/spinner';
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
@@ -20,7 +21,6 @@ function SupabaseProvider({ children }) {
     const updateSupabaseClient = async () => {
       if (isSignedIn) {
         try {
-          console.log("User is signed in. Updating Supabase client with new token.");
           const clerkToken = await getToken({ template: 'agilqrcode' });
           const newSupabaseClient = createSupabaseClient(clerkToken);
           setSupabase(newSupabaseClient);
@@ -28,18 +28,11 @@ function SupabaseProvider({ children }) {
           console.error("Error updating Supabase client:", error);
         }
       } else {
-        // If user signs out, create a new public (unauthenticated) client.
-        console.log("User is signed out. Creating new public Supabase client.");
         setSupabase(createSupabaseClient());
       }
     };
-
     updateSupabaseClient();
-
-    // No event listeners for focus or visibility change needed anymore.
-    // This logic is now purely reactive to the authentication state.
-
-  }, [isSignedIn, getToken]); // Effect runs when auth state changes
+  }, [isSignedIn, getToken]);
 
   return (
     <SupabaseContext.Provider value={supabase}>
@@ -48,14 +41,35 @@ function SupabaseProvider({ children }) {
   );
 }
 
-createRoot(document.getElementById("root")!).render(
-  <ClerkProvider 
-    publishableKey={PUBLISHABLE_KEY}
-    afterSignInUrl="/onboarding"
-    afterSignUpUrl="/onboarding"
-  >
+// This new component ensures that SupabaseProvider is only rendered
+// after Clerk has loaded, preventing a race condition.
+function AppWithProviders() {
+  const { isLoaded } = useAuth();
+
+  if (!isLoaded) {
+    // You can render a global loading spinner here if you like
+    return (
+        <div className="flex justify-center items-center h-screen">
+            <Spinner size="large" />
+        </div>
+    );
+  }
+
+  return (
     <SupabaseProvider>
       <App />
     </SupabaseProvider>
-  </ClerkProvider>
+  );
+}
+
+createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
+    <ClerkProvider 
+      publishableKey={PUBLISHABLE_KEY}
+      afterSignInUrl="/onboarding"
+      afterSignUpUrl="/onboarding"
+    >
+      <AppWithProviders />
+    </ClerkProvider>
+  </React.StrictMode>
 );
