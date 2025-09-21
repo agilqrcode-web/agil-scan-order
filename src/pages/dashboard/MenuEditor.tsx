@@ -133,34 +133,41 @@ export default function MenuEditor() {
   const handleSaveMenu = useCallback(async (values: MenuFormValues) => {
     if (!menuId || !menu || !supabase) return;
     setIsSaving(true);
-    
-    const savePromise = (async () => {
-        const newBannerUrl = await uploadBanner();
-        const updateData = { id: menuId, name: values.name, is_active: values.is_active, banner_url: newBannerUrl };
-        const response = await fetchWithAuth("/api/menus", {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(updateData),
-        });
-        if (!response.ok) throw new Error((await response.json()).error || "Failed to update menu.");
-        setMenu(prevMenu => ({ ...prevMenu, ...updateData }));
-        await handleSaveCategoryOrder();
-        await queryClient.invalidateQueries({ queryKey: ['menus', menu.restaurant_id] });
-        resetBannerState();
-    })();
-
-    toast.promise(savePromise, {
-        loading: 'Salvando cardápio...',
-        success: 'Cardápio salvo com sucesso!',
-        error: (err) => (err as Error).message || 'Falha ao salvar o cardápio.',
-    });
 
     try {
-        await savePromise;
+      const newBannerUrl = await uploadBanner();
+      const updateData = { id: menuId, name: values.name, is_active: values.is_active, banner_url: newBannerUrl };
+      
+      const response = await fetchWithAuth("/api/menus", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updateData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to update menu.");
+      }
+
+      setMenu(prevMenu => ({ ...prevMenu, ...updateData }));
+      await handleSaveCategoryOrder();
+      await queryClient.invalidateQueries({ queryKey: ['menus', menu.restaurant_id] });
+      resetBannerState();
+
+      toast({
+        title: 'Sucesso!',
+        description: 'Cardápio salvo com sucesso!',
+      });
+
     } catch (err) {
-        console.error("Error saving menu:", err);
+      console.error("Error saving menu:", err);
+      toast({
+        variant: "destructive",
+        title: "Erro ao salvar",
+        description: (err as Error).message || 'Falha ao salvar o cardápio.',
+      });
     } finally {
-        setIsSaving(false);
+      setIsSaving(false);
     }
   }, [menuId, menu, supabase, queryClient, uploadBanner, resetBannerState, handleSaveCategoryOrder, toast, fetchWithAuth]);
 
