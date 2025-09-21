@@ -136,40 +136,13 @@ export function EditMenuItemModal({
     }
   };
 
-  const ImageUploader = () => (
-    <div className="grid grid-cols-4 items-center gap-4">
-      <Label htmlFor="item-image-edit" className="text-right">Imagem</Label>
-      <div className="col-span-3">
-        <input
-          type="file"
-          accept="image/png, image/jpeg, image/webp"
-          ref={fileInputRef}
-          onChange={handleImageFileChange}
-          className="hidden"
-          id="item-image-edit"
-        />
-        {!imagePreview && (
-          <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
-            Adicionar Imagem
-          </Button>
-        )}
-        {imagePreview && (
-          <div className="relative w-32 h-32">
-            <img src={imagePreview} alt="Preview" className="w-full h-full object-cover rounded-md border" />
-            <Button
-              type="button"
-              variant="destructive"
-              size="icon"
-              className="absolute top-1 right-1 h-6 w-6"
-              onClick={handleRemoveImage}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
+          <ImageUploader 
+            inputId="item-image-edit"
+            label="Imagem"
+            imagePreview={imagePreview}
+            onFileChange={handleImageFileChange}
+            onRemove={handleRemoveImage}
+          />
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -195,6 +168,32 @@ export function EditMenuItemModal({
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="itemPriceEdit" className="text-right">Preço</Label>
             <Input id="itemPriceEdit" type="number" step="0.01" {...editMenuItemForm.register("price")} className="col-span-3" />
+            {editMenuItemForm.formState.errors.price && (
+              <p className="col-span-4 text-right text-sm text-red-500">{editMenuItemForm.formState.errors.price.message}</p>
+            )}
+          </div>
+          
+          <ImageUploader />
+
+          <DialogFooter>
+            {isUploading ? (
+                <Button disabled>
+                    <Spinner className="mr-2 h-4 w-4" />
+                    Salvando...
+                </Button>
+            ) : (
+                <Button type="submit">Salvar Alterações</Button>
+            )}
+            <Button variant="outline" type="button" onClick={() => onOpenChange(false)} disabled={isUploading}>
+              Cancelar
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+       <Input id="itemPriceEdit" type="number" step="0.01" {...editMenuItemForm.register("price")} className="col-span-3" />
             {editMenuItemForm.formState.errors.price && (
               <p className="col-span-4 text-right text-sm text-red-500">{editMenuItemForm.formState.errors.price.message}</p>
             )}

@@ -113,41 +113,13 @@ export function AddMenuItemModal({
     onOpenChange(false);
   };
 
-  const ImageUploader = () => (
-    <div className="grid grid-cols-4 items-center gap-4">
-      <Label htmlFor="item-image" className="text-right">Imagem</Label>
-      <div className="col-span-3">
-        <input
-          type="file"
-          accept="image/png, image/jpeg, image/webp"
-          ref={fileInputRef}
-          onChange={handleImageFileChange}
-          className="hidden"
-          id="item-image"
-        />
-        {!imagePreview && (
-          <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
-            Adicionar Imagem
-          </Button>
-        )}
-        {imagePreview && (
-          <div className="relative w-32 h-32">
-            <img src={imagePreview} alt="Preview" className="w-full h-full object-cover rounded-md border" />
-            <Button
-              type="button"
-              variant="destructive"
-              size="icon"
-              className="absolute top-1 right-1 h-6 w-6"
-              onClick={resetImageState}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-
+      <ImageUploader 
+        inputId="item-image-add-suggested"
+        label="Imagem"
+        imagePreview={imagePreview}
+        onFileChange={handleImageFileChange}
+        onRemove={resetImageState}
+      />
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px]">
@@ -183,6 +155,29 @@ export function AddMenuItemModal({
               <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="itemNameCustom" className="text-right">Nome</Label><Input id="itemNameCustom" {...addMenuItemForm.register("name")} className="col-span-3" placeholder="Ex: Prato da Casa" autoComplete="off" />{addMenuItemForm.formState.errors.name && <p className="col-span-4 text-right text-sm text-red-500">{addMenuItemForm.formState.errors.name.message}</p>}</div>
               <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="itemDescriptionCustom" className="text-right">Descrição</Label><Input id="itemDescriptionCustom" {...addMenuItemForm.register("description")} className="col-span-3" placeholder="Ex: Ingredientes especiais..." /></div>
               <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="itemPriceCustom" className="text-right">Preço</Label><Input id="itemPriceCustom" type="number" step="0.01" {...addMenuItemForm.register("price")} className="col-span-3" placeholder="Ex: 42.00" />{addMenuItemForm.formState.errors.price && <p className="col-span-4 text-right text-sm text-red-500">{addMenuItemForm.formState.errors.price.message}</p>}</div>
+              <ImageUploader />
+            </TabsContent>
+          </Tabs>
+          <DialogFooter>
+            {isUploading ? (
+              <Button disabled>
+                <Spinner className="mr-2 h-4 w-4" />
+                Salvando...
+              </Button>
+            ) : (
+              <Button type="submit">Adicionar Item</Button>
+            )}
+            <Button variant="outline" type="button" onClick={() => onOpenChange(false)} disabled={isUploading}>
+              Cancelar
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+e="text-right">Preço</Label><Input id="itemPriceCustom" type="number" step="0.01" {...addMenuItemForm.register("price")} className="col-span-3" placeholder="Ex: 42.00" />{addMenuItemForm.formState.errors.price && <p className="col-span-4 text-right text-sm text-red-500">{addMenuItemForm.formState.errors.price.message}</p>}</div>
               <ImageUploader />
             </TabsContent>
           </Tabs>
