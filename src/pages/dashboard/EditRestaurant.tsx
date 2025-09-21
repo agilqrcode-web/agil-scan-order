@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
-import { RestaurantDetailsCard } from "@/components/ui/restaurant-editor/RestaurantDetailsCard";
-import { RestaurantInfoCard } from "@/components/ui/restaurant-editor/RestaurantInfoCard";
-import { RestaurantLogoCard } from "@/components/ui/restaurant-editor/RestaurantLogoCard";
+import { RestaurantDetailsCard } from "@/components/dashboard/restaurant-editor/RestaurantDetailsCard";
+import { RestaurantInfoCard } from "@/components/dashboard/restaurant-editor/RestaurantInfoCard";
+import { RestaurantLogoCard } from "@/components/dashboard/restaurant-editor/RestaurantLogoCard";
 import { useNavigate, useParams } from "react-router-dom";
 import { useEffect, useState, useCallback } from "react";
 // import { Spinner } from "@/components/ui/spinner"; // Removido
