@@ -182,7 +182,7 @@ async function publicHandler(request, response) {
                 }
                 
                 console.log(`[API/Orders] SUCCESS: Publicly fetched single order ${orderId}.`);
-                return response.status(200).json(data);
+                return response.status(200).json(data ? [data] : []);
             } catch (error) {
                 console.error('[API/Orders] Server error during public GET request for single order:', error);
                 return response.status(500).json({ error: error.message });
