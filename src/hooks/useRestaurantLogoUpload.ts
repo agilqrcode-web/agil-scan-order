@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSupabase } from '@/contexts/SupabaseContext';
 import { useToast } from '@/components/ui/use-toast';
 
@@ -13,13 +13,12 @@ export const useRestaurantLogoUpload = ({ initialLogoUrl, restaurantId }: UseRes
 
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(initialLogoUrl);
-  const [isUploading, setIsUploading] = useState(false);
+  const [isMarkedForDeletion, setIsMarkedForDeletion] = useState(false);
 
   useEffect(() => {
     setLogoPreview(initialLogoUrl);
   }, [initialLogoUrl]);
 
-  // Limpa o object URL do preview para evitar memory leaks
   useEffect(() => {
     return () => {
       if (logoPreview && logoPreview.startsWith('blob:')) {
@@ -36,104 +35,69 @@ export const useRestaurantLogoUpload = ({ initialLogoUrl, restaurantId }: UseRes
       toast({ variant: 'destructive', title: 'Formato de arquivo inválido', description: 'Use PNG, JPG ou WEBP.' });
       return;
     }
-
-    if (file.size > 1 * 1024 * 1024) { // Limite de 1MB para logos
+    if (file.size > 1 * 1024 * 1024) { // 1MB limit
       toast({ variant: 'destructive', title: 'Arquivo muito grande', description: 'O tamanho máximo é 1MB.' });
       return;
     }
 
     setLogoFile(file);
     setLogoPreview(URL.createObjectURL(file));
+    setIsMarkedForDeletion(false);
   };
 
-  const uploadLogo = async (): Promise<string | null> => {
-    if (!logoFile) return initialLogoUrl; // Nenhuma nova imagem selecionada
+  const handleRemovePreview = () => {
+    setLogoFile(null);
+    setLogoPreview(null);
+    setIsMarkedForDeletion(true);
+  };
 
-    setIsUploading(true);
-    try {
-      // 1. Remove a logo antiga, se existir
-      if (initialLogoUrl) {
-        const oldLogoPath = `${restaurantId}/${initialLogoUrl.split('/').pop()}`;
-        await supabase.storage.from('restaurant-logos').remove([oldLogoPath]);
+  const processLogoChange = useCallback(async (currentLogoUrl: string | null): Promise<string | null> => {
+    const bucketName = 'restaurant-logos';
+
+    // Case 1: A new file was selected for upload
+    if (logoFile) {
+      // Delete the old logo if it exists
+      if (currentLogoUrl) {
+        try {
+          const oldLogoPath = currentLogoUrl.substring(currentLogoUrl.indexOf(bucketName) + bucketName.length + 1);
+          await supabase.storage.from(bucketName).remove([oldLogoPath]);
+        } catch (error) {
+          console.error("Failed to delete old logo, proceeding with upload:", error);
+        }
       }
 
-      // 2. Faz o upload da nova logo
+      // Upload the new logo
       const fileExt = logoFile.name.split('.').pop();
       const newFilePath = `${restaurantId}/logo-${Date.now()}.${fileExt}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('restaurant-logos')
-        .upload(newFilePath, logoFile);
-
+      const { error: uploadError } = await supabase.storage.from(bucketName).upload(newFilePath, logoFile);
       if (uploadError) {
         throw new Error(`Falha no upload da logo: ${uploadError.message}`);
       }
-
-      // 3. Obtém a URL pública da nova logo
-      const { data: publicUrlData } = supabase.storage.from('restaurant-logos').getPublicUrl(newFilePath);
-      const newLogoUrl = publicUrlData.publicUrl;
-
-      // 4. Atualiza a tabela do restaurante com a nova URL
-      const { error: dbError } = await supabase
-        .from('restaurants')
-        .update({ logo_url: newLogoUrl })
-        .eq('id', restaurantId);
-
-      if (dbError) {
-        throw new Error(`Falha ao salvar a URL no banco de dados: ${dbError.message}`);
-      }
-
-      toast({ title: 'Sucesso', description: 'Logo atualizada com sucesso!' });
-      setLogoFile(null); // Reseta o arquivo após o upload
-      return newLogoUrl;
-    } catch (error) {
-      const err = error as Error;
-      toast({ variant: 'destructive', title: 'Erro no Upload', description: err.message });
-      setLogoPreview(initialLogoUrl); // Reverte o preview em caso de erro
-      return initialLogoUrl;
-    } finally {
-      setIsUploading(false);
+      const { data: publicUrlData } = supabase.storage.from(bucketName).getPublicUrl(newFilePath);
+      return publicUrlData.publicUrl;
     }
-  };
 
-  const removeLogo = async (): Promise<string | null> => {
-    if (!initialLogoUrl) return null;
-
-    setIsUploading(true);
-    try {
-      const bucketName = 'restaurant-logos';
-      // 1. Remove a logo do storage
-      const oldLogoPath = initialLogoUrl.substring(initialLogoUrl.indexOf(bucketName) + bucketName.length + 1);
-      await supabase.storage.from(bucketName).remove([oldLogoPath]);
-
-      // 2. Atualiza a tabela do restaurante para remover a URL
-      const { error: dbError } = await supabase
-        .from('restaurants')
-        .update({ logo_url: null })
-        .eq('id', restaurantId);
-
-      if (dbError) {
-        throw new Error(`Falha ao remover a URL do banco de dados: ${dbError.message}`);
-      }
-
-      toast({ title: 'Sucesso', description: 'Logo removida.' });
-      setLogoPreview(null);
-      setLogoFile(null);
-      return null;
-    } catch (error) {
-      const err = error as Error;
-      toast({ variant: 'destructive', title: 'Erro ao remover', description: err.message });
-      return initialLogoUrl;
-    } finally {
-      setIsUploading(false);
+    // Case 2: Existing logo was marked for deletion
+    if (isMarkedForDeletion && currentLogoUrl) {
+        try {
+            const oldLogoPath = currentLogoUrl.substring(currentLogoUrl.indexOf(bucketName) + bucketName.length + 1);
+            await supabase.storage.from(bucketName).remove([oldLogoPath]);
+            return null; // Return null as the new URL
+        } catch (error) {
+            console.error("Failed to delete logo from storage:", error);
+            throw new Error("Falha ao remover a logo do armazenamento.");
+        }
     }
-  };
+
+    // Case 3: No changes were made
+    return currentLogoUrl;
+
+  }, [logoFile, isMarkedForDeletion, restaurantId, supabase]);
 
   return {
     logoPreview,
-    isUploading,
     handleFileChange,
-    uploadLogo,
-    removeLogo,
+    handleRemovePreview,
+    processLogoChange,
   };
 };

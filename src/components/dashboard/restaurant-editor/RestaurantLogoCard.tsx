@@ -1,48 +1,22 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ImageIcon, Upload, Trash2, Check } from "lucide-react";
+import { ImageIcon, Upload, Trash2 } from "lucide-react";
 import { useRef } from "react";
-import { Restaurant } from "@/pages/dashboard/EditRestaurant";
-import { useRestaurantLogoUpload } from "@/hooks/useRestaurantLogoUpload";
-import { Spinner } from "@/components/ui/spinner";
 
 interface RestaurantLogoCardProps {
-    restaurant: Restaurant;
-    onLogoUpdate: (newLogoUrl: string | null) => void;
+    logoPreview: string | null;
+    isUploading: boolean;
+    handleFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    handleRemovePreview: () => void;
 }
 
-export function RestaurantLogoCard({ restaurant, onLogoUpdate }: RestaurantLogoCardProps) {
+export function RestaurantLogoCard({ 
+    logoPreview, 
+    isUploading, 
+    handleFileChange, 
+    handleRemovePreview 
+}: RestaurantLogoCardProps) {
     const fileInputRef = useRef<HTMLInputElement>(null);
-
-    const { 
-        logoPreview, 
-        isUploading, 
-        handleFileChange, 
-        uploadLogo, 
-        removeLogo 
-    } = useRestaurantLogoUpload({
-        initialLogoUrl: restaurant.logo_url,
-        restaurantId: restaurant.id,
-    });
-
-    const handleUploadClick = () => {
-        fileInputRef.current?.click();
-    };
-
-    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        handleFileChange(e);
-        // O upload agora é disparado por um botão de salvar no hook
-    };
-
-    const handleSaveLogo = async () => {
-        const newLogoUrl = await uploadLogo();
-        onLogoUpdate(newLogoUrl);
-    };
-
-    const handleRemoveLogo = async () => {
-        const newLogoUrl = await removeLogo();
-        onLogoUpdate(newLogoUrl);
-    };
 
     return (
         <Card>
@@ -64,18 +38,18 @@ export function RestaurantLogoCard({ restaurant, onLogoUpdate }: RestaurantLogoC
                 <input 
                     type="file" 
                     ref={fileInputRef} 
-                    onChange={handleFileSelect}
+                    onChange={handleFileChange}
                     className="hidden" 
                     accept="image/png, image/jpeg, image/webp"
                 />
 
                 <div className="flex justify-center gap-2">
                     {!logoPreview ? (
-                        <Button variant="outline" size="icon" onClick={handleUploadClick} disabled={isUploading} aria-label="Escolher Imagem">
+                        <Button variant="outline" size="icon" onClick={() => fileInputRef.current?.click()} disabled={isUploading} aria-label="Escolher Imagem">
                             <Upload className="h-4 w-4" />
                         </Button>
                     ) : (
-                        <Button variant="destructive" size="icon" onClick={handleRemoveLogo} disabled={isUploading} aria-label="Remover Logo">
+                        <Button variant="destructive" size="icon" onClick={handleRemovePreview} disabled={isUploading} aria-label="Remover Logo">
                             <Trash2 className="h-4 w-4" />
                         </Button>
                     )}
