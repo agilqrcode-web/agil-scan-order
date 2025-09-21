@@ -44,7 +44,7 @@ export default function Dashboard() {
       }
       try {
         // A lógica de busca de dados permanece a mesma
-        const { data: restaurantData, error: restaurantError } = await supabase.from('restaurant_users').select('restaurants ( id, name )').eq('user_id', userId);
+        const { data: restaurantData, error: restaurantError } = await supabase.from('restaurant_users').select('restaurants ( id, name, logo_url )').eq('user_id', userId);
         if (restaurantError) throw restaurantError;
         const fetchedRestaurants = restaurantData.map(item => item.restaurants).filter(Boolean) as Restaurant[];
         setRestaurants(fetchedRestaurants);
