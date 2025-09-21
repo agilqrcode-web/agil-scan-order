@@ -1,10 +1,10 @@
 import { Button } from "@/components/ui/button";
-import { RestaurantDetailsCard } from "@/components/dashboard/restaurant-editor/RestaurantDetailsCard";
-import { RestaurantInfoCard } from "@/components/dashboard/restaurant-editor/RestaurantInfoCard";
-import { RestaurantLogoCard } from "@/components/dashboard/restaurant-editor/RestaurantLogoCard";
+import { RestaurantDetailsCard } from "@/components/ui/restaurant-editor/RestaurantDetailsCard";
+import { RestaurantInfoCard } from "@/components/ui/restaurant-editor/RestaurantInfoCard";
+import { RestaurantLogoCard } from "@/components/ui/restaurant-editor/RestaurantLogoCard";
 import { useNavigate, useParams } from "react-router-dom";
 import { useEffect, useState, useCallback } from "react";
-import { Spinner } from "@/components/ui/spinner";
+// import { Spinner } from "@/components/ui/spinner"; // Removido
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@clerk/clerk-react";
 import { usePageHeader } from "@/contexts/PageHeaderContext";
@@ -107,7 +107,7 @@ export default function EditRestaurant() {
     useEffect(() => {
         const saveAction = (
             <Button size="icon" onClick={handleSave} disabled={isSaving || loading}>
-                {isSaving ? <Spinner size="small" /> : <Save className="h-4 w-4" />}
+                {isSaving ? 'Salvando...' : <Save className="h-4 w-4" />}
             </Button>
         );
 
@@ -133,7 +133,7 @@ export default function EditRestaurant() {
         setRestaurant({ ...restaurant, payment_methods: newMethods.join(', ') });
     };
 
-    if (loading) return <div className="flex justify-center items-center h-64"><Spinner size="large" /></div>;
+    if (loading) return <div className="flex justify-center items-center h-64">Carregando...</div>; // Substituído Spinner
     if (error) return <div className="text-red-500 text-center">{error}</div>;
 
     return (
