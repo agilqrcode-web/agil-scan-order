@@ -27,6 +27,9 @@ function SupabaseProvider({ children }: { children: React.ReactNode }) {
           if (!token) {
             throw new Error("Clerk token not found.");
           }
+
+          // DEBUG: Log the token to inspect it
+          console.log("CLERK TOKEN:", token);
           
           console.log('SupabaseProvider: Attempting to set Supabase session...');
           await supabase.auth.setSession({ access_token: token, refresh_token: token });
