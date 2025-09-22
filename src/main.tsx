@@ -1,9 +1,9 @@
 import { createRoot } from 'react-dom/client';
-import { ClerkProvider, useAuth, useSession } from "@clerk/clerk-react";
+import { ClerkProvider, useAuth } from "@clerk/clerk-react";
 import App from './App.tsx';
 import './index.css';
 import { supabase } from "@/integrations/supabase/client";
-import React, { useEffect, useState } from 'react'; // Adicionado useState
+import React, { useEffect, useState } from 'react';
 import { SupabaseContext } from "@/contexts/SupabaseContext";
 import { Spinner } from '@/components/ui/spinner';
 
@@ -14,31 +14,33 @@ if (!PUBLISHABLE_KEY) {
 }
 
 function SupabaseProvider({ children }: { children: React.ReactNode }) {
-  const { isSignedIn } = useAuth();
-  const { session } = useSession();
+  const { isSignedIn, getToken } = useAuth(); // Usar getToken de useAuth
   const [isSupabaseReady, setIsSupabaseReady] = useState(false);
 
   useEffect(() => {
-    const updateSupabaseClientSession = async () => {
+    const setSupabaseSession = async () => {
       console.log(`SupabaseProvider: useEffect triggered. isSignedIn: ${isSignedIn}`);
-      if (isSignedIn && session) {
+      if (isSignedIn) {
         try {
-          console.log('SupabaseProvider: Attempting to set Supabase session with Clerk session...');
-          await supabase.auth.setSession({
-            access_token: session.accessToken,
-            refresh_token: session.refreshToken || '',
-          });
-          console.log('SupabaseProvider: Supabase client session updated with Clerk token.');
+          console.log("SupabaseProvider: Getting token with 'agilqrcode' template...");
+          const token = await getToken({ template: "agilqrcode" });
+          if (!token) {
+            throw new Error("Clerk token not found.");
+          }
+          
+          console.log('SupabaseProvider: Attempting to set Supabase session...');
+          await supabase.auth.setSession({ access_token: token, refresh_token: token });
+          console.log('SupabaseProvider: Supabase client session updated.');
+
         } catch (error) {
-          console.error("SupabaseProvider: Error updating Supabase client session:", error);
+          console.error("SupabaseProvider: Error setting session:", error);
         } finally {
           setIsSupabaseReady(true);
         }
-      } else if (!isSignedIn) {
+      } else if (isSignedIn === false) { // Apenas executa se o status for conhecido
         try {
-          console.log('SupabaseProvider: User not signed in. Attempting to sign out Supabase session.');
+          console.log('SupabaseProvider: User not signed in. Signing out Supabase session.');
           await supabase.auth.signOut();
-          console.log('SupabaseProvider: Supabase session signed out.');
         } catch (error) {
           console.error('SupabaseProvider: Error signing out Supabase session:', error);
         } finally {
@@ -47,11 +49,11 @@ function SupabaseProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
-    // Apenas executa a lógica quando a sessão do Clerk for carregada (não é mais undefined)
-    if (session !== undefined) {
-      updateSupabaseClientSession();
+    // Não faz nada até que o status de autenticação do Clerk seja conhecido
+    if (typeof isSignedIn !== 'undefined') {
+      setSupabaseSession();
     }
-  }, [isSignedIn, session]);
+  }, [isSignedIn, getToken]);
 
   if (!isSupabaseReady) {
     return (
