@@ -5,15 +5,22 @@ import type { Database } from './types';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-export function createSupabaseClient(supabaseAccessToken?: string) {
-  return createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-    auth: {
-      storage: localStorage,
-      persistSession: true,
-      autoRefreshToken: true,
-    },
-    global: {
-      headers: { Authorization: `Bearer ${supabaseAccessToken}` },
-    },
-  });
-}
+import { createClient } from '@supabase/supabase-js';
+import type { Database } from './types';
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+// Cria a instância do cliente Supabase apenas uma vez quando o módulo é carregado.
+// As opções de autenticação são configuradas para que o Clerk gerencie a sessão e o refresh do token.
+export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  auth: {
+    storage: localStorage,
+    persistSession: false, // Clerk gerencia a persistência da sessão
+    autoRefreshToken: false, // Clerk gerencia a renovação do token
+  },
+  global: {
+    // O token será definido dinamicamente pelo SupabaseProvider em main.tsx
+    headers: {},
+  },
+});
