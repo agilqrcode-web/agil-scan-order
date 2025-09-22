@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@clerk/clerk-react";
 import { useSupabase } from "@/contexts/SupabaseContext";
 import { z } from "zod";
@@ -9,7 +9,7 @@ export type AddTableFormValues = {
 };
 
 export function useTables() {
-  const { userId, getToken } = useAuth(); // Obter getToken
+  const { userId, getToken } = useAuth();
   const supabase = useSupabase();
   const [restaurantId, setRestaurantId] = useState<string | null>(null);
   const [restaurantName, setRestaurantName] = useState<string | null>(null);
@@ -25,91 +25,115 @@ export function useTables() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchRestaurantData = useCallback(async () => {
-    if (!userId || !supabase) {
-      setLoading(false);
-      return;
-    }
-    try {
-      const { data: restaurantIdData, error: restaurantIdError } = await supabase.rpc('get_user_restaurant_id');
-      if (restaurantIdError) throw restaurantIdError;
-      const fetchedRestaurantId = restaurantIdData as string;
-      setRestaurantId(fetchedRestaurantId);
-
-      const { data: restaurantNameData, error: restaurantNameError } = await supabase.rpc('get_restaurant_name_by_id', { p_restaurant_id: fetchedRestaurantId });
-      if (restaurantNameError) throw restaurantNameError;
-      setRestaurantName(restaurantNameData as string);
-
-      const { data: menuData, error: menuError } = await supabase.from('menus').select('id').eq('restaurant_id', fetchedRestaurantId).eq('is_active', true).limit(1).single();
-      if (menuError && menuError.code !== 'PGRST116') {
-        console.error("Error fetching active menu:", menuError);
+  // Effect 1: Fetch only the restaurant ID.
+  useEffect(() => {
+    const fetchRestaurantId = async () => {
+      if (!userId || !supabase) {
+        setLoading(false);
+        return;
       }
-      if (menuData) {
-        setActiveMenuId(menuData.id);
+      try {
+        setLoading(true);
+        const { data, error } = await supabase.rpc('get_user_restaurant_id');
+        if (error) throw error;
+        setRestaurantId(data as string);
+      } catch (err) {
+        console.error("Error fetching restaurant ID:", err);
+        setError("Failed to load restaurant data.");
+        setLoading(false); // Stop loading on error
       }
-    } catch (err) {
-      console.error("Error fetching restaurant data:", err);
-      setError("Failed to load restaurant data.");
-    }
+    };
+    fetchRestaurantId();
   }, [userId, supabase]);
 
-  const fetchTableCounts = useCallback(async () => {
-    if (!restaurantId || !supabase) return;
-    try {
-      const { data, error } = await supabase.rpc('get_table_counts_for_restaurant', { p_restaurant_id: restaurantId });
-      if (error) throw error;
-      setTableCounts(data && data.length > 0 ? data[0] : { total_tables: 0, available_tables: 0, occupied_tables: 0, cleaning_tables: 0 });
-    } catch (err) {
-      console.error("Error fetching table counts:", err);
-      setError("Failed to load table counts.");
-    }
-  }, [restaurantId, supabase]);
-
-  const fetchTables = useCallback(async () => {
-    if (!restaurantId || !supabase) return;
-    try {
-      const { data, error } = await supabase.rpc('get_all_restaurant_tables', { p_restaurant_id: restaurantId });
-      if (error) throw error;
-      setTables(data || []);
-    } catch (err) {
-      console.error("Error fetching tables:", err);
-      setError("Failed to load tables.");
-    }
-  }, [restaurantId, supabase]);
-
-  const fetchExistingTableNumbers = useCallback(async () => {
-    if (!restaurantId || !supabase) return;
-    try {
-      const { data, error } = await supabase.rpc('get_existing_table_numbers_for_restaurant', { p_restaurant_id: restaurantId });
-      if (error) throw error;
-      setExistingTableNumbers(data as number[] || []);
-    } catch (err) {
-      console.error("Error fetching existing table numbers:", err);
-    }
-  }, [restaurantId, supabase]);
-
+  // Effect 2: Fetch all dependent data once we have a valid restaurant ID.
   useEffect(() => {
-    fetchRestaurantData();
-  }, [fetchRestaurantData]);
+    if (!restaurantId || !supabase) {
+      // If loading hasn't been turned off and we have no restaurantId, it means the user might not have a restaurant.
+      if(loading && !restaurantId) setLoading(false);
+      return;
+    }
 
-  useEffect(() => {
-    if (restaurantId) {
+    const fetchAllDependentData = async () => {
       setLoading(true);
-      Promise.all([
-        fetchTableCounts(),
-        fetchTables(),
-        fetchExistingTableNumbers()
-      ]).finally(() => setLoading(false));
-    }
-  }, [restaurantId, fetchTableCounts, fetchTables, fetchExistingTableNumbers]);
+      try {
+        const [
+          menuResult,
+          nameResult,
+          countsResult,
+          tablesResult,
+          existingNumbersResult
+        ] = await Promise.all([
+          supabase.from('menus').select('id').eq('restaurant_id', restaurantId).eq('is_active', true).limit(1).single(),
+          supabase.rpc('get_restaurant_name_by_id', { p_restaurant_id: restaurantId }),
+          supabase.rpc('get_table_counts_for_restaurant', { p_restaurant_id: restaurantId }),
+          supabase.rpc('get_all_restaurant_tables', { p_restaurant_id: restaurantId }),
+          supabase.rpc('get_existing_table_numbers_for_restaurant', { p_restaurant_id: restaurantId })
+        ]);
+
+        if (menuResult.error && menuResult.error.code !== 'PGRST116') { // PGRST116 = no rows found, which is fine.
+          console.error("Error fetching active menu:", menuResult.error);
+        } else if (menuResult.data) {
+          setActiveMenuId(menuResult.data.id);
+        }
+
+        if (nameResult.error) throw nameResult.error;
+        setRestaurantName(nameResult.data as string);
+
+        if (countsResult.error) throw countsResult.error;
+        setTableCounts(countsResult.data?.[0] ?? { total_tables: 0, available_tables: 0, occupied_tables: 0, cleaning_tables: 0 });
+
+        if (tablesResult.error) throw tablesResult.error;
+        setTables(tablesResult.data || []);
+
+        if (existingNumbersResult.error) throw existingNumbersResult.error;
+        setExistingTableNumbers(existingNumbersResult.data as number[] || []);
+
+      } catch (err) {
+        console.error("Error fetching dependent table data:", err);
+        setError("Failed to load table data.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAllDependentData();
+  }, [restaurantId, supabase]);
+
+  const refreshData = async () => {
+      if (!restaurantId || !supabase) return;
+      setLoading(true);
+      try {
+        const [
+          countsResult,
+          tablesResult,
+          existingNumbersResult
+        ] = await Promise.all([
+          supabase.rpc('get_table_counts_for_restaurant', { p_restaurant_id: restaurantId }),
+          supabase.rpc('get_all_restaurant_tables', { p_restaurant_id: restaurantId }),
+          supabase.rpc('get_existing_table_numbers_for_restaurant', { p_restaurant_id: restaurantId })
+        ]);
+        if (countsResult.error) throw countsResult.error;
+        setTableCounts(countsResult.data?.[0] ?? { total_tables: 0, available_tables: 0, occupied_tables: 0, cleaning_tables: 0 });
+
+        if (tablesResult.error) throw tablesResult.error;
+        setTables(tablesResult.data || []);
+
+        if (existingNumbersResult.error) throw existingNumbersResult.error;
+        setExistingTableNumbers(existingNumbersResult.data as number[] || []);
+      } catch (err) {
+          console.error("Error refreshing table data:", err);
+          setError("Failed to refresh table data.");
+      } finally {
+          setLoading(false);
+      }
+  };
 
   const addTable = async (values: AddTableFormValues) => {
     if (!restaurantId || !getToken) {
       throw new Error("Restaurant ID or getToken not found. Cannot add table.");
     }
-
     const token = await getToken({ template: "agilqrcode" });
-
     const response = await fetch("/api/tables", {
       method: "POST",
       headers: {
@@ -122,37 +146,29 @@ export function useTables() {
         qr_code_identifier: crypto.randomUUID(),
       }),
     });
-
     if (!response.ok) {
       const errorData = await response.json();
       throw new Error(errorData.error || "Failed to add table.");
     }
-
-    // Refresh data
-    await Promise.all([fetchTables(), fetchTableCounts(), fetchExistingTableNumbers()]);
+    await refreshData();
   };
 
   const deleteTable = async (tableId: string) => {
     if (!getToken) {
       throw new Error("getToken not found. Cannot delete table.");
     }
-
     const token = await getToken({ template: "agilqrcode" });
-
     const response = await fetch(`/api/tables?table_id=${tableId}`, {
       method: "DELETE",
       headers: {
         "Authorization": `Bearer ${token}`,
       },
     });
-
     if (!response.ok) {
       const errorData = await response.json();
       throw new Error(errorData.error || "Failed to delete table.");
     }
-    
-    // Refresh data
-    await Promise.all([fetchTables(), fetchTableCounts(), fetchExistingTableNumbers()]);
+    await refreshData();
   };
 
   return {
