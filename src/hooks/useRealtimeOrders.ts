@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { createSupabaseClient } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/client'; // Importa a instância singleton
 import { Order } from '@/types/order';
 
 export interface OrderNotification extends Order {
@@ -8,7 +8,7 @@ export interface OrderNotification extends Order {
 
 export function useRealtimeOrders() {
   const [newOrderNotifications, setNewOrderNotifications] = useState<OrderNotification[]>([]);
-  const supabase = createSupabaseClient();
+  // A instância supabase agora é importada diretamente, não criada localmente
 
   const markAsRead = useCallback((notificationId: string) => {
     setNewOrderNotifications((prev) =>
