@@ -58,7 +58,7 @@ function SupabaseProvider({ children }) {
   }, [isSignedIn, session]); // Depende de isSignedIn e session
 
   return (
-    <SupabaseContext.Provider value={supabase}> // Fornece a instância global singleton
+    <SupabaseContext.Provider value={supabase}>
       {children}
     </SupabaseContext.Provider>
   );

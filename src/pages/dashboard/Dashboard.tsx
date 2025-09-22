@@ -1,14 +1,13 @@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@clerk/clerk-react";
 import { useSupabase } from "@/contexts/SupabaseContext";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/use-toast";
 import { ConfirmationDialog } from "@/components/ui/ConfirmationDialog";
-
 
 // Novos componentes importados
 import { DashboardSummary } from "@/components/dashboard/main/DashboardSummary";
@@ -18,6 +17,7 @@ import { RecentOrdersCard } from "@/components/dashboard/main/RecentOrdersCard";
 interface Restaurant {
   id: string;
   name: string;
+  logo_url: string | null;
 }
 
 export default function Dashboard() {
@@ -27,52 +27,54 @@ export default function Dashboard() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
-  const [tableCounts, setTableCounts] = useState({ total_tables: 0 });
-  const [dailyOrderCount, setDailyOrderCount] = useState(0);
-  const [dailyCustomerCount, setDailyCustomerCount] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [restaurantToDelete, setRestaurantToDelete] = useState<Restaurant | null>(null);
 
-  useEffect(() => {
-    async function fetchData() {
-      if (!userId || !supabase) {
-        setLoading(false);
-        return;
-      }
-      try {
-        // A lógica de busca de dados permanece a mesma
-        const { data: restaurantData, error: restaurantError } = await supabase.from('restaurant_users').select('restaurants ( id, name, logo_url )').eq('user_id', userId);
-        if (restaurantError) throw restaurantError;
-        const fetchedRestaurants = restaurantData.map(item => item.restaurants).filter(Boolean) as Restaurant[];
-        setRestaurants(fetchedRestaurants);
+  // Query 1: Fetch restaurants
+  const { data: restaurants = [], isLoading: isLoadingRestaurants, isError: isErrorRestaurants } = useQuery<Restaurant[]>({
+    queryKey: ['restaurants', userId],
+    queryFn: async () => {
+      if (!supabase) throw new Error("Supabase client is not available");
+      const { data: restaurantData, error: restaurantError } = await supabase
+        .from('restaurant_users')
+        .select('restaurants ( id, name, logo_url )')
+        .eq('user_id', userId);
 
-        if (fetchedRestaurants.length > 0) {
-          const restaurantId = fetchedRestaurants[0].id;
-          const [tableCountResult, dailyOrderResult, dailyCustomerResult] = await Promise.all([
-            supabase.rpc('get_table_counts_for_restaurant', { p_restaurant_id: restaurantId }),
-            supabase.rpc('get_daily_order_count', { p_restaurant_id: restaurantId }),
-            supabase.rpc('get_daily_customer_count', { p_restaurant_id: restaurantId })
-          ]);
-          if (tableCountResult.error) throw tableCountResult.error;
-          if (dailyOrderResult.error) throw dailyOrderResult.error;
-          if (dailyCustomerResult.error) throw dailyCustomerResult.error;
-          if (tableCountResult.data && tableCountResult.data.length > 0) {
-            setTableCounts(tableCountResult.data[0]);
-          }
-          setDailyOrderCount(dailyOrderResult.data || 0);
-          setDailyCustomerCount(dailyCustomerResult.data || 0);
-        }
-      } catch (err) {
-        setError("Failed to load dashboard data.");
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchData();
-  }, [userId, supabase]);
+      if (restaurantError) throw restaurantError;
+      return restaurantData.map(item => item.restaurants).filter(Boolean) as Restaurant[];
+    },
+    enabled: !!userId && !!supabase,
+  });
+
+  const mainRestaurantId = restaurants.length > 0 ? restaurants[0].id : null;
+
+  // Query 2: Fetch dashboard summary data, dependent on the first restaurant
+  const { data: summaryData, isLoading: isLoadingSummary, isError: isErrorSummary } = useQuery({
+    queryKey: ['dashboardSummary', mainRestaurantId],
+    queryFn: async () => {
+      if (!supabase || !mainRestaurantId) return null;
+
+      const [tableCountResult, dailyOrderResult, dailyCustomerResult] = await Promise.all([
+        supabase.rpc('get_table_counts_for_restaurant', { p_restaurant_id: mainRestaurantId }),
+        supabase.rpc('get_daily_order_count', { p_restaurant_id: mainRestaurantId }),
+        supabase.rpc('get_daily_customer_count', { p_restaurant_id: mainRestaurantId })
+      ]);
+
+      if (tableCountResult.error) throw tableCountResult.error;
+      if (dailyOrderResult.error) throw dailyOrderResult.error;
+      if (dailyCustomerResult.error) throw dailyCustomerResult.error;
+
+      return {
+        tableCount: tableCountResult.data?.[0]?.total_tables ?? 0,
+        dailyOrderCount: dailyOrderResult.data ?? 0,
+        dailyCustomerCount: dailyCustomerResult.data ?? 0,
+      };
+    },
+    enabled: !!supabase && !!mainRestaurantId,
+  });
+
+  const isLoading = isLoadingRestaurants || (!!mainRestaurantId && isLoadingSummary);
+  const isError = isErrorRestaurants || isErrorSummary;
 
   const deleteRestaurantMutation = useMutation({
     mutationFn: async (restaurantId: string) => {
@@ -89,7 +91,8 @@ export default function Dashboard() {
     },
     onSuccess: () => {
       toast({ title: "Restaurante excluído com sucesso!" });
-      window.location.reload(); // Recarrega a página para atualizar a lista
+      queryClient.invalidateQueries({ queryKey: ['restaurants', userId] });
+      queryClient.invalidateQueries({ queryKey: ['dashboardSummary', mainRestaurantId] });
     },
     onError: (err: Error) => {
       toast({ variant: "destructive", title: "Erro", description: err.message });
@@ -130,18 +133,18 @@ export default function Dashboard() {
         </div>
 
         <DashboardSummary
-            loading={loading}
-            error={error}
+            loading={isLoading}
+            error={isError ? "Failed to load dashboard data." : null}
             restaurantCount={restaurants.length}
-            tableCount={tableCounts.total_tables}
-            dailyOrderCount={dailyOrderCount}
-            dailyCustomerCount={dailyCustomerCount}
+            tableCount={summaryData?.tableCount ?? 0}
+            dailyOrderCount={summaryData?.dailyOrderCount ?? 0}
+            dailyCustomerCount={summaryData?.dailyCustomerCount ?? 0}
         />
 
         <div className="grid gap-4 md:grid-cols-2">
             <RestaurantListCard
-                loading={loading}
-                error={error}
+                loading={isLoadingRestaurants}
+                error={isErrorRestaurants ? "Failed to load restaurants." : null}
                 restaurants={restaurants}
                 onEdit={(restaurantId) => navigate(`/dashboard/restaurants/${restaurantId}/edit`)}
                 onDelete={handleDeleteClick}
