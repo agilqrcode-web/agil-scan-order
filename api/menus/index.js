@@ -31,23 +31,16 @@ async function handler(request, response, { supabase, user }) {
 
         // Se um ID for fornecido, busca todos os dados para o editor de cardápio
         if (id) {
-          // DEBUG: Retornando dados mocados para isolar o problema
-          const mockData = {
-            menu: { id: id, name: "Cardápio de Teste (Mock)", is_active: true, restaurant_id: 'mock-rest-id' },
-            restaurant: { id: 'mock-rest-id', name: "Restaurante Mock" },
-            categories: [
-              {
-                id: 'mock-cat-1', name: 'Bebidas Mock', position: 0, items: [
-                  { id: 'mock-item-1', name: 'Suco Mock', description: 'Laranja', price: 5.00, category_id: 'mock-cat-1' },
-                  { id: 'mock-item-2', name: 'Refrigerante Mock', description: 'Cola', price: 4.00, category_id: 'mock-cat-1' },
-                ]
-              },
-              {
-                id: 'mock-cat-2', name: 'Lanches Mock', position: 1, items: []
-              }
-            ]
-          };
-          return response.status(200).json(mockData);
+          try {
+            const { data, error } = await supabase.rpc('get_menu_editor_data', { p_menu_id: id });
+            if (error) throw error;
+            if (!data) return response.status(404).json({ error: 'Menu not found or access denied.' });
+            
+            return response.status(200).json(data);
+          } catch (error) {
+            console.error("[API/Menus] Error fetching menu editor data:", error);
+            return response.status(500).json({ error: error.message });
+          }
         }
         // Se nenhum ID for fornecido, busca todos os dados para a página de listagem de cardápios
         else {
