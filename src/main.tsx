@@ -14,21 +14,23 @@ if (!PUBLISHABLE_KEY) {
 }
 
 function SupabaseProvider({ children }: { children: React.ReactNode }) {
-  const { isSignedIn } = useAuth();
-  const { session } = useSession(); // Revertido para usar useSession
+  const { isSignedIn, getToken } = useAuth();
   const [isSupabaseReady, setIsSupabaseReady] = useState(false);
 
   useEffect(() => {
     const setSupabaseSession = async () => {
       console.log(`SupabaseProvider: useEffect triggered. isSignedIn: ${isSignedIn}`);
-      if (isSignedIn && session) {
+      if (isSignedIn) {
         try {
-          console.log('SupabaseProvider: Attempting to set Supabase session with default Clerk session...');
-          await supabase.auth.setSession({
-            access_token: session.accessToken,
-            refresh_token: session.refreshToken || ''
-          });
-          console.log('SupabaseProvider: Supabase client session updated.');
+          console.log('SupabaseProvider: Attempting to set Supabase session with Clerk JWT...');
+          const token = await getToken();
+          if (token) {
+            await supabase.auth.setSession({
+              access_token: token,
+              refresh_token: '' // Clerk gerencia refresh
+            });
+            console.log('SupabaseProvider: Supabase client session updated with Clerk JWT.');
+          }
         } catch (error) {
           console.error("SupabaseProvider: Error setting session:", error);
         } finally {
@@ -49,7 +51,7 @@ function SupabaseProvider({ children }: { children: React.ReactNode }) {
     if (typeof isSignedIn !== 'undefined') {
       setSupabaseSession();
     }
-  }, [isSignedIn, session]);
+  }, [isSignedIn, getToken]);
 
   if (!isSupabaseReady) {
     return (
