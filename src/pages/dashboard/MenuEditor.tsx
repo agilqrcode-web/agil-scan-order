@@ -48,8 +48,16 @@ export default function MenuEditor() {
   // Usando o novo hook para gerenciar todos os dados e mutações
   const { data, isLoading, isError, error, saveMenu, saveCategoryOrder, saveCategory, deleteCategory, saveMenuItem, deleteMenuItem } = useMenuEditor(menuId);
 
-  // O estado das categorias agora é gerenciado localmente apenas para reordenação
+  // Estado local para UI (modais, seleções, etc.)
+  const [isSaving, setIsSaving] = useState(false);
   const [displayCategories, setDisplayCategories] = useState<any[]>([]);
+  const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
+  const [isAddMenuItemModalOpen, setIsAddMenuItemModalOpen] = useState(false);
+  const [isEditMenuItemModalOpen, setIsEditMenuItemModalOpen] = useState(false);
+  const [selectedCategoryIdForMenuItem, setSelectedCategoryIdForMenuItem] = useState<string | null>(null);
+  const [itemToEdit, setItemToEdit] = useState<MenuItemFormValues | null>(null);
+  const [categoryToDelete, setCategoryToDelete] = useState<string | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
 
   // Forms
   const menuForm = useForm<MenuFormValues>({ resolver: zodResolver(menuSchema) });

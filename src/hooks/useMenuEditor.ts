@@ -61,43 +61,7 @@ export function useMenuEditor(menuId?: string) {
   // Query principal para buscar todos os dados do editor
   const { data, isLoading, isError, error } = useQuery<MenuEditorData, Error>({
     queryKey: ['menuEditorData', menuId],
-    queryFn: async () => {
-      console.log('[queryFn] INICIANDO. ID do Cardápio:', menuId);
-      if (!menuId) {
-        console.log('[queryFn] SEM ID de cardápio, retornando nulo.');
-        return null;
-      }
-      try {
-        const token = await getToken();
-        const response = await fetch(`/api/menus?id=${menuId}`, {
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
-
-        console.log(`[queryFn] Status da resposta da API: ${response.status}`);
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('[queryFn] Resposta da API não foi OK. Corpo:', errorText);
-          throw new Error(`API respondeu com status ${response.status}: ${errorText}`);
-        }
-
-        const responseText = await response.text();
-        console.log('[queryFn] Corpo da resposta (texto bruto):', responseText);
-
-        if (!responseText) {
-            console.warn('[queryFn] Corpo da resposta está vazio.');
-            return null; // Retorna nulo se o corpo for vazio para evitar erro no parse
-        }
-
-        const jsonData = JSON.parse(responseText);
-        console.log('[queryFn] JSON parseado com sucesso:', jsonData);
-        return jsonData;
-
-      } catch (e) {
-        console.error('[queryFn] Erro catastrófico durante a execução:', e);
-        throw e; // Re-lança o erro para o react-query tratar
-      }
-    },
+    queryFn: () => fetchWithAuth(`/api/menus?id=${menuId}`),
     enabled: !!menuId, // A query só roda se o menuId existir
   });
 
