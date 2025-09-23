@@ -24,12 +24,15 @@ function SupabaseProvider({ children }: { children: React.ReactNode }) {
         try {
           console.log('SupabaseProvider: Attempting to set Supabase session with Clerk JWT...');
           const token = await getToken();
+          console.log('SupabaseProvider: Token obtained:', token ? `Length: ${token.length}` : 'null');
           if (token) {
             await supabase.auth.setSession({
               access_token: token,
               refresh_token: '' // Clerk gerencia refresh
             });
             console.log('SupabaseProvider: Supabase client session updated with Clerk JWT.');
+          } else {
+            console.log('SupabaseProvider: No token available, skipping session setup.');
           }
         } catch (error) {
           console.error("SupabaseProvider: Error setting session:", error);
