@@ -130,7 +130,7 @@ export default function MenuEditor() {
         onOpenChange={setIsAddCategoryModalOpen} 
         handleSaveCategory={handleSaveCategory} 
         PREDEFINED_CATEGORIES={PREDEFINED_CATEGORIES} 
-        usedCategoryNames={data.categories.map(c => c.name.toLowerCase())}
+        usedCategoryNames={orderedCategories.map(c => c.name.toLowerCase())}
       />
 
       <AddMenuItemModal 
