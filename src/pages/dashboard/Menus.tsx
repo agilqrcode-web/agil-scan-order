@@ -3,10 +3,9 @@ import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, Edit, Trash2, UtensilsCrossed, LayoutList, Package, Eye, ImageIcon } from "lucide-react";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { useAuth } from "@clerk/clerk-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useSupabase } from "@/contexts/SupabaseContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -20,102 +19,95 @@ const menuSchema = z.object({
 });
 type MenuFormValues = z.infer<typeof menuSchema>;
 
+interface Menu {
+  id: string;
+  name: string;
+  is_active: boolean;
+  banner_url: string | null;
+  restaurant_id: string;
+}
+
+interface MenusPageData {
+  menus: Menu[];
+  summary: {
+    total_categories: number;
+    total_items: number;
+  };
+}
+
 export default function Menus() {
-  const { userId } = useAuth();
-  const supabase = useSupabase();
+  const { userId, getToken } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const [restaurantId, setRestaurantId] = useState<string | null>(null);
   const [isAddMenuModalOpen, setIsAddMenuModalOpen] = useState(false);
   const [isDeleteMenuModalOpen, setIsDeleteMenuModalOpen] = useState(false);
-  const [menuToDelete, setMenuToDelete] = useState<any | null>(null);
+  const [menuToDelete, setMenuToDelete] = useState<Menu | null>(null);
 
   const form = useForm<MenuFormValues>({ resolver: zodResolver(menuSchema), defaultValues: { name: "" } });
 
-  // Fetch restaurantId first
-  useEffect(() => {
-    async function getRestaurantId() {
-      if (!userId || !supabase) return;
-      try {
-        const { data, error } = await supabase.rpc('get_user_restaurant_id');
-        if (error) throw error;
-        setRestaurantId(data as string);
-      } catch (err) {
-        console.error("Error fetching restaurant ID:", err);
-      }
-    }
-    getRestaurantId();
-  }, [userId, supabase]);
-
-  // Fetch summary counts using useQuery
-  const { data: summaryCounts, isLoading: isLoadingCounts } = useQuery({
-    queryKey: ['summaryCounts', restaurantId],
+  // Única query para buscar todos os dados da página
+  const { data, isLoading, isError, error } = useQuery<MenusPageData, Error>({
+    queryKey: ['menusPageData', userId],
     queryFn: async () => {
-      if (!restaurantId || !supabase) return null;
-      const { data, error } = await supabase.rpc('get_restaurant_summary_counts', { p_restaurant_id: restaurantId });
-      if (error) throw new Error(error.message);
-      return data?.[0] || { total_categories: 0, total_items: 0 };
+      const token = await getToken();
+      const response = await fetch('/api/menus', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error('Failed to fetch menus data');
+      return response.json();
     },
-    enabled: !!restaurantId,
+    enabled: !!userId,
   });
 
-  // Fetch menus using useQuery
-  const { data: menus, isLoading: isLoadingMenus, error: menusError } = useQuery({
-    queryKey: ['menus', restaurantId],
-    queryFn: async () => {
-      if (!restaurantId || !supabase) return [];
-      const { data, error } = await supabase.from('menus').select('*').eq('restaurant_id', restaurantId).order('name');
-      if (error) throw new Error(error.message);
-      return data || [];
-    },
-    enabled: !!restaurantId,
-  });
-
-  // Adicionado para depuração
-  useEffect(() => {
-    if (menus) {
-      console.log('Dados de menus recebidos:', menus);
-    }
-  }, [menus]);
-
-  // Mutation for creating a menu
+  // Mutação para criar um cardápio
   const createMenuMutation = useMutation({
     mutationFn: async (values: MenuFormValues) => {
-      if (!restaurantId || !supabase) throw new Error("Client not ready");
-      const { error } = await supabase.from('menus').insert([{ ...values, restaurant_id: restaurantId }]);
-      if (error) throw new Error(error.message);
+      const token = await getToken();
+      // O restaurant_id é obtido no backend a partir do token
+      const response = await fetch('/api/menus', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(values),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create menu');
+      }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['menus', restaurantId] });
-      queryClient.invalidateQueries({ queryKey: ['summaryCounts', restaurantId] });
+      queryClient.invalidateQueries({ queryKey: ['menusPageData', userId] });
       setIsAddMenuModalOpen(false);
       form.reset();
     },
   });
 
-  // Mutation for deleting a menu
+  // Mutação para excluir um cardápio
   const deleteMenuMutation = useMutation({
     mutationFn: async (menuId: string) => {
-      if (!supabase) throw new Error("Client not ready");
-      const { error } = await supabase.rpc('delete_menu_and_cleanup_categories', { p_menu_id: menuId });
-      if (error) throw new Error(error.message);
+      const token = await getToken();
+      const response = await fetch('/api/menus', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ menu_id: menuId }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete menu');
+      }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['menus', restaurantId] });
-      queryClient.invalidateQueries({ queryKey: ['summaryCounts', restaurantId] });
+      queryClient.invalidateQueries({ queryKey: ['menusPageData', userId] });
       setIsDeleteMenuModalOpen(false);
       setMenuToDelete(null);
     },
   });
 
-  const isLoading = isLoadingCounts || isLoadingMenus;
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Cardápios</h1>
-                <TooltipProvider>
+        <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button onClick={() => setIsAddMenuModalOpen(true)}>
@@ -123,9 +115,7 @@ export default function Menus() {
                 <span className="hidden md:inline">Novo Cardápio</span>
               </Button>
             </TooltipTrigger>
-            <TooltipContent>
-              <p>Novo Cardápio</p>
-            </TooltipContent>
+            <TooltipContent><p>Novo Cardápio</p></TooltipContent>
           </Tooltip>
         </TooltipProvider>
       </div>
@@ -134,7 +124,7 @@ export default function Menus() {
       <Dialog open={isAddMenuModalOpen} onOpenChange={setIsAddMenuModalOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader><DialogTitle>Adicionar Novo Cardápio</DialogTitle><DialogDescription>Preencha o nome para criar um novo cardápio.</DialogDescription></DialogHeader>
-          <form id="add-menu-form" onSubmit={form.handleSubmit((data) => createMenuMutation.mutate(data))} className="grid gap-4 py-4">
+          <form id="add-menu-form" onSubmit={form.handleSubmit((formData) => createMenuMutation.mutate(formData))} className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="name" className="text-right">Nome</Label>
               <Input id="name" {...form.register("name")} className="col-span-3" />
@@ -151,7 +141,7 @@ export default function Menus() {
           <DialogHeader><DialogTitle>Confirmar Exclusão</DialogTitle><DialogDescription>Tem certeza de que deseja excluir o cardápio "{menuToDelete?.name}"? Esta ação não pode ser desfeita.</DialogDescription></DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDeleteMenuModalOpen(false)}>Cancelar</Button>
-            <Button variant="destructive" onClick={() => deleteMenuMutation.mutate(menuToDelete.id)} disabled={deleteMenuMutation.isPending}>{deleteMenuMutation.isPending ? "Excluindo..." : "Excluir"}</Button>
+            <Button variant="destructive" onClick={() => deleteMenuMutation.mutate(menuToDelete!.id)} disabled={deleteMenuMutation.isPending}>{deleteMenuMutation.isPending ? "Excluindo..." : "Excluir"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -160,15 +150,15 @@ export default function Menus() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Total de Cardápios</CardTitle><UtensilsCrossed className="h-4 w-4 text-muted-foreground" /></CardHeader>
-          <CardContent>{isLoading ? <Skeleton className="h-8 w-1/2" /> : <div className="text-2xl font-bold">{menus?.length || 0}</div>}<p className="text-xs text-muted-foreground">Cardápios cadastrados</p></CardContent>
+          <CardContent>{isLoading ? <Skeleton className="h-8 w-1/2" /> : <div className="text-2xl font-bold">{data?.menus?.length ?? 0}</div>}<p className="text-xs text-muted-foreground">Cardápios cadastrados</p></CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Total de Categorias</CardTitle><LayoutList className="h-4 w-4 text-muted-foreground" /></CardHeader>
-          <CardContent>{isLoading ? <Skeleton className="h-8 w-1/2" /> : <div className="text-2xl font-bold">{summaryCounts?.total_categories || 0}</div>}<p className="text-xs text-muted-foreground">Categorias em todos os cardápios</p></CardContent>
+          <CardContent>{isLoading ? <Skeleton className="h-8 w-1/2" /> : <div className="text-2xl font-bold">{data?.summary?.total_categories ?? 0}</div>}<p className="text-xs text-muted-foreground">Categorias em todos os cardápios</p></CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Total de Itens</CardTitle><Package className="h-4 w-4 text-muted-foreground" /></CardHeader>
-          <CardContent>{isLoading ? <Skeleton className="h-8 w-1/2" /> : <div className="text-2xl font-bold">{summaryCounts?.total_items || 0}</div>}<p className="text-xs text-muted-foreground">Itens em todos os cardápios</p></CardContent>
+          <CardContent>{isLoading ? <Skeleton className="h-8 w-1/2" /> : <div className="text-2xl font-bold">{data?.summary?.total_items ?? 0}</div>}<p className="text-xs text-muted-foreground">Itens em todos os cardápios</p></CardContent>
         </Card>
       </div>
 
@@ -177,12 +167,12 @@ export default function Menus() {
         <CardHeader><CardTitle>Gerenciar Cardápios</CardTitle><CardDescription>Visualize e gerencie todos os cardápios do seu restaurante</CardDescription></CardHeader>
         <CardContent>
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {isLoadingMenus ? (
+            {isLoading ? (
               Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-48 w-full" />)
-            ) : menusError ? (
-              <div className="text-red-500 col-span-3">Falha ao carregar cardápios: {menusError.message}</div>
-            ) : menus && menus.length > 0 ? (
-              menus.map((menu) => (
+            ) : isError ? (
+              <div className="text-red-500 col-span-3">Falha ao carregar cardápios: {error.message}</div>
+            ) : data && data.menus.length > 0 ? (
+              data.menus.map((menu) => (
                 <Card key={menu.id} className="hover:shadow-lg transition-shadow flex flex-col">
                   <div className="w-full h-32 bg-muted/30 flex items-center justify-center">
                     {menu.banner_url ? (

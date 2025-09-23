@@ -11,17 +11,8 @@ import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 
 export default function Tables() {
-  const {
-    restaurantName,
-    activeMenuId,
-    tableCounts,
-    tables,
-    existingTableNumbers,
-    loading,
-    error,
-    addTable,
-    deleteTable,
-  } = useTables();
+  // O hook agora retorna um objeto 'data' que contém tudo.
+  const { data, loading, error, addTable, deleteTable } = useTables();
 
   const [isAddTableModalOpen, setIsAddTableModalOpen] = useState(false);
   const [isQrCodeModalOpen, setIsQrCodeModalOpen] = useState(false);
@@ -72,10 +63,11 @@ export default function Tables() {
       <Toaster richColors />
       <TablesHeader onAddTable={() => setIsAddTableModalOpen(true)} />
 
-      <TableStats counts={tableCounts} loading={loading} error={error} />
+      {/* Acessando os dados de dentro do objeto 'data' */}
+      <TableStats counts={data?.tableCounts} loading={loading} error={error} />
 
       <TableList
-        tables={tables}
+        tables={data?.tables ?? []}
         loading={loading}
         error={error}
         onShowQrCode={handleShowQrCode}
@@ -86,15 +78,15 @@ export default function Tables() {
         isOpen={isAddTableModalOpen}
         onOpenChange={setIsAddTableModalOpen}
         onSubmit={handleAddTable}
-        existingTableNumbers={existingTableNumbers}
+        existingTableNumbers={data?.existingTableNumbers ?? []}
       />
 
       <QrCodeModal
         isOpen={isQrCodeModalOpen}
         onOpenChange={setIsQrCodeModalOpen}
         table={selectedTableQr}
-        restaurantName={restaurantName}
-        activeMenuId={activeMenuId}
+        restaurantName={data?.restaurantName}
+        activeMenuId={data?.activeMenuId}
       />
 
       <ConfirmationDialog
