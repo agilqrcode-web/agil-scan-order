@@ -81,8 +81,22 @@ export default function MenuEditor() {
       if (!menuId) throw new Error("Menu ID is required");
       const token = await getToken();
       const response = await fetch(`/api/menus?id=${menuId}`, { headers: { 'Authorization': `Bearer ${token}` } });
-      if (!response.ok) throw new Error("Failed to fetch menu data.");
-      return response.json();
+
+      console.log("[MenuEditor] Received API response with status:", response.status);
+      if (!response.ok) {
+        console.error("[MenuEditor] Response was not OK.");
+        throw new Error("Failed to fetch menu data.");
+      }
+
+      const responseText = await response.text();
+      console.log("[MenuEditor] Raw response text:", responseText);
+
+      try {
+        return JSON.parse(responseText);
+      } catch (e) {
+        console.error("[MenuEditor] JSON parsing failed!", e);
+        throw new Error("Failed to parse JSON response from server.");
+      }
     },
     enabled: !!menuId && !!getToken,
     onSuccess: (data) => {
