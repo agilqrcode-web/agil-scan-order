@@ -42,12 +42,15 @@ export interface MenuEditorData {
 
 // O novo hook
 export function useMenuEditor(menuId?: string) {
-  const { getToken } = useAuth();
+  const { getToken, userId, isLoaded } = useAuth();
   const queryClient = useQueryClient();
 
   // Função genérica para requisições autenticadas
   const fetchWithAuth = useCallback(async (url: string, options: RequestInit = {}) => {
     const token = await getToken();
+    if (!token) {
+      throw new Error('Unauthorized: missing auth token');
+    }
     const headers = new Headers(options.headers);
     headers.append('Authorization', `Bearer ${token}`);
     const response = await fetch(url, { ...options, headers });
@@ -62,7 +65,7 @@ export function useMenuEditor(menuId?: string) {
   const { data, isLoading, isError, error } = useQuery<MenuEditorData, Error>({
     queryKey: ['menuEditorData', menuId],
     queryFn: () => fetchWithAuth(`/api/menus?id=${menuId}`),
-    enabled: !!menuId, // A query só roda se o menuId existir
+    enabled: !!menuId && !!userId && isLoaded, // Aguarda Clerk carregar e ter userId
   });
 
   // Callback para invalidar a query principal após uma mutação
