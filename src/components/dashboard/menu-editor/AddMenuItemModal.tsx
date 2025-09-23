@@ -76,6 +76,11 @@ export function AddMenuItemModal({
   };
 
   const handleSave = async (values: MenuItemFormValues) => {
+    console.log('DEBUG: handleSave called with values:', values);
+    console.log('DEBUG: imageFile:', imageFile);
+    console.log('DEBUG: restaurantId:', restaurantId);
+    console.log('DEBUG: supabase:', supabase);
+    
     if (!supabase || !restaurantId) return;
 
     setIsUploading(true);
