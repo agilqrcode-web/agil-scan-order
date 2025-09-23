@@ -92,7 +92,7 @@ export function useMenuEditor(menuId?: string) {
       headers: { 'Content-Type': 'application/json' }, 
       body: JSON.stringify({ categories }) 
     }),
-    onSuccess
+    onSuccess: onMutationSuccess
   });
 
   const saveCategoryMutation = useMutation({
@@ -101,7 +101,7 @@ export function useMenuEditor(menuId?: string) {
       headers: { 'Content-Type': 'application/json' }, 
       body: JSON.stringify(category) 
     }),
-    onSuccess
+    onSuccess: onMutationSuccess
   });
 
   const deleteCategoryMutation = useMutation({
@@ -110,7 +110,7 @@ export function useMenuEditor(menuId?: string) {
       headers: { 'Content-Type': 'application/json' }, 
       body: JSON.stringify({ id: categoryId }) 
     }),
-    onSuccess
+    onSuccess: onMutationSuccess
   });
 
   const saveMenuItemMutation = useMutation({
@@ -119,7 +119,7 @@ export function useMenuEditor(menuId?: string) {
       headers: { 'Content-Type': 'application/json' }, 
       body: JSON.stringify(item) 
     }),
-    onSuccess
+    onSuccess: onMutationSuccess
   });
 
   const deleteMenuItemMutation = useMutation({
@@ -128,7 +128,7 @@ export function useMenuEditor(menuId?: string) {
       headers: { 'Content-Type': 'application/json' }, 
       body: JSON.stringify({ id: itemId }) 
     }),
-    onSuccess
+    onSuccess: onMutationSuccess
   });
 
   return {
