@@ -109,7 +109,7 @@ export default function MenuEditor() {
 
   if (isLoading) return <div className="space-y-6 p-4"><Skeleton className="h-10 w-1/3" /><Skeleton className="h-48 w-full" /><Skeleton className="h-32 w-full" /></div>;
   if (isError) return <div className="text-red-500 p-4">{error.message}</div>;
-  if (!data) return <div className="text-muted-foreground p-4">Cardápio não encontrado.</div>;
+  if (!data || !data.menu) return <div className="text-muted-foreground p-4">Cardápio não encontrado.</div>;
 
   return (
     <div className="space-y-6">
