@@ -6,7 +6,6 @@ import { MenuItemsList } from "./MenuItemsList";
 
 interface CategoriesListProps {
   categories: any[];
-  menuItems: any[];
   handleMoveCategory: (index: number, direction: 'up' | 'down') => void;
   handleDeleteCategory: (id: string) => void;
   handleEditMenuItem: (item: any) => void;
@@ -17,7 +16,6 @@ interface CategoriesListProps {
 
 export function CategoriesList({
   categories,
-  menuItems,
   handleMoveCategory,
   handleDeleteCategory,
   handleEditMenuItem,
@@ -66,7 +64,7 @@ export function CategoriesList({
               <div className="mt-4 space-y-2">
                 <h4 className="text-md font-medium">Itens da Categoria</h4>
                 <MenuItemsList
-                  items={menuItems.filter(item => item.category_id === category.id)}
+                  items={category.items || []} // Usa os itens aninhados diretamente
                   onEditItem={handleEditMenuItem}
                   onDeleteItem={handleDeleteMenuItem}
                 />

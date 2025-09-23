@@ -93,7 +93,7 @@ export default function MenuEditor() {
     }
   });
 
-  const { bannerPreview, handleBannerChange, handleBannerRemove, uploadBanner, resetBannerState } = useMenuBannerUpload({
+  const { bannerPreview, handleBannerChange, handleBannerRemove, uploadBanner } = useMenuBannerUpload({
     initialBannerUrl: data?.menu?.banner_url || null,
     menuId: menuId || '',
     restaurantId: data?.restaurant?.id || '',
@@ -134,7 +134,7 @@ export default function MenuEditor() {
       await fetchWithAuth("/api/menus", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(updateData) });
       await saveCategoryOrderMutation.mutateAsync();
       toast({ title: 'Sucesso!', description: 'Cardápio salvo com sucesso!' });
-      queryClient.invalidateQueries({ queryKey: ['menus', data.menu.restaurant_id] }); // Invalidate list view
+      queryClient.invalidateQueries({ queryKey: ['menusPageData', data.menu.restaurant_id] }); // Invalidate list view
     } catch (err) {
       toast({ variant: "destructive", title: "Erro ao salvar", description: (err as Error).message });
     } finally {
@@ -159,7 +159,7 @@ export default function MenuEditor() {
     const to = direction === 'up' ? index - 1 : index + 1;
     if (to < 0 || to >= newCategories.length) return;
     [newCategories[index], newCategories[to]] = [newCategories[to], newCategories[index]]; // Swap
-    setCategories(newCategories);
+    setCategories(newCategories.map((cat, idx) => ({ ...cat, position: idx })));
   }, [categories]);
 
   const handleItemNameInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -181,7 +181,6 @@ export default function MenuEditor() {
       <MenuDetailsCard menuForm={menuForm} bannerPreview={bannerPreview} onBannerChange={handleBannerChange} onBannerRemove={handleBannerRemove} />
       <CategoriesList
         categories={categories}
-        menuItems={data.categories.flatMap(c => c.items)}
         handleMoveCategory={handleMoveCategory}
         handleDeleteCategory={(id) => setCategoryToDelete(id)}
         handleEditMenuItem={(item) => { editMenuItemForm.reset(item); setIsEditMenuItemModalOpen(true); }}
