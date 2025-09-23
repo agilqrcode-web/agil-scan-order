@@ -66,6 +66,9 @@ export default function MenuEditor() {
 
   // Efeito para resetar o formulário e o estado local quando os dados da query são carregados
   useEffect(() => {
+    // Log para verificação final do fluxo de dados
+    console.log("[VERIFICAÇÃO] Dados do cardápio carregados e prontos para uso:", data);
+
     if (data?.menu) {
       menuForm.reset(data.menu);
     }
@@ -109,7 +112,7 @@ export default function MenuEditor() {
 
   if (isLoading) return <div className="space-y-6 p-4"><Skeleton className="h-10 w-1/3" /><Skeleton className="h-48 w-full" /><Skeleton className="h-32 w-full" /></div>;
   if (isError) return <div className="text-red-500 p-4">{error.message}</div>;
-  if (!data || !data.menu) return <div className="text-muted-foreground p-4">Cardápio não encontrado.</div>;
+  if (!data || !data.menu || !data.restaurant) return <div className="text-muted-foreground p-4">Cardápio não encontrado ou dados incompletos.</div>;
 
   return (
     <div className="space-y-6">
