@@ -27,9 +27,11 @@ export const useMenuBannerUpload = ({
 
   // Sync states if the initial URL from props changes
   useEffect(() => {
-    setBannerPreview(initialBannerUrl);
-    setCurrentSavedUrl(initialBannerUrl);
-  }, [initialBannerUrl]);
+    if (initialBannerUrl !== currentSavedUrl) {
+      setBannerPreview(initialBannerUrl);
+      setCurrentSavedUrl(initialBannerUrl);
+    }
+  }, [initialBannerUrl, currentSavedUrl]);
 
   // Clean up blob URLs to prevent memory leaks
   useEffect(() => {
