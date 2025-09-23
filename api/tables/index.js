@@ -10,9 +10,8 @@ async function authenticatedHandler(request, response, { supabase, user }) {
     case 'GET':
       // Lógica para buscar todos os dados da página de mesas para o usuário logado
       try {
-        const { data: restaurantIdData, error: restaurantIdError } = await supabase.rpc('get_user_restaurant_id');
+        const { data: restaurantId, error: restaurantIdError } = await supabase.rpc('get_user_restaurant_id');
         if (restaurantIdError) throw restaurantIdError;
-        const restaurantId = restaurantIdData as string;
 
         if (!restaurantId) {
           return response.status(404).json({ error: 'Restaurant not found for this user.' });
@@ -32,10 +31,12 @@ async function authenticatedHandler(request, response, { supabase, user }) {
           supabase.from('menus').select('id').eq('restaurant_id', restaurantId).eq('is_active', true).limit(1).single()
         ]);
 
+        // Validação de erros
         if (nameResult.error) throw nameResult.error;
         if (countsResult.error) throw countsResult.error;
         if (tablesResult.error) throw tablesResult.error;
         if (existingNumbersResult.error) throw existingNumbersResult.error;
+        // CORREÇÃO: Ignora o erro apenas se for 'nenhuma linha encontrada', que é um resultado esperado.
         if (menuResult.error && menuResult.error.code !== 'PGRST116') throw menuResult.error;
 
         const responsePayload = {

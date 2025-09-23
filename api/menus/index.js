@@ -5,14 +5,18 @@ async function handler(request, response, { supabase, user }) {
     case 'POST':
       // Create Menu
       {
-        const { restaurant_id, name, is_active } = request.body;
-        if (!restaurant_id || !name) {
-          return response.status(400).json({ error: 'Missing required fields: restaurant_id, name' });
+        // A lógica de POST não precisa do restaurant_id no body, pois podemos obtê-lo pelo usuário.
+        const { name, is_active } = request.body;
+        if (!name) {
+          return response.status(400).json({ error: 'Missing required field: name' });
         }
         try {
+          const { data: restaurantId, error: restaurantIdError } = await supabase.rpc('get_user_restaurant_id');
+          if (restaurantIdError || !restaurantId) throw new Error('Could not find a restaurant for the user.');
+
           const { data, error } = await supabase
             .from('menus')
-            .insert([ { restaurant_id, name, is_active: is_active ?? true } ])
+            .insert([ { restaurant_id: restaurantId, name, is_active: is_active ?? true } ])
             .select();
           if (error) throw error;
           return response.status(201).json(data[0]);
@@ -25,13 +29,36 @@ async function handler(request, response, { supabase, user }) {
       {
         const { id } = request.query;
 
-        // Se um ID for fornecido, busca o cardápio e todos os seus dados aninhados para o editor
+        // Se um ID for fornecido, busca todos os dados para o editor de cardápio
         if (id) {
           try {
-            const { data, error } = await supabase.rpc('get_public_menu_data', { p_menu_id: id });
-            if (error) throw error;
-            if (!data) return response.status(404).json({ error: 'Menu not found' });
-            return response.status(200).json(data);
+            // 1. Pega o cardápio e o restaurante associado
+            const { data: menu, error: menuError } = await supabase.from('menus').select('*, restaurants(*)').eq('id', id).single();
+            if (menuError) throw menuError;
+            if (!menu) return response.status(404).json({ error: 'Menu not found' });
+
+            // 2. Pega todas as categorias do restaurante
+            const { data: categories, error: categoriesError } = await supabase.from('categories').select('*').eq('restaurant_id', menu.restaurant_id).order('position');
+            if (categoriesError) throw categoriesError;
+
+            // 3. Pega todos os itens do cardápio
+            const { data: items, error: itemsError } = await supabase.from('menu_items').select('*').eq('menu_id', id);
+            if (itemsError) throw itemsError;
+
+            // 4. Monta a estrutura de dados aninhada que o frontend espera
+            const categoriesWithItems = categories.map(category => ({
+              ...category,
+              items: items.filter(item => item.category_id === category.id)
+            }));
+
+            const payload = {
+              menu: { id: menu.id, name: menu.name, banner_url: menu.banner_url, is_active: menu.is_active, restaurant_id: menu.restaurant_id },
+              restaurant: menu.restaurants,
+              categories: categoriesWithItems,
+            };
+
+            return response.status(200).json(payload);
+
           } catch (error) {
             return response.status(500).json({ error: error.message });
           }
