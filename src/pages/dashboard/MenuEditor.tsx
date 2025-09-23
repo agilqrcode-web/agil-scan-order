@@ -100,23 +100,15 @@ export default function MenuEditor() {
     if (!menuId) return;
     setIsSaving(true);
     
-    const savePromise = (async () => {
+    try {
         const newBannerUrl = await uploadBanner();
         const updateData = { id: menuId, name: values.name, is_active: values.is_active, banner_url: newBannerUrl };
         await saveMenu(updateData);
         resetBannerState();
-    })();
-
-    toast.promise(savePromise, {
-        loading: 'Salvando cardápio...',
-        success: 'Cardápio salvo com sucesso!',
-        error: (err) => (err as Error).message || 'Falha ao salvar o cardápio.',
-    });
-
-    try {
-        await savePromise;
+        toast({ title: 'Sucesso!', description: 'Cardápio salvo com sucesso!' });
     } catch (err) {
         console.error("Error saving menu:", err);
+        toast({ variant: 'destructive', title: 'Erro', description: (err as Error).message || 'Falha ao salvar o cardápio.' });
     } finally {
         setIsSaving(false);
     }
