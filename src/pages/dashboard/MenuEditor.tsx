@@ -76,18 +76,7 @@ export default function MenuEditor() {
 
   const usedCategoryNames = React.useMemo(() => (data?.categories || []).map(cat => cat.name.toLowerCase()), [data?.categories]);
 
-  // Generic fetch helper for mutations
-  const fetchWithAuth = useCallback(async (url: string, options: RequestInit = {}) => {
-    const token = await getToken();
-    const headers = new Headers(options.headers);
-    headers.append('Authorization', `Bearer ${token}`);
-    const response = await fetch(url, { ...options, headers });
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `Request failed with status ${response.status}`);
-    }
-    return response;
-  }, [getToken]);
+
 
   // Invalidate query on mutation success
   const onMutationSuccess = () => queryClient.invalidateQueries({ queryKey: ['menuEditorData', menuId] });
