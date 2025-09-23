@@ -57,6 +57,7 @@ async function handler(request, response, { supabase, user }) {
               categories: categoriesWithItems,
             };
 
+            console.log("[API/Menus] Payload for editor:", JSON.stringify(payload, null, 2));
             return response.status(200).json(payload);
 
           } catch (error) {

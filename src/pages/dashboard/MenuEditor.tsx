@@ -86,6 +86,7 @@ export default function MenuEditor() {
     },
     enabled: !!menuId && !!getToken,
     onSuccess: (data) => {
+      console.log("[MenuEditor] Data received from API:", data);
       if (data?.menu) {
         menuForm.reset(data.menu);
         setCategories(data.categories || []);
