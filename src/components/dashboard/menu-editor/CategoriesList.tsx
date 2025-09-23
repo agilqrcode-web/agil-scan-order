@@ -23,6 +23,7 @@ export function CategoriesList({
   handleAddMenuItem,
   handleAddCategory,
 }: CategoriesListProps) {
+  console.log("[CategoriesList] Received categories prop:", categories);
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
