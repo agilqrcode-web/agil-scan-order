@@ -204,7 +204,4 @@ export default function MenuEditor() {
       <ConfirmationDialog isOpen={!!itemToDelete} onOpenChange={() => setItemToDelete(null)} onConfirm={() => { if (itemToDelete) handleDeleteMenuItem(itemToDelete); setItemToDelete(null); }} title="Excluir Item?" description="Esta ação não pode ser desfeita. Isso excluirá permanentemente o item do cardápio." confirmText="Excluir" />
     </div>
   );
-}} onConfirm={() => { if (itemToDelete) handleDeleteMenuItem(itemToDelete); setItemToDelete(null); }} title="Excluir Item?" description="Esta ação não pode ser desfeita. Isso excluirá permanentemente o item do cardápio." confirmText="Excluir" />
-    </div>
-  );
 }
