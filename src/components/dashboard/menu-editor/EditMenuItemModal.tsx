@@ -84,6 +84,18 @@ export function EditMenuItemModal({
             const fileName = `${Date.now()}.${fileExt}`;
             const filePath = `${restaurantId}/${fileName}`;
 
+            console.log('DEBUG EditMenuItemModal: Upload path:', filePath);
+            console.log('DEBUG EditMenuItemModal: Restaurant ID:', restaurantId);
+            console.log('DEBUG EditMenuItemModal: Supabase client:', supabase);
+
+            // Teste: verificar se o usuário tem permissões no restaurante
+            try {
+                const { data: testData, error: testError } = await supabase.rpc('is_restaurant_manager_or_owner', { p_restaurant_id: restaurantId });
+                console.log('DEBUG EditMenuItemModal: is_restaurant_manager_or_owner result:', testData, testError);
+            } catch (testErr) {
+                console.log('DEBUG EditMenuItemModal: Error testing permissions:', testErr);
+            }
+
             const { error: uploadError } = await supabase.storage
                 .from('menu-item-images')
                 .upload(filePath, imageFile);
