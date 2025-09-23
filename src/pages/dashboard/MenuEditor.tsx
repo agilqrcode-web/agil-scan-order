@@ -48,32 +48,22 @@ export default function MenuEditor() {
   // Usando o novo hook para gerenciar todos os dados e mutações
   const { data, isLoading, isError, error, saveMenu, saveCategoryOrder, saveCategory, deleteCategory, saveMenuItem, deleteMenuItem } = useMenuEditor(menuId);
 
-  // Estado local para UI (modais, seleções, etc.)
-  const [isSaving, setIsSaving] = useState(false);
-  const [orderedCategories, setOrderedCategories] = useState(data?.categories || []);
-  const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
-  const [isAddMenuItemModalOpen, setIsAddMenuItemModalOpen] = useState(false);
-  const [isEditMenuItemModalOpen, setIsEditMenuItemModalOpen] = useState(false);
-  const [selectedCategoryIdForMenuItem, setSelectedCategoryIdForMenuItem] = useState<string | null>(null);
-  const [itemToEdit, setItemToEdit] = useState<MenuItemFormValues | null>(null);
-  const [categoryToDelete, setCategoryToDelete] = useState<string | null>(null);
-  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+  // O estado das categorias agora é gerenciado localmente apenas para reordenação
+  const [displayCategories, setDisplayCategories] = useState<any[]>([]);
 
-  // Formulários
+  // Forms
   const menuForm = useForm<MenuFormValues>({ resolver: zodResolver(menuSchema) });
   const addMenuItemForm = useForm<MenuItemFormValues>({ resolver: zodResolver(menuItemSchema), defaultValues: { name: "", description: "", price: undefined, image_url: "" } });
   const editMenuItemForm = useForm<MenuItemFormValues>({ resolver: zodResolver(menuItemSchema) });
 
   // Efeito para resetar o formulário e o estado local quando os dados da query são carregados
   useEffect(() => {
-    // Log para verificação final do fluxo de dados
-    console.log("[VERIFICAÇÃO] Dados do cardápio carregados e prontos para uso:", data);
-
     if (data?.menu) {
       menuForm.reset(data.menu);
     }
+    // A fonte da verdade (data.categories) atualiza o estado de exibição
     if (data?.categories) {
-      setOrderedCategories(data.categories);
+      setDisplayCategories(data.categories);
     }
   }, [data, menuForm]);
 
@@ -84,20 +74,47 @@ export default function MenuEditor() {
     setSaveMessage: (msg) => toast({ title: msg.type === 'success' ? 'Sucesso!' : 'Erro', description: msg.text }),
   });
 
+  const usedCategoryNames = React.useMemo(() => (data?.categories || []).map(cat => cat.name.toLowerCase()), [data?.categories]);
+
+  // Generic fetch helper for mutations
+  const fetchWithAuth = useCallback(async (url: string, options: RequestInit = {}) => {
+    const token = await getToken();
+    const headers = new Headers(options.headers);
+    headers.append('Authorization', `Bearer ${token}`);
+    const response = await fetch(url, { ...options, headers });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Request failed with status ${response.status}`);
+    }
+    return response;
+  }, [getToken]);
+
+  // Invalidate query on mutation success
+  const onMutationSuccess = () => queryClient.invalidateQueries({ queryKey: ['menuEditorData', menuId] });
+
+  // Mutations
+  const saveCategoryOrderMutation = useMutation({ mutationFn: (categories: any) => fetchWithAuth("/api/categories", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ categories }) }), onSuccess: onMutationSuccess });
+  const saveCategoryMutation = useMutation({ mutationFn: (category: any) => fetchWithAuth("/api/categories", { method: category.id ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(category) }), onSuccess: onMutationSuccess });
+  const deleteCategoryMutation = useMutation({ mutationFn: (categoryId: string) => fetchWithAuth("/api/categories", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: categoryId }) }), onSuccess: onMutationSuccess });
+  const saveMenuItemMutation = useMutation({ mutationFn: (item: any) => fetchWithAuth("/api/menu-items", { method: item.id ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(item) }), onSuccess: onMutationSuccess });
+  const deleteMenuItemMutation = useMutation({ mutationFn: (itemId: string) => fetchWithAuth("/api/menu-items", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: itemId }) }), onSuccess: onMutationSuccess });
+
   const handleSaveMenu = useCallback(async (values: MenuFormValues) => {
-    if (!menuId) return;
+    if (!menuId || !data?.menu) return;
     setIsSaving(true);
     try {
       const newBannerUrl = await uploadBanner();
-      await saveMenu({ id: menuId, ...values, banner_url: newBannerUrl });
-      await saveCategoryOrder(orderedCategories.map((cat, idx) => ({ id: cat.id, position: idx })));
+      await saveMenu({ id: menuId, name: values.name, is_active: values.is_active, banner_url: newBannerUrl });
+      // Salva a ordem atual das categorias que estão na tela
+      await saveCategoryOrderMutation.mutateAsync(displayCategories.map((cat, idx) => ({ id: cat.id, position: idx })));
       toast({ title: 'Sucesso!', description: 'Cardápio salvo com sucesso!' });
+      queryClient.invalidateQueries({ queryKey: ['menusPageData', data.menu.restaurant_id] }); // Invalidate list view
     } catch (err) {
       toast({ variant: "destructive", title: "Erro ao salvar", description: (err as Error).message });
     } finally {
       setIsSaving(false);
     }
-  }, [menuId, saveMenu, saveCategoryOrder, orderedCategories, uploadBanner, toast]);
+  }, [menuId, data, displayCategories, uploadBanner, saveMenu, saveCategoryOrderMutation, toast, queryClient]);
 
   useEffect(() => {
     const saveAction = <Button size="icon" onClick={menuForm.handleSubmit(handleSaveMenu)} disabled={isSaving}>{isSaving ? <Spinner size="small" /> : <Save className="h-4 w-4" />}</Button>;
@@ -105,10 +122,15 @@ export default function MenuEditor() {
     return () => clearHeader();
   }, [isSaving, data, menuForm, handleSaveMenu, setHeader, clearHeader]);
 
-  // Handlers que agora usam as mutações do hook
-  const handleSaveCategory = (categoryName: string) => saveCategory({ name: categoryName, restaurant_id: data?.restaurant.id });
-  const handleSaveMenuItem = (item: MenuItemFormValues) => saveMenuItem({ ...item, menu_id: menuId, category_id: selectedCategoryIdForMenuItem });
-  const handleUpdateMenuItem = (item: MenuItemFormValues) => saveMenuItem(item);
+  // Handlers that now use mutations
+  const handleSaveCategory = (category: Partial<CategoryFormValues>) => saveCategoryMutation.mutateAsync(category.id ? category : { ...category, restaurant_id: data?.menu.restaurant_id, position: displayCategories.length });
+  const handleDeleteCategory = (categoryId: string) => deleteCategoryMutation.mutate(categoryId);
+  const handleSaveMenuItem = (item: MenuItemFormValues) => saveMenuItemMutation.mutate(item.id ? item : { ...item, menu_id: menuId, category_id: selectedCategoryIdForMenuItem });
+  const handleDeleteMenuItem = (itemId: string) => deleteMenuItemMutation.mutate(itemId);
+
+  const handleCategoriesReordered = useCallback((reorderedCategories: any[]) => {
+    setDisplayCategories(reorderedCategories);
+  }, []);
 
   if (isLoading) return <div className="space-y-6 p-4"><Skeleton className="h-10 w-1/3" /><Skeleton className="h-48 w-full" /><Skeleton className="h-32 w-full" /></div>;
   if (isError) return <div className="text-red-500 p-4">{error.message}</div>;
