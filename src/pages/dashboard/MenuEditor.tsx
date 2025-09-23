@@ -82,19 +82,13 @@ export default function MenuEditor() {
       const token = await getToken();
       const response = await fetch(`/api/menus?id=${menuId}`, { headers: { 'Authorization': `Bearer ${token}` } });
 
-      console.log("[MenuEditor] Received API response with status:", response.status);
       if (!response.ok) {
-        console.error("[MenuEditor] Response was not OK.");
         throw new Error("Failed to fetch menu data.");
       }
 
-      const responseText = await response.text();
-      console.log("[MenuEditor] Raw response text:", responseText);
-
       try {
-        return JSON.parse(responseText);
+        return await response.json();
       } catch (e) {
-        console.error("[MenuEditor] JSON parsing failed!", e);
         throw new Error("Failed to parse JSON response from server.");
       }
     },
@@ -208,6 +202,9 @@ export default function MenuEditor() {
       <EditMenuItemModal isOpen={isEditMenuItemModalOpen} onOpenChange={setIsEditMenuItemModalOpen} editMenuItemForm={editMenuItemForm} handleSaveMenuItem={handleSaveMenuItem} restaurantId={data.menu.restaurant_id} />
       <ConfirmationDialog isOpen={!!categoryToDelete} onOpenChange={() => setCategoryToDelete(null)} onConfirm={() => { if (categoryToDelete) handleDeleteCategory(categoryToDelete); setCategoryToDelete(null); }} title="Excluir Categoria?" description="Esta ação não pode ser desfeita. Isso excluirá permanentemente a categoria e todos os itens dentro dela." confirmText="Excluir" />
       <ConfirmationDialog isOpen={!!itemToDelete} onOpenChange={() => setItemToDelete(null)} onConfirm={() => { if (itemToDelete) handleDeleteMenuItem(itemToDelete); setItemToDelete(null); }} title="Excluir Item?" description="Esta ação não pode ser desfeita. Isso excluirá permanentemente o item do cardápio." confirmText="Excluir" />
+    </div>
+  );
+}} onConfirm={() => { if (itemToDelete) handleDeleteMenuItem(itemToDelete); setItemToDelete(null); }} title="Excluir Item?" description="Esta ação não pode ser desfeita. Isso excluirá permanentemente o item do cardápio." confirmText="Excluir" />
     </div>
   );
 }

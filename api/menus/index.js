@@ -32,20 +32,25 @@ async function handler(request, response, { supabase, user }) {
         // Se um ID for fornecido, busca todos os dados para o editor de cardápio
         if (id) {
           try {
-            // 1. Pega o cardápio e o restaurante associado
-            const { data: menu, error: menuError } = await supabase.from('menus').select('*, restaurants(*)').eq('id', id).single();
+            // 1. Pega o cardápio. A RLS na tabela 'menus' já garante que o usuário só pode acessar menus do seu restaurante.
+            const { data: menu, error: menuError } = await supabase.from('menus').select('*').eq('id', id).single();
             if (menuError) throw menuError;
-            if (!menu) return response.status(404).json({ error: 'Menu not found' });
+            if (!menu) return response.status(404).json({ error: 'Menu not found or access denied.' });
 
-            // 2. Pega todas as categorias do restaurante
+            // 2. Pega o restaurante associado. A RLS na tabela 'restaurants' será aplicada aqui.
+            const { data: restaurant, error: restaurantError } = await supabase.from('restaurants').select('*').eq('id', menu.restaurant_id).single();
+            if (restaurantError) throw restaurantError;
+            if (!restaurant) return response.status(404).json({ error: 'Restaurant not found or access denied.' });
+
+            // 3. Pega todas as categorias do restaurante
             const { data: categories, error: categoriesError } = await supabase.from('categories').select('*').eq('restaurant_id', menu.restaurant_id).order('position');
             if (categoriesError) throw categoriesError;
 
-            // 3. Pega todos os itens do cardápio
+            // 4. Pega todos os itens do cardápio
             const { data: items, error: itemsError } = await supabase.from('menu_items').select('*').eq('menu_id', id);
             if (itemsError) throw itemsError;
 
-            // 4. Monta a estrutura de dados aninhada que o frontend espera
+            // 5. Monta a estrutura de dados aninhada que o frontend espera
             const categoriesWithItems = categories.map(category => ({
               ...category,
               items: items.filter(item => item.category_id === category.id)
@@ -53,14 +58,14 @@ async function handler(request, response, { supabase, user }) {
 
             const payload = {
               menu: { id: menu.id, name: menu.name, banner_url: menu.banner_url, is_active: menu.is_active, restaurant_id: menu.restaurant_id },
-              restaurant: menu.restaurants,
+              restaurant: restaurant, // Usando a busca explícita
               categories: categoriesWithItems,
             };
-
-            console.log("[API/Menus] Payload for editor:", JSON.stringify(payload, null, 2));
+            
             return response.status(200).json(payload);
 
           } catch (error) {
+            console.error("[API/Menus] Error fetching menu editor data:", error);
             return response.status(500).json({ error: error.message });
           }
         }
