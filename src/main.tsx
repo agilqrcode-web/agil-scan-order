@@ -1,5 +1,5 @@
 import { createRoot } from 'react-dom/client';
-import { ClerkProvider, useAuth } from "@clerk/clerk-react";
+import { ClerkProvider, useAuth, useSession } from "@clerk/clerk-react";
 import App from './App.tsx';
 import './index.css';
 import { supabase } from "@/integrations/supabase/client";
@@ -14,33 +14,27 @@ if (!PUBLISHABLE_KEY) {
 }
 
 function SupabaseProvider({ children }: { children: React.ReactNode }) {
-  const { isSignedIn, getToken } = useAuth(); // Usar getToken de useAuth
+  const { isSignedIn } = useAuth();
+  const { session } = useSession(); // Revertido para usar useSession
   const [isSupabaseReady, setIsSupabaseReady] = useState(false);
 
   useEffect(() => {
     const setSupabaseSession = async () => {
       console.log(`SupabaseProvider: useEffect triggered. isSignedIn: ${isSignedIn}`);
-      if (isSignedIn) {
+      if (isSignedIn && session) {
         try {
-          console.log("SupabaseProvider: Getting token with 'agilqrcode' template...");
-          const token = await getToken({ template: "agilqrcode" });
-          if (!token) {
-            throw new Error("Clerk token not found.");
-          }
-
-          // DEBUG: Log the token to inspect it
-          console.log("CLERK TOKEN:", token);
-          
-          console.log('SupabaseProvider: Attempting to set Supabase session...');
-          await supabase.auth.setSession({ access_token: token, refresh_token: token });
+          console.log('SupabaseProvider: Attempting to set Supabase session with default Clerk session...');
+          await supabase.auth.setSession({
+            access_token: session.accessToken,
+            refresh_token: session.refreshToken || ''
+          });
           console.log('SupabaseProvider: Supabase client session updated.');
-
         } catch (error) {
           console.error("SupabaseProvider: Error setting session:", error);
         } finally {
           setIsSupabaseReady(true);
         }
-      } else if (isSignedIn === false) { // Apenas executa se o status for conhecido
+      } else if (isSignedIn === false) {
         try {
           console.log('SupabaseProvider: User not signed in. Signing out Supabase session.');
           await supabase.auth.signOut();
@@ -52,11 +46,10 @@ function SupabaseProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
-    // Não faz nada até que o status de autenticação do Clerk seja conhecido
     if (typeof isSignedIn !== 'undefined') {
       setSupabaseSession();
     }
-  }, [isSignedIn, getToken]);
+  }, [isSignedIn, session]);
 
   if (!isSupabaseReady) {
     return (
