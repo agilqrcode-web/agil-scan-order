@@ -89,13 +89,12 @@ export default function MenuEditor() {
       // Salva a ordem atual das categorias que estão na tela
       await saveCategoryOrder(displayCategories.map((cat, idx) => ({ id: cat.id, position: idx })));
       toast({ title: 'Sucesso!', description: 'Cardápio salvo com sucesso!' });
-      queryClient.invalidateQueries({ queryKey: ['menusPageData', data.menu.restaurant_id] }); // Invalidate list view
     } catch (err) {
       toast({ variant: "destructive", title: "Erro ao salvar", description: (err as Error).message });
     } finally {
       setIsSaving(false);
     }
-  }, [menuId, data, displayCategories, uploadBanner, saveMenu, saveCategoryOrder, toast, queryClient]);
+  }, [menuId, data, displayCategories, uploadBanner, saveMenu, saveCategoryOrder, toast]);
 
   useEffect(() => {
     const saveAction = <Button size="icon" onClick={menuForm.handleSubmit(handleSaveMenu)} disabled={isSaving}>{isSaving ? <Spinner size="small" /> : <Save className="h-4 w-4" />}</Button>;
