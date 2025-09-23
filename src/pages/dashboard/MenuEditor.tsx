@@ -78,15 +78,7 @@ export default function MenuEditor() {
 
 
 
-  // Invalidate query on mutation success
-  const onMutationSuccess = () => queryClient.invalidateQueries({ queryKey: ['menuEditorData', menuId] });
 
-  // Mutations
-  const saveCategoryOrderMutation = useMutation({ mutationFn: (categories: any) => fetchWithAuth("/api/categories", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ categories }) }), onSuccess: onMutationSuccess });
-  const saveCategoryMutation = useMutation({ mutationFn: (category: any) => fetchWithAuth("/api/categories", { method: category.id ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(category) }), onSuccess: onMutationSuccess });
-  const deleteCategoryMutation = useMutation({ mutationFn: (categoryId: string) => fetchWithAuth("/api/categories", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: categoryId }) }), onSuccess: onMutationSuccess });
-  const saveMenuItemMutation = useMutation({ mutationFn: (item: any) => fetchWithAuth("/api/menu-items", { method: item.id ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(item) }), onSuccess: onMutationSuccess });
-  const deleteMenuItemMutation = useMutation({ mutationFn: (itemId: string) => fetchWithAuth("/api/menu-items", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: itemId }) }), onSuccess: onMutationSuccess });
 
   const handleSaveMenu = useCallback(async (values: MenuFormValues) => {
     if (!menuId || !data?.menu) return;
