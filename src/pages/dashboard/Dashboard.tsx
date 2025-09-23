@@ -1,16 +1,12 @@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@clerk/clerk-react";
-import { useSupabase } from "@/contexts/SupabaseContext";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/use-toast";
 import { ConfirmationDialog } from "@/components/ui/ConfirmationDialog";
-
-
-// Novos componentes importados
 import { DashboardSummary } from "@/components/dashboard/main/DashboardSummary";
 import { RestaurantListCard } from "@/components/dashboard/main/RestaurantListCard";
 import { RecentOrdersCard } from "@/components/dashboard/main/RecentOrdersCard";
@@ -21,63 +17,44 @@ interface Restaurant {
   logo_url: string | null;
 }
 
+interface DashboardData {
+  restaurants: Restaurant[];
+  summary: {
+    tableCount: number;
+    dailyOrderCount: number;
+    dailyCustomerCount: number;
+  };
+}
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const { userId, getToken } = useAuth();
-  const supabase = useSupabase();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
-  const [tableCounts, setTableCounts] = useState({ total_tables: 0 });
-  const [dailyOrderCount, setDailyOrderCount] = useState(0);
-  const [dailyCustomerCount, setDailyCustomerCount] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [restaurantToDelete, setRestaurantToDelete] = useState<Restaurant | null>(null);
 
-  useEffect(() => {
-    async function fetchData() {
-      if (!userId || !supabase) {
-        setLoading(false);
-        return;
-      }
-      try {
-        // A lógica de busca de dados permanece a mesma
-        const { data: restaurantData, error: restaurantError } = await supabase.from('restaurant_users').select('restaurants ( id, name, logo_url )').eq('user_id', userId);
-        if (restaurantError) throw restaurantError;
-        const fetchedRestaurants = restaurantData.map(item => item.restaurants).filter(Boolean) as Restaurant[];
-        setRestaurants(fetchedRestaurants);
-
-        if (fetchedRestaurants.length > 0) {
-          const restaurantId = fetchedRestaurants[0].id;
-          const [tableCountResult, dailyOrderResult, dailyCustomerResult] = await Promise.all([
-            supabase.rpc('get_table_counts_for_restaurant', { p_restaurant_id: restaurantId }),
-            supabase.rpc('get_daily_order_count', { p_restaurant_id: restaurantId }),
-            supabase.rpc('get_daily_customer_count', { p_restaurant_id: restaurantId })
-          ]);
-          if (tableCountResult.error) throw tableCountResult.error;
-          if (dailyOrderResult.error) throw dailyOrderResult.error;
-          if (dailyCustomerResult.error) throw dailyCustomerResult.error;
-          if (tableCountResult.data && tableCountResult.data.length > 0) {
-            setTableCounts(tableCountResult.data[0]);
-          }
-          setDailyOrderCount(dailyOrderResult.data || 0);
-          setDailyCustomerCount(dailyCustomerResult.data || 0);
-        }
-      } catch (err) {
-        setError("Failed to load dashboard data.");
-      } finally {
-        setLoading(false);
-      }
+  const fetchDashboardData = async (): Promise<DashboardData> => {
+    const token = await getToken(); // Usando o token padrão
+    const response = await fetch('/api/restaurants', {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      throw new Error('Failed to fetch dashboard data');
     }
-    fetchData();
-  }, [userId, supabase]);
+    return response.json();
+  };
+
+  const { data, isLoading, isError, error } = useQuery<DashboardData, Error>({
+    queryKey: ['dashboardData', userId],
+    queryFn: fetchDashboardData,
+    enabled: !!userId, // A query depende apenas do userId agora
+  });
 
   const deleteRestaurantMutation = useMutation({
     mutationFn: async (restaurantId: string) => {
-      const token = await getToken({ template: "agilqrcode" });
+      const token = await getToken();
       const response = await fetch(`/api/restaurants?id=${restaurantId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` },
@@ -86,11 +63,10 @@ export default function Dashboard() {
         const errorData = await response.json().catch(() => ({ error: "Failed to delete restaurant" }));
         throw new Error(errorData.error);
       }
-      return;
     },
     onSuccess: () => {
       toast({ title: "Restaurante excluído com sucesso!" });
-      window.location.reload(); // Recarrega a página para atualizar a lista
+      queryClient.invalidateQueries({ queryKey: ['dashboardData', userId] });
     },
     onError: (err: Error) => {
       toast({ variant: "destructive", title: "Erro", description: err.message });
@@ -131,19 +107,19 @@ export default function Dashboard() {
         </div>
 
         <DashboardSummary
-            loading={loading}
-            error={error}
-            restaurantCount={restaurants.length}
-            tableCount={tableCounts.total_tables}
-            dailyOrderCount={dailyOrderCount}
-            dailyCustomerCount={dailyCustomerCount}
+            loading={isLoading}
+            error={isError ? error.message : null}
+            restaurantCount={data?.restaurants?.length ?? 0}
+            tableCount={data?.summary?.tableCount ?? 0}
+            dailyOrderCount={data?.summary?.dailyOrderCount ?? 0}
+            dailyCustomerCount={data?.summary?.dailyCustomerCount ?? 0}
         />
 
         <div className="grid gap-4 md:grid-cols-2">
             <RestaurantListCard
-                loading={loading}
-                error={error}
-                restaurants={restaurants}
+                loading={isLoading}
+                error={isError ? error.message : null}
+                restaurants={data?.restaurants ?? []}
                 onEdit={(restaurantId) => navigate(`/dashboard/restaurants/${restaurantId}/edit`)}
                 onDelete={handleDeleteClick}
             />
