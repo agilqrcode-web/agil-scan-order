@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client'; // Importa a instância singleton
 import { Order } from '@/types/order';
+import { useSupabase } from '@/contexts/SupabaseContext';
 
 export interface OrderNotification extends Order {
   isRead: boolean;
@@ -8,7 +8,7 @@ export interface OrderNotification extends Order {
 
 export function useRealtimeOrders() {
   const [newOrderNotifications, setNewOrderNotifications] = useState<OrderNotification[]>([]);
-  // A instância supabase agora é importada diretamente, não criada localmente
+  const supabase = useSupabase(); // Obtém a instância do Supabase do contexto
 
   const markAsRead = useCallback((notificationId: string) => {
     setNewOrderNotifications((prev) =>
@@ -23,6 +23,8 @@ export function useRealtimeOrders() {
   }, []);
 
   useEffect(() => {
+    if (!supabase) return; // Garante que o cliente Supabase esteja disponível
+
     console.log('Attempting to subscribe to orders_channel...');
     const channel = supabase
       .channel('orders_channel')
@@ -46,7 +48,7 @@ export function useRealtimeOrders() {
       console.log('Unsubscribing from orders_channel.');
       supabase.removeChannel(channel);
     };
-  }, [supabase]);
+  }, [supabase]); // Adiciona supabase como dependência
 
   const unreadCount = newOrderNotifications.filter((notif) => !notif.isRead).length;
 
