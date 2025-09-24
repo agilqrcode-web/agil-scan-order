@@ -53,7 +53,7 @@ export default function EditRestaurant() {
         if (!restaurantId || !getToken) return;
         try {
             setLoading(true);
-            const token = await getToken({ template: "agilqrcode" });
+            const token = await getToken();
             const response = await fetch(`/api/restaurants?id=${restaurantId}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -81,7 +81,7 @@ export default function EditRestaurant() {
                 logo_url: finalLogoUrl 
             };
 
-            const token = await getToken({ template: "agilqrcode" });
+            const token = await getToken();
             const response = await fetch('/api/restaurants', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },

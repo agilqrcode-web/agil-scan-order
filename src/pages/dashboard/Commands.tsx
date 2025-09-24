@@ -46,7 +46,7 @@ export default function Commands() {
 
   // Fetching
   const fetchOrders = async (): Promise<Order[]> => {
-    const token = await getToken({ template: "agilqrcode" });
+    const token = await getToken();
     const response = await fetch('/api/orders', {
       headers: { 'Authorization': `Bearer ${token}` },
     });
@@ -62,7 +62,7 @@ export default function Commands() {
   // Mutations
   const updateStatusMutation = useMutation({
     mutationFn: async ({ orderId, newStatus }: { orderId: string; newStatus: string }) => {
-      const token = await getToken({ template: "agilqrcode" });
+      const token = await getToken();
       const response = await fetch('/api/orders', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -80,7 +80,7 @@ export default function Commands() {
 
   const deleteOrderMutation = useMutation({
     mutationFn: async (orderId: string) => {
-      const token = await getToken({ template: "agilqrcode" });
+      const token = await getToken();
       const response = await fetch(`/api/orders?orderId=${orderId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` },

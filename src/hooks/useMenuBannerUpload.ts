@@ -91,20 +91,24 @@ export const useMenuBannerUpload = ({
 
     // Case 2: A new file was selected for upload
     if (bannerFile) {
-      await deleteOldBanner(); // Delete the old one before uploading
+      await deleteOldBanner();
 
       const fileExt = bannerFile.name.split('.').pop();
       const filePath = `${restaurantId}/${menuId}-${Date.now()}.${fileExt}`;
 
+      console.log("DEBUG: Attempting banner upload to path:", filePath); // NEW LOG
       const { error: uploadError } = await supabase.storage.from(bucketName).upload(filePath, bannerFile);
+      
       if (uploadError) {
+        console.error("DEBUG: Banner upload failed. Error details:", uploadError); // NEW LOG
         throw new Error(`Falha no upload do banner: ${uploadError.message}`);
       }
+      console.log("DEBUG: Banner upload successful to path:", filePath); // NEW LOG
 
       const { data: publicUrlData } = supabase.storage.from(bucketName).getPublicUrl(filePath);
       const newPublicUrl = publicUrlData.publicUrl;
       
-      setCurrentSavedUrl(newPublicUrl); // Update internal state with the new URL
+      setCurrentSavedUrl(newPublicUrl);
       return newPublicUrl;
     }
 
