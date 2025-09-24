@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useSupabase } from '@/contexts/SupabaseContext';
+import { useState, useEffect, useCallback } from 'react';
+import { SupabaseClient } from '@supabase/supabase-js';
 
 interface UseMenuBannerUploadProps {
   initialBannerUrl: string | null;
@@ -14,7 +14,7 @@ export const useMenuBannerUpload = ({
   restaurantId,
   setSaveMessage,
 }: UseMenuBannerUploadProps) => {
-  const supabase = useSupabase();
+  // const supabase = useSupabase(); // REMOVIDO
   
   // State for the image file selected by the user
   const [bannerFile, setBannerFile] = useState<File | null>(null);
@@ -66,8 +66,7 @@ export const useMenuBannerUpload = ({
     setIsBannerMarkedForDeletion(true);
   };
 
-  const uploadBanner = async (): Promise<string | null> => {
-    const supabase = useSupabase();
+  const uploadBanner = async (supabase: SupabaseClient): Promise<string | null> => {
     if (!supabase) {
         console.error("DEBUG: uploadBanner: Supabase client is null!"); // NEW LOG
         throw new Error("Supabase client not available.");
@@ -100,7 +99,7 @@ export const useMenuBannerUpload = ({
 
     // Case 2: A new file was selected for upload
     if (bannerFile) {
-      await deleteOldBanner();
+      await deleteOldBanner(); // Delete the old one before uploading
 
       const fileExt = bannerFile.name.split('.').pop();
       const filePath = `${restaurantId}/${menuId}-${Date.now()}.${fileExt}`;

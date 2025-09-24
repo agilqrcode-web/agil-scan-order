@@ -12,6 +12,8 @@ import { usePageHeader } from '@/contexts/PageHeaderContext';
 import { useToast } from "@/components/ui/use-toast";
 import { Spinner } from '@/components/ui/spinner';
 import { useMenuEditor, Category as HookCategory } from '@/hooks/useMenuEditor';
+import { useSupabase } from '@/contexts/SupabaseContext';
+import { SupabaseClient } from '@supabase/supabase-js';
 
 // Import extracted components
 import { MenuDetailsCard } from '@/components/dashboard/menu-editor/MenuDetailsCard';
@@ -52,6 +54,7 @@ export default function MenuEditor() {
   const { menuId } = useParams<{ menuId: string }>();
   const { setHeader, clearHeader } = usePageHeader();
   const { toast } = useToast();
+  const supabase = useSupabase();
 
   const { 
     data, 
@@ -102,7 +105,7 @@ export default function MenuEditor() {
     
     try {
         console.log("DEBUG: handleSaveAll: Calling uploadBanner()"); // NEW LOG
-        const newBannerUrl = await uploadBanner(); 
+        const newBannerUrl = await uploadBanner(supabase); 
         console.log("DEBUG: handleSaveAll: uploadBanner() returned:", newBannerUrl); // NEW LOG
         const updateData = { id: menuId, name: values.name, is_active: values.is_active, banner_url: newBannerUrl };
         await saveMenu(updateData);
@@ -114,7 +117,7 @@ export default function MenuEditor() {
     } finally {
         setIsSaving(false);
     }
-  }, [menuId, saveMenu, uploadBanner, resetBannerState, toast]);
+  }, [menuId, saveMenu, uploadBanner, resetBannerState, toast, supabase]);
 
   const handleCategoriesReordered = useCallback(async (reorderedCategories: HookCategory[]) => {
     const payload = reorderedCategories.map((c, index) => ({ id: c.id, position: index }));
