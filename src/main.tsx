@@ -29,7 +29,7 @@ function SupabaseProvider({ children }: { children: React.ReactNode }) {
       const newSupabaseClient = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
         auth: {
           storage: localStorage,
-          persistSession: false,
+          persistSession: true,
           autoRefreshToken: false,
         },
         global: {

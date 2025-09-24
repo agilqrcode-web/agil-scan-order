@@ -67,6 +67,15 @@ export const useMenuBannerUpload = ({
   };
 
   const uploadBanner = async (): Promise<string | null> => {
+    const supabase = useSupabase();
+    if (!supabase) {
+        console.error("DEBUG: uploadBanner: Supabase client is null!"); // NEW LOG
+        throw new Error("Supabase client not available.");
+    }
+    console.log("DEBUG: uploadBanner: Supabase client available."); // NEW LOG
+    console.log("DEBUG: uploadBanner: bannerFile state:", bannerFile); // NEW LOG
+    console.log("DEBUG: uploadBanner: isBannerMarkedForDeletion state:", isBannerMarkedForDeletion); // NEW LOG
+
     const bucketName = 'menu-banners';
 
     const deleteOldBanner = async () => {

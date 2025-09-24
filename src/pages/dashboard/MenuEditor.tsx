@@ -101,7 +101,9 @@ export default function MenuEditor() {
     setIsSaving(true);
     
     try {
-        const newBannerUrl = await uploadBanner();
+        console.log("DEBUG: handleSaveAll: Calling uploadBanner()"); // NEW LOG
+        const newBannerUrl = await uploadBanner(); 
+        console.log("DEBUG: handleSaveAll: uploadBanner() returned:", newBannerUrl); // NEW LOG
         const updateData = { id: menuId, name: values.name, is_active: values.is_active, banner_url: newBannerUrl };
         await saveMenu(updateData);
         resetBannerState();
