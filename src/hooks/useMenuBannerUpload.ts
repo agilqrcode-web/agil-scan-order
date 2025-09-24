@@ -56,6 +56,7 @@ export const useMenuBannerUpload = ({
     }
 
     setBannerFile(file);
+    console.log("DEBUG: handleBannerChange: bannerFile set to:", file); // NEW LOG
     setBannerPreview(URL.createObjectURL(file));
     setIsBannerMarkedForDeletion(false);
   };
