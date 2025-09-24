@@ -5,14 +5,8 @@ import type { Database } from './types';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-  auth: {
-    storage: localStorage,
-    persistSession: false, // Clerk gerencia a persistência da sessão
-    autoRefreshToken: false, // Clerk gerencia a renovação do token
-  },
-  global: {
-    // O token será definido dinamicamente pelo SupabaseProvider em main.tsx
-    headers: {},
-  },
-});
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+// A instância do Supabase será criada dinamicamente no SupabaseProvider
+// para garantir que o token de autenticação seja sempre o mais recente do Clerk.
