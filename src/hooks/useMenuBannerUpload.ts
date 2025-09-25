@@ -66,20 +66,12 @@ export const useMenuBannerUpload = ({
   const uploadBanner = useCallback(
     async (supabase: SupabaseClient): Promise<string | null> => {
       if (!menuId || !restaurantId) {
-        console.error("DEBUG: uploadBanner abortado. menuId ou restaurantId está faltando.", {
-          menuId,
-          restaurantId,
-        });
         throw new Error("Não é possível fazer o upload do banner: IDs do menu ou restaurante estão ausentes.");
       }
 
       if (!supabase) {
-        console.error("DEBUG: uploadBanner: Supabase client is null!");
         throw new Error("Supabase client not available.");
       }
-
-      console.log("DEBUG: uploadBanner: bannerFile =", bannerFile);
-      console.log("DEBUG: uploadBanner: isBannerMarkedForDeletion =", isBannerMarkedForDeletion);
 
       const bucketName = 'menu-banners';
 
@@ -89,15 +81,13 @@ export const useMenuBannerUpload = ({
         try {
           const idx = currentSavedUrl.indexOf(bucketName);
           if (idx === -1) {
-            console.warn("DEBUG: oldBannerPath não encontrado na URL:", currentSavedUrl);
             return;
           }
           const oldBannerPath = currentSavedUrl.substring(idx + bucketName.length + 1);
-          console.log("DEBUG: Removendo oldBannerPath =", oldBannerPath);
           if (oldBannerPath) {
             const { error } = await supabase.storage.from(bucketName).remove([oldBannerPath]);
             if (error) {
-              console.error("DEBUG: Erro ao remover banner antigo:", error);
+              console.error("Erro ao remover banner antigo:", error); // Keep this one as it's a real error
             }
           }
         } catch (error) {
@@ -119,23 +109,16 @@ export const useMenuBannerUpload = ({
         const fileExt = bannerFile.name.split('.').pop();
         const filePath = `${restaurantId}/${menuId}-${Date.now()}.${fileExt}`;
 
-        console.log("DEBUG: Tentando upload do banner em path =", filePath);
-
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from(bucketName)
           .upload(filePath, bannerFile, { upsert: true });
 
         if (uploadError) {
-          console.error("DEBUG: Falha no upload do banner:", uploadError);
           throw new Error(`Falha no upload do banner: ${(uploadError as StorageError).message}`);
         }
 
-        console.log("DEBUG: Upload realizado com sucesso:", uploadData);
-
         const { data: publicUrlData } = supabase.storage.from(bucketName).getPublicUrl(filePath);
         const newPublicUrl = publicUrlData.publicUrl;
-
-        console.log("DEBUG: Nova public URL gerada:", newPublicUrl);
 
         setCurrentSavedUrl(newPublicUrl);
         return newPublicUrl;

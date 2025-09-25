@@ -84,30 +84,6 @@ export function EditMenuItemModal({
             const fileName = `${Date.now()}.${fileExt}`;
             const filePath = `${restaurantId}/${fileName}`;
 
-            console.log('DEBUG EditMenuItemModal: Upload path:', filePath);
-            console.log('DEBUG EditMenuItemModal: Restaurant ID:', restaurantId);
-            console.log('DEBUG EditMenuItemModal: Supabase client:', supabase);
-
-            // Teste: verificar se o usuário tem permissões no restaurante
-            try {
-                const { data: testData, error: testError } = await supabase.rpc('is_restaurant_manager_or_owner', { p_restaurant_id: restaurantId });
-                console.log('DEBUG EditMenuItemModal: is_restaurant_manager_or_owner result:', testData, testError);
-                
-                // Teste adicional: verificar o JWT atual
-                const { data: jwtData, error: jwtError } = await supabase.rpc('get_clerk_user_id');
-                console.log('DEBUG EditMenuItemModal: get_clerk_user_id result:', jwtData, jwtError);
-                
-                // Teste: verificar se o usuário está na tabela restaurant_users
-                const { data: userData, error: userError } = await supabase
-                    .from('restaurant_users')
-                    .select('*')
-                    .eq('restaurant_id', restaurantId);
-                console.log('DEBUG EditMenuItemModal: restaurant_users data:', userData, userError);
-                
-            } catch (testErr) {
-                console.log('DEBUG EditMenuItemModal: Error testing permissions:', testErr);
-            }
-
             const { error: uploadError } = await supabase.storage
                 .from('menu-item-images')
                 .upload(filePath, imageFile);

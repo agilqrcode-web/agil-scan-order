@@ -17,82 +17,25 @@ if (!PUBLISHABLE_KEY) {
 }
 
 function SupabaseProvider({ children }: { children: React.ReactNode }) {
-  const { isSignedIn, getToken } = useAuth();
-  const [supabaseClient, setSupabaseClient] = useState<SupabaseClient<Database> | null>(null);
-  const [isSupabaseReady, setIsSupabaseReady] = useState(false);
-
-  useEffect(() => {
-    const initializeSupabase = async () => {
-      console.log(`SupabaseProvider: useEffect triggered. isSignedIn: ${isSignedIn}`);
-
-      // Sempre criar uma nova instância do cliente Supabase para garantir que os cabeçalhos sejam atualizados
-      const newSupabaseClient = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-        auth: {
-          storage: localStorage,
-          persistSession: true,
-          autoRefreshToken: false,
-        },
-        global: {
-          headers: {},
-        },
-      });
-
-      if (isSignedIn) {
-        try {
-          console.log('SupabaseProvider: Attempting to set Supabase session with Clerk JWT...');
+  const { getToken } = useAuth();
+  const [supabaseClient] = useState(() =>
+    createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+      global: {
+        // A função fetch customizada intercepta cada requisição
+        fetch: async (input, init) => {
+          // Obtém o token mais recente do Clerk
           const token = await getToken();
-          console.log('SupabaseProvider: Token obtained:', token ? `Length: ${token.length}` : 'null');
 
-          if (token) {
-            // Definir o token de acesso para a sessão do Supabase
-            await newSupabaseClient.auth.setSession({
-              access_token: token,
-              refresh_token: '' // Clerk gerencia refresh
-            });
-            // Definir o cabeçalho de autorização globalmente para todas as requisições HTTP
-            newSupabaseClient.realtime.setAuth(token); // Para Realtime
-            newSupabaseClient.functions.setAuth(token); // Para Edge Functions
-            // Para requisições REST (Storage, PostgREST), o setSession já deveria cuidar, mas vamos garantir
-            // A forma mais robusta é garantir que o fetcher subjacente use o token da sessão atual.
-            // Como o setSession atualiza o cliente, ele deve ser suficiente para o Storage.
-            console.log('SupabaseProvider: Supabase client session updated with Clerk JWT.');
-          } else {
-            console.log('SupabaseProvider: No token available, skipping session setup.');
-          }
-        } catch (error) {
-          console.error("SupabaseProvider: Error setting session:", error);
-        } finally {
-          setSupabaseClient(newSupabaseClient);
-          setIsSupabaseReady(true);
-        }
-      } else if (isSignedIn === false) {
-        try {
-          console.log('SupabaseProvider: User not signed in. Signing out Supabase session.');
-          await newSupabaseClient.auth.signOut();
-        } catch (error) {
-          console.error('SupabaseProvider: Error signing out Supabase session:', error);
-        } finally {
-          setSupabaseClient(newSupabaseClient);
-          setIsSupabaseReady(true);
-        }
-      } else { // isSignedIn is undefined (initial load)
-        setSupabaseClient(newSupabaseClient);
-        setIsSupabaseReady(true);
-      }
-    };
-
-    if (typeof isSignedIn !== 'undefined') {
-      initializeSupabase();
-    }
-  }, [isSignedIn, getToken]);
-
-  if (!isSupabaseReady || !supabaseClient) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <Spinner size="large" />
-      </div>
-    );
-  }
+          // Garante que o cabeçalho de autorização exista
+          const headers = new Headers(init?.headers);
+          headers.set("Authorization", `Bearer ${token}`);
+          
+          // Realiza a requisição original com o cabeçalho atualizado
+          return fetch(input, { ...init, headers });
+        },
+      },
+    })
+  );
 
   return (
     <SupabaseContext.Provider value={supabaseClient}>
@@ -103,7 +46,6 @@ function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
 function AppWithProviders() {
   const { isLoaded } = useAuth();
-  console.log(`AppWithProviders: Clerk isLoaded: ${isLoaded}`);
 
   if (!isLoaded) {
     return (
