@@ -131,6 +131,7 @@ export const useMenuBannerUpload = ({
   );
 
   return {
+    bannerFile, // Expor o arquivo para depuração
     bannerPreview,
     handleBannerChange,
     handleBannerRemove,

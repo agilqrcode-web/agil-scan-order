@@ -88,7 +88,7 @@ export default function MenuEditor() {
     }
   }, [data?.menu, menuForm]);
 
-  const { bannerPreview, handleBannerChange, handleBannerRemove, uploadBanner, resetBannerState } = useMenuBannerUpload({
+  const { bannerFile, bannerPreview, handleBannerChange, handleBannerRemove, uploadBanner, resetBannerState } = useMenuBannerUpload({
     initialBannerUrl: data?.menu?.banner_url || null,
     menuId: menuId || '',
     restaurantId: data?.menu?.restaurant_id || '',
@@ -99,25 +99,49 @@ export default function MenuEditor() {
     return data?.categories.map(cat => cat.name.toLowerCase()) || [];
   }, [data?.categories]);
 
-  const handleSaveAll = useCallback(async (values: MenuFormValues) => {
-    if (!menuId) return;
-    setIsSaving(true);
-    
-    try {
-        console.log("DEBUG: handleSaveAll: Calling uploadBanner()"); // NEW LOG
-        const newBannerUrl = await uploadBanner(supabase); 
-        console.log("DEBUG: handleSaveAll: uploadBanner() returned:", newBannerUrl); // NEW LOG
-        const updateData = { id: menuId, name: values.name, is_active: values.is_active, banner_url: newBannerUrl };
-        await saveMenu(updateData);
-        resetBannerState();
-        toast({ title: 'Sucesso!', description: 'Cardápio salvo com sucesso!' });
-    } catch (err) {
-        console.error("Error saving menu:", err);
-        toast({ variant: 'destructive', title: 'Erro', description: (err as Error).message || 'Falha ao salvar o cardápio.' });
-    } finally {
-        setIsSaving(false);
+  // FUNÇÃO DE DEBUG PARA ISOLAR O UPLOAD
+  const handleSaveAll = useCallback(async () => {
+    if (!supabase || !data?.menu) {
+      console.error("DEBUG: Supabase client ou dados do menu não estão disponíveis.");
+      return;
     }
-  }, [menuId, saveMenu, uploadBanner, resetBannerState, toast, supabase]);
+
+    if (!bannerFile) {
+      console.log("DEBUG: Nenhum arquivo de banner selecionado para upload.");
+      toast({ title: 'Aviso', description: 'Nenhum arquivo de imagem selecionado.' });
+      return;
+    }
+
+    console.log(`DEBUG: Iniciando tentativa de upload para o restaurante: ${data.menu.restaurant_id}`);
+    setIsSaving(true);
+
+    try {
+      const fileExt = bannerFile.name.split('.').pop();
+      const filePath = `${data.menu.restaurant_id}/${menuId}-${Date.now()}.${fileExt}`;
+
+      console.log(`DEBUG: Enviando arquivo '${bannerFile.name}' para o bucket 'menu-banners' no caminho: ${filePath}`);
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('menu-banners')
+        .upload(filePath, bannerFile, { upsert: true });
+
+      if (uploadError) {
+        // Se houver um erro de upload, ele será lançado aqui
+        throw uploadError;
+      }
+
+      // Se o upload for bem-sucedido
+      console.log("DEBUG: UPLOAD BEM-SUCEDIDO!", uploadData);
+      toast({ title: 'Debug: Sucesso!', description: 'A imagem foi enviada para o bucket com sucesso. Verifique o console.' });
+
+    } catch (err) {
+      // Captura qualquer erro lançado, incluindo o uploadError
+      console.error("DEBUG: FALHA NO UPLOAD! Objeto de erro completo:", err);
+      toast({ variant: 'destructive', title: 'Debug: Falha!', description: 'Ocorreu um erro no upload. Verifique o console.' });
+    } finally {
+      setIsSaving(false);
+    }
+  }, [supabase, data, bannerFile, menuId, toast]);
 
   const handleCategoriesReordered = useCallback(async (reorderedCategories: HookCategory[]) => {
     const payload = reorderedCategories.map((c, index) => ({ id: c.id, position: index }));
