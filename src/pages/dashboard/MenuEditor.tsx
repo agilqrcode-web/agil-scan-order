@@ -14,6 +14,8 @@ import { Spinner } from '@/components/ui/spinner';
 import { useMenuEditor, Category as HookCategory } from '@/hooks/useMenuEditor';
 import { useSupabase } from '@/contexts/SupabaseContext';
 import { SupabaseClient } from '@supabase/supabase-js';
+import { useSupabase } from '@/contexts/SupabaseContext';
+import { SupabaseClient } from '@supabase/supabase-js';
 
 // Import extracted components
 import { MenuDetailsCard } from '@/components/dashboard/menu-editor/MenuDetailsCard';

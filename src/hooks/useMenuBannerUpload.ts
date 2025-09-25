@@ -67,7 +67,7 @@ export const useMenuBannerUpload = ({
     setIsBannerMarkedForDeletion(true);
   };
 
-  const uploadBanner = async (supabase: SupabaseClient): Promise<string | null> => {
+  const uploadBanner = useCallback(async (supabase: SupabaseClient): Promise<string | null> => {
     if (!supabase) {
         console.error("DEBUG: uploadBanner: Supabase client is null!"); // NEW LOG
         throw new Error("Supabase client not available.");
@@ -123,7 +123,7 @@ export const useMenuBannerUpload = ({
 
     // Case 3: No changes to the banner
     return currentSavedUrl;
-  };
+  }, [bannerFile, isBannerMarkedForDeletion, currentSavedUrl, menuId, restaurantId, setSaveMessage]);
 
   return {
     bannerPreview,
