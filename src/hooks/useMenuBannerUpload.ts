@@ -14,18 +14,11 @@ export const useMenuBannerUpload = ({
   restaurantId,
   setSaveMessage,
 }: UseMenuBannerUploadProps) => {
-  // const supabase = useSupabase(); // REMOVIDO
-  
-  // State for the image file selected by the user
   const [bannerFile, setBannerFile] = useState<File | null>(null);
-  // State for the image preview URL (can be a blob URL or a remote URL)
   const [bannerPreview, setBannerPreview] = useState<string | null>(initialBannerUrl);
-  // State to track the currently saved URL in the database
   const [currentSavedUrl, setCurrentSavedUrl] = useState<string | null>(initialBannerUrl);
-  // State to flag if the user wants to delete the banner
   const [isBannerMarkedForDeletion, setIsBannerMarkedForDeletion] = useState(false);
 
-  // Sync states if the initial URL from props changes
   useEffect(() => {
     if (initialBannerUrl !== currentSavedUrl) {
       setBannerPreview(initialBannerUrl);
@@ -33,7 +26,6 @@ export const useMenuBannerUpload = ({
     }
   }, [initialBannerUrl, currentSavedUrl]);
 
-  // Clean up blob URLs to prevent memory leaks
   useEffect(() => {
     return () => {
       if (bannerPreview && bannerPreview.startsWith('blob:')) {
@@ -56,7 +48,6 @@ export const useMenuBannerUpload = ({
     }
 
     setBannerFile(file);
-    console.log("DEBUG: handleBannerChange: bannerFile set to:", file); // NEW LOG
     setBannerPreview(URL.createObjectURL(file));
     setIsBannerMarkedForDeletion(false);
   };
@@ -68,18 +59,24 @@ export const useMenuBannerUpload = ({
   };
 
   const uploadBanner = useCallback(async (supabase: SupabaseClient): Promise<string | null> => {
-    if (!supabase) {
-        console.error("DEBUG: uploadBanner: Supabase client is null!"); // NEW LOG
-        throw new Error("Supabase client not available.");
+    // ALTERAÇÃO PRINCIPAL: Adicionada uma proteção para evitar a execução com IDs vazios.
+    // Isso previne a falha de upload causada pela condição de corrida.
+    if (!menuId || !restaurantId) {
+      console.error("DEBUG: uploadBanner abortado. menuId ou restaurantId está faltando.", { menuId, restaurantId });
+      throw new Error("Não é possível fazer o upload do banner: IDs do menu ou restaurante estão ausentes.");
     }
-    console.log("DEBUG: uploadBanner: Supabase client available."); // NEW LOG
-    console.log("DEBUG: uploadBanner: bannerFile state:", bannerFile); // NEW LOG
-    console.log("DEBUG: uploadBanner: isBannerMarkedForDeletion state:", isBannerMarkedForDeletion); // NEW LOG
+    
+    if (!supabase) {
+      console.error("DEBUG: uploadBanner: Supabase client is null!");
+      throw new Error("Supabase client not available.");
+    }
+    
+    console.log("DEBUG: uploadBanner: bannerFile state:", bannerFile);
+    console.log("DEBUG: uploadBanner: isBannerMarkedForDeletion state:", isBannerMarkedForDeletion);
 
     const bucketName = 'menu-banners';
 
     const deleteOldBanner = async () => {
-      // Use the stateful URL, not a stale prop
       if (!currentSavedUrl) return;
       try {
         const oldBannerPath = currentSavedUrl.substring(currentSavedUrl.indexOf(bucketName) + bucketName.length + 1);
@@ -91,28 +88,26 @@ export const useMenuBannerUpload = ({
       }
     };
 
-    // Case 1: Banner is marked for deletion
     if (isBannerMarkedForDeletion) {
       await deleteOldBanner();
-      setCurrentSavedUrl(null); // Update internal state
+      setCurrentSavedUrl(null);
       return null;
     }
 
-    // Case 2: A new file was selected for upload
     if (bannerFile) {
-      await deleteOldBanner(); // Delete the old one before uploading
+      await deleteOldBanner();
 
       const fileExt = bannerFile.name.split('.').pop();
       const filePath = `${restaurantId}/${menuId}-${Date.now()}.${fileExt}`;
 
-      console.log("DEBUG: Attempting banner upload to path:", filePath); // NEW LOG
+      console.log("DEBUG: Attempting banner upload to path:", filePath);
       const { error: uploadError } = await supabase.storage.from(bucketName).upload(filePath, bannerFile);
       
       if (uploadError) {
-        console.error("DEBUG: Banner upload failed. Error details:", uploadError); // NEW LOG
+        console.error("DEBUG: Banner upload failed. Error details:", uploadError);
         throw new Error(`Falha no upload do banner: ${uploadError.message}`);
       }
-      console.log("DEBUG: Banner upload successful to path:", filePath); // NEW LOG
+      console.log("DEBUG: Banner upload successful to path:", filePath);
 
       const { data: publicUrlData } = supabase.storage.from(bucketName).getPublicUrl(filePath);
       const newPublicUrl = publicUrlData.publicUrl;
@@ -121,9 +116,8 @@ export const useMenuBannerUpload = ({
       return newPublicUrl;
     }
 
-    // Case 3: No changes to the banner
     return currentSavedUrl;
-  }, [bannerFile, isBannerMarkedForDeletion, currentSavedUrl, menuId, restaurantId, setSaveMessage]);
+  }, [bannerFile, isBannerMarkedForDeletion, currentSavedUrl, menuId, restaurantId]);
 
   return {
     bannerPreview,
