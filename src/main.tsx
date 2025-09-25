@@ -17,25 +17,48 @@ if (!PUBLISHABLE_KEY) {
 }
 
 function SupabaseProvider({ children }: { children: React.ReactNode }) {
-  const { getToken } = useAuth();
-  const [supabaseClient] = useState(() =>
-    createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-      global: {
-        // A função fetch customizada intercepta cada requisição
-        fetch: async (input, init) => {
-          // Obtém o token mais recente do Clerk
-          const token = await getToken();
+  const { getToken, isSignedIn, isLoaded } = useAuth();
+  const [supabaseClient, setSupabaseClient] = useState<SupabaseClient<Database> | null>(null);
 
-          // Garante que o cabeçalho de autorização exista
-          const headers = new Headers(init?.headers);
-          headers.set("Authorization", `Bearer ${token}`);
-          
-          // Realiza a requisição original com o cabeçalho atualizado
-          return fetch(input, { ...init, headers });
+  useEffect(() => {
+    if (isLoaded) {
+      // Cria um novo cliente Supabase com um interceptor de fetch.
+      // Este interceptor garante que cada requisição HTTP (Storage, DB, etc.)
+      // tenha um token do Clerk novo e válido.
+      const client = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+        global: {
+          fetch: async (input, init) => {
+            const token = await getToken();
+            const headers = new Headers(init?.headers);
+            if (token) {
+              headers.set("Authorization", `Bearer ${token}`);
+            }
+            return fetch(input, { ...init, headers });
+          },
         },
-      },
-    })
-  );
+      });
+
+      // Autentica a conexão WebSocket do Realtime.
+      // Isso é separado do fetch e é crucial para o funcionamento do Realtime.
+      if (isSignedIn) {
+        getToken().then(token => {
+          if (token) {
+            client.realtime.setAuth(token);
+          }
+        });
+      }
+      
+      setSupabaseClient(client);
+    }
+  }, [isLoaded, isSignedIn, getToken]);
+
+  if (!supabaseClient) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <Spinner size="large" />
+      </div>
+    );
+  }
 
   return (
     <SupabaseContext.Provider value={supabaseClient}>
