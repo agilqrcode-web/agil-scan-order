@@ -198,7 +198,7 @@ export default function MenuEditor() {
     });
 
     return () => clearHeader();
-  }, [isSaving, data?.menu?.name]); // Removidas dependências instáveis
+  }, [isSaving, data?.menu?.name, handleSaveAll]); // Adicionado handleSaveAll
 
   const handleItemNameInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
