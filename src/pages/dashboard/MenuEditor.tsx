@@ -99,6 +99,27 @@ export default function MenuEditor() {
     return data?.categories.map(cat => cat.name.toLowerCase()) || [];
   }, [data?.categories]);
 
+  const [categories, setCategories] = useState<HookCategory[]>([]);
+
+  useEffect(() => {
+    if (data?.categories) {
+      setCategories(data.categories);
+    }
+  }, [data?.categories]);
+
+  const handleMoveCategory = useCallback((index: number, direction: 'up' | 'down') => {
+    const newCategories = [...categories];
+    const toIndex = direction === 'up' ? index - 1 : index + 1;
+
+    if (toIndex < 0 || toIndex >= newCategories.length) return;
+
+    const element = newCategories.splice(index, 1)[0];
+    newCategories.splice(toIndex, 0, element);
+
+    setCategories(newCategories); // Update UI immediately
+    handleCategoriesReordered(newCategories); // Persist in the background
+  }, [categories, handleCategoriesReordered]);
+
   const handleSaveAll = useCallback(async (values: MenuFormValues) => {
     if (!menuId || !supabase) return;
     setIsSaving(true);
@@ -198,8 +219,8 @@ export default function MenuEditor() {
         onBannerRemove={handleBannerRemove}
       />
       <CategoriesList
-        categories={data.categories || []}
-        onCategoriesReordered={handleCategoriesReordered}
+        categories={categories}
+        handleMoveCategory={handleMoveCategory}
         handleDeleteCategory={(id) => setCategoryToDelete(id)}
         handleEditMenuItem={(item) => {
           editMenuItemForm.reset(item);
