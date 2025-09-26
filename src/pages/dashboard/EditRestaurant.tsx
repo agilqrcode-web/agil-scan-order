@@ -3,7 +3,7 @@ import { RestaurantDetailsCard } from "@/components/dashboard/restaurant-editor/
 import { RestaurantInfoCard } from "@/components/dashboard/restaurant-editor/RestaurantInfoCard";
 import { RestaurantLogoCard } from "@/components/dashboard/restaurant-editor/RestaurantLogoCard";
 import { useNavigate, useParams } from "react-router-dom";
-import { useEffect, useState, useCallback, useRef } from "react"; // Adicionado useRef
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@clerk/clerk-react";
 import { usePageHeader } from "@/contexts/PageHeaderContext";
@@ -26,6 +26,11 @@ export interface Restaurant {
     created_at: string | null;
 }
 
+// Tipo para a ref do componente filho
+interface InfoCardHandle {
+    getOpeningHours: () => string;
+}
+
 export default function EditRestaurant() {
     const navigate = useNavigate();
     const { restaurantId } = useParams<{ restaurantId: string }>();
@@ -37,8 +42,9 @@ export default function EditRestaurant() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
+    
+    const infoCardRef = useRef<InfoCardHandle>(null); // Ref para o componente filho
 
-    // Usar uma ref para manter a versão mais recente do estado sem causar re-renderizações
     const restaurantRef = useRef(restaurant);
     useEffect(() => {
         restaurantRef.current = restaurant;
@@ -77,15 +83,19 @@ export default function EditRestaurant() {
     }, [fetchRestaurant]);
 
     const handleSave = useCallback(async () => {
-        const currentRestaurant = restaurantRef.current; // Usar a ref para obter o estado mais recente
-        if (!currentRestaurant) return;
+        const currentRestaurant = restaurantRef.current;
+        if (!currentRestaurant || !infoCardRef.current) return;
 
         setIsSaving(true);
         try {
             const finalLogoUrl = await processLogoChange(currentRestaurant.logo_url);
+            // Pega o valor final dos horários diretamente do filho no momento de salvar
+            const finalOpeningHours = infoCardRef.current.getOpeningHours();
+
             const dataToSave = { 
                 ...currentRestaurant, 
-                logo_url: finalLogoUrl 
+                logo_url: finalLogoUrl,
+                opening_hours: finalOpeningHours, // Usa o valor obtido do filho
             };
 
             const token = await getToken();
@@ -109,7 +119,7 @@ export default function EditRestaurant() {
         } finally {
             setIsSaving(false);
         }
-    }, [getToken, processLogoChange, toast]); // Dependências estáveis
+    }, [getToken, processLogoChange, toast]);
 
     useEffect(() => {
         const saveAction = (
@@ -126,11 +136,12 @@ export default function EditRestaurant() {
         });
 
         return () => clearHeader();
-    // Dependências simplificadas para evitar o loop
     }, [isSaving, loading, restaurant?.name, handleSave, setHeader, clearHeader]);
 
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | { target: { id: string, value: string } }) => {
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { id, value } = e.target;
+        // Este handler não mexe mais com opening_hours
+        if (id === 'opening_hours') return;
         setRestaurant(prev => (prev ? { ...prev, [id]: value } : null));
     };
 
@@ -151,7 +162,12 @@ export default function EditRestaurant() {
                     {restaurant && (
                         <>
                             <RestaurantDetailsCard restaurant={restaurant} onInputChange={handleInputChange} />
-                            <RestaurantInfoCard restaurant={restaurant} onInputChange={handleInputChange} onPaymentMethodChange={handlePaymentMethodChange} />
+                            <RestaurantInfoCard 
+                                ref={infoCardRef} // Passa a ref para o filho
+                                restaurant={restaurant} 
+                                onInputChange={handleInputChange} 
+                                onPaymentMethodChange={handlePaymentMethodChange} 
+                            />
                         </>
                     )}
                 </div>
