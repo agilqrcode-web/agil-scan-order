@@ -144,7 +144,7 @@ function DashboardHeader() {
 
             <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard/notifications")} className="relative">
               <Bell className="h-4 w-4" />
-              {newOrdersCount > 0 && (
+              {unreadCount > 0 && (
                 <Badge variant="destructive" className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center rounded-full text-xs">
                   {unreadCount}
                 </Badge>
