@@ -3,8 +3,7 @@ import { RestaurantDetailsCard } from "@/components/dashboard/restaurant-editor/
 import { RestaurantInfoCard } from "@/components/dashboard/restaurant-editor/RestaurantInfoCard";
 import { RestaurantLogoCard } from "@/components/dashboard/restaurant-editor/RestaurantLogoCard";
 import { useNavigate, useParams } from "react-router-dom";
-import { useEffect, useState, useCallback } from "react";
-// import { Spinner } from "@/components/ui/spinner"; // Removido
+import { useEffect, useState, useCallback, useRef } from "react"; // Adicionado useRef
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@clerk/clerk-react";
 import { usePageHeader } from "@/contexts/PageHeaderContext";
@@ -39,6 +38,12 @@ export default function EditRestaurant() {
     const [error, setError] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
 
+    // Usar uma ref para manter a versão mais recente do estado sem causar re-renderizações
+    const restaurantRef = useRef(restaurant);
+    useEffect(() => {
+        restaurantRef.current = restaurant;
+    }, [restaurant]);
+
     const { 
         logoPreview, 
         handleFileChange, 
@@ -72,12 +77,14 @@ export default function EditRestaurant() {
     }, [fetchRestaurant]);
 
     const handleSave = useCallback(async () => {
-        if (!restaurant) return;
+        const currentRestaurant = restaurantRef.current; // Usar a ref para obter o estado mais recente
+        if (!currentRestaurant) return;
+
         setIsSaving(true);
         try {
-            const finalLogoUrl = await processLogoChange(restaurant.logo_url);
+            const finalLogoUrl = await processLogoChange(currentRestaurant.logo_url);
             const dataToSave = { 
-                ...restaurant, 
+                ...currentRestaurant, 
                 logo_url: finalLogoUrl 
             };
 
@@ -102,11 +109,9 @@ export default function EditRestaurant() {
         } finally {
             setIsSaving(false);
         }
-    }, [restaurant, getToken, processLogoChange, toast]);
+    }, [getToken, processLogoChange, toast]); // Dependências estáveis
 
     useEffect(() => {
-        // Temporariamente comentado para teste de loop infinito
-        /*
         const saveAction = (
             <Button size="icon" onClick={handleSave} disabled={isSaving || loading}>
                 {isSaving ? 'Salvando...' : <Save className="h-4 w-4" />}
@@ -121,12 +126,12 @@ export default function EditRestaurant() {
         });
 
         return () => clearHeader();
-        */
-    }, [isSaving, loading, restaurant, handleSave, setHeader, clearHeader]);
+    // Dependências simplificadas para evitar o loop
+    }, [isSaving, loading, restaurant?.name, handleSave, setHeader, clearHeader]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | { target: { id: string, value: string } }) => {
         const { id, value } = e.target;
-        if (restaurant) setRestaurant({ ...restaurant, [id]: value });
+        setRestaurant(prev => (prev ? { ...prev, [id]: value } : null));
     };
 
     const handlePaymentMethodChange = (method: string) => {
@@ -136,7 +141,7 @@ export default function EditRestaurant() {
         setRestaurant({ ...restaurant, payment_methods: newMethods.join(', ') });
     };
 
-    if (loading) return <div className="flex justify-center items-center h-64">Carregando...</div>; // Substituído Spinner
+    if (loading) return <div className="flex justify-center items-center h-64">Carregando...</div>;
     if (error) return <div className="text-red-500 text-center">{error}</div>;
 
     return (

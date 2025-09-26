@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Toggle } from "@/components/ui/toggle";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Checkbox } from "@/components/ui/checkbox"; // Importar Checkbox
 import { Restaurant } from "@/pages/dashboard/EditRestaurant";
 import { useState, useEffect } from "react";
 
@@ -13,9 +13,21 @@ interface RestaurantInfoCardProps {
     onPaymentMethodChange: (method: string) => void;
 }
 
+const COMMON_PAYMENT_METHODS = ["Dinheiro", "Cartão de Crédito", "Cartão de Débito", "Pix"];
+
 type DayHours = { enabled: boolean; open: string; close: string };
 type StructuredHours = { weekday: DayHours; saturday: DayHours; sunday: DayHours };
 
+// Helper para montar a string de horário a partir do estado estruturado
+const buildHoursString = (hours: StructuredHours): string => {
+    const parts: string[] = [];
+    if (hours.weekday.enabled) parts.push(`Seg-Sex: ${hours.weekday.open} - ${hours.weekday.close}`);
+    if (hours.saturday.enabled) parts.push(`Sáb: ${hours.saturday.open} - ${hours.saturday.close}`);
+    if (hours.sunday.enabled) parts.push(`Dom: ${hours.sunday.open} - ${hours.sunday.close}`);
+    return parts.join(' | ');
+};
+
+// Helper para interpretar a string e preencher o estado estruturado
 const parseHoursString = (hoursString: string | null): StructuredHours => {
     const initialState: StructuredHours = {
         weekday: { enabled: false, open: '09:00', close: '18:00' },
@@ -47,22 +59,20 @@ const parseHoursString = (hoursString: string | null): StructuredHours => {
 export function RestaurantInfoCard({ restaurant, onInputChange, onPaymentMethodChange }: RestaurantInfoCardProps) {
     const selectedMethods = restaurant.payment_methods ? restaurant.payment_methods.split(', ').filter(m => m) : [];
     
-    // O estado agora é local e inicializado com os dados do restaurante.
     const [structuredHours, setStructuredHours] = useState<StructuredHours>(() => parseHoursString(restaurant.opening_hours));
 
-    // O useEffect que causava o loop foi REMOVIDO para o teste.
+    // Quando o estado estruturado local muda, atualiza o estado pai com a string formatada
+    useEffect(() => {
+        const newHoursString = buildHoursString(structuredHours);
+        // Simula um evento de input para usar o handler do pai
+        onInputChange({ target: { id: 'opening_hours', value: newHoursString } });
+    }, [structuredHours]);
 
-    // A função de alteração agora é simplificada para depuração.
     const handleHoursChange = (day: keyof StructuredHours, field: keyof DayHours, value: string | boolean) => {
-        console.log(`DEBUG: handleHoursChange chamado para: ${day}, ${field}, ${value}`);
-        setStructuredHours(prev => {
-            const newState = {
-                ...prev,
-                [day]: { ...prev[day], [field]: value },
-            };
-            console.log("DEBUG: Novo estado a ser aplicado:", newState);
-            return newState;
-        });
+        setStructuredHours(prev => ({
+            ...prev,
+            [day]: { ...prev[day], [field]: value },
+        }));
     };
 
     const HoursRow = ({ day, label }: { day: keyof StructuredHours, label: string }) => (
@@ -111,6 +121,7 @@ export function RestaurantInfoCard({ restaurant, onInputChange, onPaymentMethodC
                     <Input id="phone" placeholder="(XX) XXXX-XXXX" value={restaurant.phone || ''} onChange={onInputChange} />
                 </div>
                 
+                {/* Novo formulário de Horário de Funcionamento */}
                 <div className="space-y-3">
                     <Label>Horário de Funcionamento</Label>
                     <HoursRow day="weekday" label="Segunda a Sexta" />
@@ -126,7 +137,7 @@ export function RestaurantInfoCard({ restaurant, onInputChange, onPaymentMethodC
                 <div className="space-y-2">
                     <Label>Métodos de Pagamento</Label>
                     <div className="flex flex-wrap gap-2">
-                        {["Dinheiro", "Cartão de Crédito", "Cartão de Débito", "Pix"].map((method) => (
+                        {COMMON_PAYMENT_METHODS.map((method) => (
                             <Toggle
                                 key={method}
                                 variant="outline"
