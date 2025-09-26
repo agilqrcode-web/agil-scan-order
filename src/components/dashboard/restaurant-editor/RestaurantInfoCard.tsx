@@ -5,7 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Toggle } from "@/components/ui/toggle";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Restaurant } from "@/pages/dashboard/EditRestaurant";
-import { useState, forwardRef, useImperativeHandle } from "react";
+import { useState, forwardRef, useImperativeHandle, useEffect } from "react";
 
 // As props agora incluem uma ref, mas não mais onInputChange para os horários
 interface RestaurantInfoCardProps {
@@ -52,6 +52,10 @@ export const RestaurantInfoCard = forwardRef<{
     const selectedMethods = restaurant.payment_methods ? restaurant.payment_methods.split(', ').filter(m => m) : [];
     
     const [structuredHours, setStructuredHours] = useState<StructuredHours>(() => parseHoursString(restaurant.opening_hours));
+
+    useEffect(() => {
+        setStructuredHours(parseHoursString(restaurant.opening_hours));
+    }, [restaurant.opening_hours]);
 
     // useImperativeHandle expõe a função para o componente pai através da ref
     useImperativeHandle(ref, () => ({
