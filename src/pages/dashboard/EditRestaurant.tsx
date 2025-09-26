@@ -123,8 +123,12 @@ export default function EditRestaurant() {
 
     useEffect(() => {
         const saveAction = (
-            <Button size="icon" onClick={handleSave} disabled={isSaving || loading}>
-                {isSaving ? 'Salvando...' : <Save className="h-4 w-4" />}
+            <Button 
+                size="icon" 
+                onClick={() => console.log('TESTE: Botão Salvar clicado!')} 
+                disabled={isSaving || loading}
+            >
+                <Save className="h-4 w-4" />
             </Button>
         );
 
@@ -136,7 +140,7 @@ export default function EditRestaurant() {
         });
 
         return () => clearHeader();
-    }, [isSaving, loading, restaurant?.name, handleSave, setHeader, clearHeader]);
+    }, [isSaving, loading, restaurant?.name, setHeader, clearHeader]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { id, value } = e.target;
