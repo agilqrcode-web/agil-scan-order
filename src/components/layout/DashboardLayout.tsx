@@ -97,7 +97,7 @@ function DashboardHeader() {
   const { user } = useUser();
   const { signOut } = useClerk();
   const navigate = useNavigate();
-  unreadCount
+  const { unreadCount } = useNotifications();
   
   // Consumir o contexto do cabeçalho
   const { title, backButtonHref, headerActions } = usePageHeader();
