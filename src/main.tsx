@@ -50,7 +50,8 @@ function SupabaseProvider({ children }: { children: React.ReactNode }) {
       
       setSupabaseClient(client);
     }
-  }, [isLoaded, isSignedIn, getToken]);
+    // }, [isLoaded, isSignedIn, getToken]); // Original principle, causes infinite loop due to getToken function reference changing on every render.
+    }, [isLoaded, isSignedIn]); // Corrected dependencies to prevent loop while maintaining reactivity to auth state changes.
 
   if (!supabaseClient) {
     return (

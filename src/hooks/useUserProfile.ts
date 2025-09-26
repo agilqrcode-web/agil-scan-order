@@ -55,7 +55,7 @@ export function useUserProfile() {
   });
 
   const profileComplete = !!profileData;
-  console.log(`useUserProfile: Profile complete status: ${profileComplete}, Loading: ${loading}`);
+
 
   return { profileComplete, loading, refetch };
 }
