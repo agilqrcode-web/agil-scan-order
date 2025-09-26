@@ -105,6 +105,8 @@ export default function EditRestaurant() {
     }, [restaurant, getToken, processLogoChange, toast]);
 
     useEffect(() => {
+        // Temporariamente comentado para teste de loop infinito
+        /*
         const saveAction = (
             <Button size="icon" onClick={handleSave} disabled={isSaving || loading}>
                 {isSaving ? 'Salvando...' : <Save className="h-4 w-4" />}
@@ -119,6 +121,7 @@ export default function EditRestaurant() {
         });
 
         return () => clearHeader();
+        */
     }, [isSaving, loading, restaurant, handleSave, setHeader, clearHeader]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | { target: { id: string, value: string } }) => {
