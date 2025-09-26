@@ -66,7 +66,7 @@ export function RestaurantInfoCard({ restaurant, onInputChange, onPaymentMethodC
         const newHoursString = buildHoursString(structuredHours);
         // Simula um evento de input para usar o handler do pai
         onInputChange({ target: { id: 'opening_hours', value: newHoursString } });
-    }, [structuredHours]);
+    }, [structuredHours, onInputChange]);
 
     const handleHoursChange = (day: keyof StructuredHours, field: keyof DayHours, value: string | boolean) => {
         setStructuredHours(prev => ({
