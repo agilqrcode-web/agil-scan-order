@@ -70,6 +70,7 @@ export default function MenuEditor() {
   } = useMenuEditor(menuId);
 
   const [isSaving, setIsSaving] = useState(false);
+  const [categories, setCategories] = useState<HookCategory[]>([]);
   const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
   const [isAddMenuItemModalOpen, setIsAddMenuItemModalOpen] = useState(false);
   const [isEditMenuItemModalOpen, setIsEditMenuItemModalOpen] = useState(false);
@@ -87,6 +88,12 @@ export default function MenuEditor() {
       menuForm.reset(data.menu);
     }
   }, [data?.menu, menuForm]);
+
+  useEffect(() => {
+    if (data?.categories) {
+      setCategories(data.categories);
+    }
+  }, [data?.categories]);
 
   const { bannerPreview, handleBannerChange, handleBannerRemove, uploadBanner, resetBannerState } = useMenuBannerUpload({
     initialBannerUrl: data?.menu?.banner_url || null,
@@ -126,6 +133,21 @@ export default function MenuEditor() {
       toast({ variant: "destructive", title: 'Erro', description: 'Não foi possível salvar a ordem das categorias.' });
     }
   }, [saveCategoryOrder, toast]);
+
+  const handleMoveCategory = useCallback((index: number, direction: 'up' | 'down') => {
+    const newCategories = [...categories];
+    const toIndex = direction === 'up' ? index - 1 : index + 1;
+
+    if (toIndex < 0 || toIndex >= newCategories.length) {
+        return;
+    }
+
+    const element = newCategories.splice(index, 1)[0];
+    newCategories.splice(toIndex, 0, element);
+
+    setCategories(newCategories);
+    handleCategoriesReordered(newCategories);
+  }, [categories, handleCategoriesReordered]);
 
   const handleSaveCategoryConfirm = useCallback(async (category: Partial<CategoryFormValues>) => {
     if (!data?.menu) return;
@@ -172,7 +194,7 @@ export default function MenuEditor() {
     });
 
     return () => clearHeader();
-  }, [isSaving, data?.menu?.name, handleSaveAll]); // Adicionado handleSaveAll
+  }, [isSaving, data?.menu?.name, handleSaveAll]);
 
   const handleItemNameInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -198,8 +220,8 @@ export default function MenuEditor() {
         onBannerRemove={handleBannerRemove}
       />
       <CategoriesList
-        categories={data.categories || []}
-        handleMoveCategory={() => console.log("Move category clicked!")}
+        categories={categories}
+        handleMoveCategory={handleMoveCategory}
         handleDeleteCategory={(id) => setCategoryToDelete(id)}
         handleEditMenuItem={(item) => {
           editMenuItemForm.reset(item);
