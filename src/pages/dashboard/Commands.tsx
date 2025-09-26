@@ -36,9 +36,8 @@ export default function Commands() {
         description: `Você tem ${unreadCount} novo(s) pedido(s) aguardando.`, 
       });
       queryClient.invalidateQueries({ queryKey: ['orders'] });
-      clearAllNotifications();
     }
-  }, [unreadCount, queryClient, toast, clearAllNotifications]);
+  }, [unreadCount, queryClient, toast]);
 
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
