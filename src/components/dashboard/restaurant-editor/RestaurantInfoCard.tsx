@@ -45,6 +45,43 @@ const parseHoursString = (hoursString: string | null): StructuredHours => {
     return initialState;
 };
 
+// REFACTOR: Moved HoursRow outside of the main component
+const HoursRow = ({ day, label, structuredHours, handleHoursChange }: {
+    day: keyof StructuredHours;
+    label: string;
+    structuredHours: StructuredHours;
+    handleHoursChange: (day: keyof StructuredHours, field: keyof DayHours, value: string | boolean) => void;
+}) => (
+    <div className="flex flex-col items-start gap-3 p-3 border rounded-md sm:flex-row sm:items-center sm:gap-4">
+        <div className="flex items-center gap-4">
+            <Checkbox
+                id={`check-${day}`}
+                checked={structuredHours[day].enabled}
+                onCheckedChange={(checked) => handleHoursChange(day, 'enabled', !!checked)}
+            />
+            <Label htmlFor={`check-${day}`} className="whitespace-nowrap">{label}</Label>
+        </div>
+        <div className="flex items-center gap-2 w-full sm:w-auto sm:flex-grow">
+            <Input
+                type="time"
+                className="w-full"
+                value={structuredHours[day].open}
+                onChange={(e) => handleHoursChange(day, 'open', e.target.value)}
+                disabled={!structuredHours[day].enabled}
+            />
+            <span className="mx-1">-</span>
+            <Input
+                type="time"
+                className="w-full"
+                value={structuredHours[day].close}
+                onChange={(e) => handleHoursChange(day, 'close', e.target.value)}
+                disabled={!structuredHours[day].enabled}
+            />
+        </div>
+    </div>
+);
+
+
 // O componente é envolvido por forwardRef para poder receber uma ref do pai
 export const RestaurantInfoCard = forwardRef<{
     getOpeningHours: () => string;
@@ -69,36 +106,6 @@ export const RestaurantInfoCard = forwardRef<{
         }));
     };
 
-    const HoursRow = ({ day, label }: { day: keyof StructuredHours, label: string }) => (
-        <div className="flex flex-col items-start gap-3 p-3 border rounded-md sm:flex-row sm:items-center sm:gap-4">
-            <div className="flex items-center gap-4">
-                <Checkbox
-                    id={`check-${day}`}
-                    checked={structuredHours[day].enabled}
-                    onCheckedChange={(checked) => handleHoursChange(day, 'enabled', !!checked)}
-                />
-                <Label htmlFor={`check-${day}`} className="whitespace-nowrap">{label}</Label>
-            </div>
-            <div className="flex items-center gap-2 w-full sm:w-auto sm:flex-grow">
-                <Input
-                    type="time"
-                    className="w-full"
-                    value={structuredHours[day].open}
-                    onChange={(e) => handleHoursChange(day, 'open', e.target.value)}
-                    disabled={!structuredHours[day].enabled}
-                />
-                <span className="mx-1">-</span>
-                <Input
-                    type="time"
-                    className="w-full"
-                    value={structuredHours[day].close}
-                    onChange={(e) => handleHoursChange(day, 'close', e.target.value)}
-                    disabled={!structuredHours[day].enabled}
-                />
-            </div>
-        </div>
-    );
-
     return (
         <Card>
             <CardHeader>
@@ -117,9 +124,9 @@ export const RestaurantInfoCard = forwardRef<{
                 
                 <div className="space-y-3">
                     <Label>Horário de Funcionamento</Label>
-                    <HoursRow day="weekday" label="Segunda a Sexta" />
-                    <HoursRow day="saturday" label="Sábado" />
-                    <HoursRow day="sunday" label="Domingo" />
+                    <HoursRow day="weekday" label="Segunda a Sexta" structuredHours={structuredHours} handleHoursChange={handleHoursChange} />
+                    <HoursRow day="saturday" label="Sábado" structuredHours={structuredHours} handleHoursChange={handleHoursChange} />
+                    <HoursRow day="sunday" label="Domingo" structuredHours={structuredHours} handleHoursChange={handleHoursChange} />
                 </div>
 
                 <div>
