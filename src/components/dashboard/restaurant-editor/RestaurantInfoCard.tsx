@@ -4,24 +4,66 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Toggle } from "@/components/ui/toggle";
 import { Checkbox } from "@/components/ui/checkbox";
-import type { Restaurant, StructuredHours, DayHours } from "@/pages/dashboard/EditRestaurant";
+import { Restaurant } from "@/pages/dashboard/EditRestaurant";
+import { useState, useEffect } from "react";
 
 interface RestaurantInfoCardProps {
     restaurant: Restaurant;
-    structuredHours: StructuredHours;
-    onInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+    onInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | { target: { id: string, value: string } }) => void;
     onPaymentMethodChange: (method: string) => void;
-    onHoursChange: (day: keyof StructuredHours, field: keyof DayHours, value: string | boolean) => void;
 }
 
-export function RestaurantInfoCard({ 
-    restaurant, 
-    structuredHours,
-    onInputChange, 
-    onPaymentMethodChange, 
-    onHoursChange 
-}: RestaurantInfoCardProps) {
+type DayHours = { enabled: boolean; open: string; close: string };
+type StructuredHours = { weekday: DayHours; saturday: DayHours; sunday: DayHours };
+
+const parseHoursString = (hoursString: string | null): StructuredHours => {
+    const initialState: StructuredHours = {
+        weekday: { enabled: false, open: '09:00', close: '18:00' },
+        saturday: { enabled: false, open: '09:00', close: '22:00' },
+        sunday: { enabled: false, open: '10:00', close: '16:00' },
+    };
+    if (!hoursString) return initialState;
+
+    const parts = hoursString.split('|').map(p => p.trim());
+    parts.forEach(part => {
+        const weekdayMatch = part.match(/Seg-Sex: (\d{2}:\d{2}) - (\d{2}:\d{2})/);
+        if (weekdayMatch) {
+            initialState.weekday = { enabled: true, open: weekdayMatch[1], close: weekdayMatch[2] };
+            return;
+        }
+        const saturdayMatch = part.match(/Sáb: (\d{2}:\d{2}) - (\d{2}:\d{2})/);
+        if (saturdayMatch) {
+            initialState.saturday = { enabled: true, open: saturdayMatch[1], close: saturdayMatch[2] };
+            return;
+        }
+        const sundayMatch = part.match(/Dom: (\d{2}:\d{2}) - (\d{2}:\d{2})/);
+        if (sundayMatch) {
+            initialState.sunday = { enabled: true, open: sundayMatch[1], close: sundayMatch[2] };
+        }
+    });
+    return initialState;
+};
+
+export function RestaurantInfoCard({ restaurant, onInputChange, onPaymentMethodChange }: RestaurantInfoCardProps) {
     const selectedMethods = restaurant.payment_methods ? restaurant.payment_methods.split(', ').filter(m => m) : [];
+    
+    // O estado agora é local e inicializado com os dados do restaurante.
+    const [structuredHours, setStructuredHours] = useState<StructuredHours>(() => parseHoursString(restaurant.opening_hours));
+
+    // O useEffect que causava o loop foi REMOVIDO para o teste.
+
+    // A função de alteração agora é simplificada para depuração.
+    const handleHoursChange = (day: keyof StructuredHours, field: keyof DayHours, value: string | boolean) => {
+        console.log(`DEBUG: handleHoursChange chamado para: ${day}, ${field}, ${value}`);
+        setStructuredHours(prev => {
+            const newState = {
+                ...prev,
+                [day]: { ...prev[day], [field]: value },
+            };
+            console.log("DEBUG: Novo estado a ser aplicado:", newState);
+            return newState;
+        });
+    };
 
     const HoursRow = ({ day, label }: { day: keyof StructuredHours, label: string }) => (
         <div className="flex flex-col items-start gap-3 p-3 border rounded-md sm:flex-row sm:items-center sm:gap-4">
@@ -29,7 +71,7 @@ export function RestaurantInfoCard({
                 <Checkbox
                     id={`check-${day}`}
                     checked={structuredHours[day].enabled}
-                    onCheckedChange={(checked) => onHoursChange(day, 'enabled', !!checked)}
+                    onCheckedChange={(checked) => handleHoursChange(day, 'enabled', !!checked)}
                 />
                 <Label htmlFor={`check-${day}`} className="whitespace-nowrap">{label}</Label>
             </div>
@@ -38,7 +80,7 @@ export function RestaurantInfoCard({
                     type="time"
                     className="w-full"
                     value={structuredHours[day].open}
-                    onChange={(e) => onHoursChange(day, 'open', e.target.value)}
+                    onChange={(e) => handleHoursChange(day, 'open', e.target.value)}
                     disabled={!structuredHours[day].enabled}
                 />
                 <span className="mx-1">-</span>
@@ -46,7 +88,7 @@ export function RestaurantInfoCard({
                     type="time"
                     className="w-full"
                     value={structuredHours[day].close}
-                    onChange={(e) => onHoursChange(day, 'close', e.target.value)}
+                    onChange={(e) => handleHoursChange(day, 'close', e.target.value)}
                     disabled={!structuredHours[day].enabled}
                 />
             </div>
