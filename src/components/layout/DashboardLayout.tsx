@@ -97,7 +97,7 @@ function DashboardHeader() {
   const { user } = useUser();
   const { signOut } = useClerk();
   const navigate = useNavigate();
-  const { newOrdersCount } = useNotifications();
+  unreadCount
   
   // Consumir o contexto do cabeçalho
   const { title, backButtonHref, headerActions } = usePageHeader();
@@ -146,7 +146,7 @@ function DashboardHeader() {
               <Bell className="h-4 w-4" />
               {newOrdersCount > 0 && (
                 <Badge variant="destructive" className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center rounded-full text-xs">
-                  {newOrdersCount}
+                  {unreadCount}
                 </Badge>
               )}
             </Button>
@@ -209,7 +209,7 @@ export default function DashboardLayout() {
       <PageHeaderProvider>
         <NotificationsProvider>
           <DashboardLayoutContent>
-            <Outlet key={location.pathname} />
+            <Outlet />
           </DashboardLayoutContent>
         </NotificationsProvider>
       </PageHeaderProvider>
