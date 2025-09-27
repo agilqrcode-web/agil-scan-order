@@ -32,7 +32,13 @@ export default function ProtectedRoute({ children, requireCompleteProfile = true
     return <>{children}</>;
   }
 
-  // 4. If profile completion is required, wait for profile data to load
+  // 4. If we already know the profile is complete, render immediately.
+  // This prevents a full-screen loader on background refetches, which was unmounting the layout.
+  if (profileComplete) {
+    return <>{children}</>;
+  }
+
+  // 5. If profile is not yet known to be complete, wait for the initial load.
   if (profileLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -41,11 +47,11 @@ export default function ProtectedRoute({ children, requireCompleteProfile = true
     );
   }
 
-  // 5. If profile completion is required and profile is not complete, redirect to onboarding
+  // 6. After the initial load, if the profile is still not complete, redirect.
   if (!profileComplete) {
     return <Navigate to="/onboarding" replace />;
   }
 
-  // 6. If all checks pass, render children
+  // 7. Fallback to render children if all checks pass (e.g., profile just became complete)
   return <>{children}</>;
 }
