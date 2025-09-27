@@ -27,7 +27,7 @@ export function useRealtimeOrders() {
 
     console.log('Attempting to subscribe to orders_channel...');
     const channel = supabase
-      .channel(`orders_channel_${Date.now()}`)
+      .channel('public:orders')
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'orders' },
