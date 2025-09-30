@@ -26,6 +26,7 @@ import Notifications from "./pages/dashboard/Notifications";
 import Menus from "./pages/dashboard/Menus";
 import MenuEditor from "./pages/dashboard/MenuEditor";
 import EditRestaurant from "./pages/dashboard/EditRestaurant";
+import { NotificationsProvider } from "./contexts/NotificationsContext";
 import PublicMenu from "./pages/PublicMenu";
 import OrderStatus from "./pages/OrderStatus";
 
@@ -58,11 +59,13 @@ const App = () => {
               } />
               
               {/* Protected Dashboard Routes */}
-              <Route path="/dashboard" element={
+              <Route path="/dashboard" element={{
                 <ProtectedRoute>
-                  <DashboardLayout />
+                  <NotificationsProvider>
+                    <DashboardLayout />
+                  </NotificationsProvider>
                 </ProtectedRoute>
-              }>
+              }}>
                 <Route index element={<Dashboard />} />
                 <Route path="profile" element={<Profile />} />
                 <Route path="settings" element={<Settings />} />
