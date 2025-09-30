@@ -207,9 +207,11 @@ export default function DashboardLayout() {
   return (
     <SidebarProvider>
       <PageHeaderProvider>
-        <DashboardLayoutContent>
-          <Outlet />
-        </DashboardLayoutContent>
+        <NotificationsProvider>
+          <DashboardLayoutContent>
+            <Outlet />
+          </DashboardLayoutContent>
+        </NotificationsProvider>
       </PageHeaderProvider>
     </SidebarProvider>
   );
