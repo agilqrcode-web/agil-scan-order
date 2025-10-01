@@ -32,14 +32,9 @@ export default function ProtectedRoute({ children, requireCompleteProfile = true
     return <>{children}</>;
   }
 
-  // 4. If we already know the profile is complete, render immediately.
-  // This prevents a full-screen loader on background refetches, which was unmounting the layout.
-  if (profileComplete) {
-    return <>{children}</>;
-  }
-
-  // 5. If profile is not yet known to be complete, wait for the initial load.
-  if (profileLoading) {
+  // 4. If the profile is loading AND we have not yet determined that the profile is complete,
+  // show a full-screen spinner. This only happens on the initial load.
+  if (profileLoading && !profileComplete) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Spinner />
@@ -47,11 +42,13 @@ export default function ProtectedRoute({ children, requireCompleteProfile = true
     );
   }
 
-  // 6. After the initial load, if the profile is still not complete, redirect.
+  // 5. If, after loading, the profile is still not complete, redirect to onboarding.
   if (!profileComplete) {
     return <Navigate to="/onboarding" replace />;
   }
 
-  // 7. Fallback to render children if all checks pass (e.g., profile just became complete)
+  // 6. If the profile is complete, render the children.
+  // This will now continue to render children even during background refetches,
+  // preventing the unmounting issue that closed the Realtime channel.
   return <>{children}</>;
 }
