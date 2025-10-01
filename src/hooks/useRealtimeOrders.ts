@@ -25,14 +25,14 @@ export function useRealtimeOrders() {
   useEffect(() => {
     if (!supabase) return; // Garante que o cliente Supabase esteja disponível
 
-    console.log('Attempting to subscribe to orders_channel...');
+    console.log('DEBUG: Attempting to subscribe to orders_channel...');
     const channel = supabase
       .channel('public:orders')
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'orders' },
         (payload) => {
-          console.log('New order INSERT event received!', payload);
+          console.log('DEBUG: New order INSERT event received!', payload);
           const newOrder = payload.new as Order;
           setNewOrderNotifications((prev) => [
             { ...newOrder, isRead: false },
@@ -40,12 +40,15 @@ export function useRealtimeOrders() {
           ]);
         }
       )
-      .subscribe((status) => {
-        console.log('Supabase Realtime channel status:', status);
+      .subscribe((status, err) => {
+        console.log('DEBUG: Supabase Realtime channel status:', status);
+        if (err) {
+          console.error('!!! REALTIME SERVER ERROR !!!', JSON.stringify(err, null, 2));
+        }
       });
 
     return () => {
-      console.log('Unsubscribing from orders_channel.');
+      console.error('!!! CLIENT-SIDE CLEANUP !!! Unsubscribing from orders_channel because component unmounted or dependency changed.');
       supabase.removeChannel(channel);
     };
   }, [supabase]); // Adiciona supabase como dependência
