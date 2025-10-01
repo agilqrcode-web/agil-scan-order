@@ -2,7 +2,7 @@ import { createRoot } from 'react-dom/client';
 import { ClerkProvider, useAuth, useSession } from "@clerk/clerk-react";
 import App from './App.tsx';
 import './index.css';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { SupabaseContext } from "@/contexts/SupabaseContext";
 import { Spinner } from '@/components/ui/spinner';
@@ -17,41 +17,36 @@ if (!PUBLISHABLE_KEY) {
 }
 
 function SupabaseProvider({ children }: { children: React.ReactNode }) {
-  const { getToken, isSignedIn, isLoaded } = useAuth();
-  const [supabaseClient, setSupabaseClient] = useState<SupabaseClient<Database> | null>(null);
+  const { getToken } = useAuth();
+  const { session } = useSession();
+
+  const supabaseClient = useMemo<SupabaseClient<Database> | null>(() => {
+    if (!session) return null;
+
+    return createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+      global: {
+        fetch: async (input, init) => {
+          const token = await getToken();
+          const headers = new Headers(init?.headers);
+          if (token) {
+            headers.set("Authorization", `Bearer ${token}`);
+          }
+          return fetch(input, { ...init, headers });
+        },
+      },
+    });
+  }, [session, getToken]);
 
   useEffect(() => {
-    if (isLoaded) {
-      // Cria um novo cliente Supabase com um interceptor de fetch.
-      // Este interceptor garante que cada requisição HTTP (Storage, DB, etc.)
-      // tenha um token do Clerk novo e válido.
-      const client = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-        global: {
-          fetch: async (input, init) => {
-            const token = await getToken();
-            const headers = new Headers(init?.headers);
-            if (token) {
-              headers.set("Authorization", `Bearer ${token}`);
-            }
-            return fetch(input, { ...init, headers });
-          },
-        },
+    if (supabaseClient) {
+      getToken().then(token => {
+        if (token) {
+          console.log("SupabaseProvider: Updating Realtime Auth token.");
+          supabaseClient.realtime.setAuth(token);
+        }
       });
-
-      // Autentica a conexão WebSocket do Realtime.
-      // Isso é separado do fetch e é crucial para o funcionamento do Realtime.
-      if (isSignedIn) {
-        getToken().then(token => {
-          if (token) {
-            client.realtime.setAuth(token);
-          }
-        });
-      }
-      
-      setSupabaseClient(client);
     }
-    // }, [isLoaded, isSignedIn, getToken]); // Original principle, causes infinite loop due to getToken function reference changing on every render.
-    }, [isLoaded, isSignedIn]); // Corrected dependencies to prevent loop while maintaining reactivity to auth state changes.
+  }, [session, supabaseClient, getToken]);
 
   if (!supabaseClient) {
     return (
