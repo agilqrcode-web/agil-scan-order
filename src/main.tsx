@@ -20,9 +20,13 @@ function SupabaseProvider({ children }: { children: React.ReactNode }) {
   const { getToken } = useAuth();
   const { session } = useSession();
 
-  const supabaseClient = useMemo<SupabaseClient<Database> | null>(() => {
-    if (!session) return null;
+  const supabaseClient = useMemo<SupabaseClient<Database>>(() => {
+    // Se não houver sessão, cria um cliente anônimo para páginas públicas.
+    if (!session) {
+      return createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+    }
 
+    // Se houver sessão, cria o cliente autenticado com o interceptor de fetch.
     return createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
       global: {
         fetch: async (input, init) => {
@@ -37,8 +41,9 @@ function SupabaseProvider({ children }: { children: React.ReactNode }) {
     });
   }, [session, getToken]);
 
+  // Efeito para manter a autenticação do Realtime sincronizada com a sessão.
   useEffect(() => {
-    if (supabaseClient) {
+    if (supabaseClient && session) {
       getToken().then(token => {
         if (token) {
           console.log("SupabaseProvider: Updating Realtime Auth token.");
@@ -47,14 +52,6 @@ function SupabaseProvider({ children }: { children: React.ReactNode }) {
       });
     }
   }, [session, supabaseClient, getToken]);
-
-  if (!supabaseClient) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <Spinner size="large" />
-      </div>
-    );
-  }
 
   return (
     <SupabaseContext.Provider value={supabaseClient}>
