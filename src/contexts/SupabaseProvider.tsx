@@ -13,10 +13,8 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   const [supabaseClient, setSupabaseClient] = useState<SupabaseClient<Database> | null>(null);
   const lastTokenRef = useRef<string | null>(null);
 
-  // This effect creates a single, wrapped Supabase client instance.
-  // This client is enhanced to automatically inject the Clerk token into every HTTP request.
   useEffect(() => {
-    if (supabaseClient) return; // Execute only once
+    if (supabaseClient) return;
 
     if (isLoaded) {
       const client = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
@@ -30,7 +28,6 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
               }
               return fetch(input, { ...init, headers });
             } catch (e) {
-              // If getToken fails, proceed with the original request without the auth header.
               return fetch(input, init);
             }
           },
@@ -38,10 +35,9 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       });
       setSupabaseClient(client);
     }
-  }, [isLoaded, getToken, supabaseClient]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoaded, supabaseClient]);
 
-  // This effect is responsible for keeping the Realtime connection authenticated.
-  // It runs whenever the user's sign-in status changes or the client is initialized.
   useEffect(() => {
     if (!supabaseClient || !isLoaded) return;
 
@@ -58,7 +54,6 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
           console.error('[SupabaseProvider] Error getting token for Realtime auth.', e);
         }
       } else {
-        // If the user signs out, clear the Realtime authentication
         console.debug('[SupabaseProvider] User signed out, clearing Realtime auth.');
         supabaseClient.realtime.setAuth(null);
         lastTokenRef.current = null;
@@ -67,10 +62,9 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
     setRealtimeAuth();
 
-  }, [supabaseClient, isLoaded, isSignedIn, getToken]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supabaseClient, isLoaded, isSignedIn]);
 
-  // This is a fallback mechanism. It periodically attempts to refresh the Realtime token
-  // to prevent it from expiring, as a safeguard against missed updates.
   useEffect(() => {
     if (!supabaseClient) return;
 
@@ -84,13 +78,14 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
             lastTokenRef.current = token;
           }
         } catch (e) {
-          // Errors are expected if the network is down or Clerk session has ended.
+          // Errors are expected.
         }
       }
-    }, 1000 * 60 * 30); // Refresh every 30 minutes
+    }, 1000 * 60 * 30);
 
     return () => clearInterval(interval);
-  }, [supabaseClient, isSignedIn, getToken]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supabaseClient, isSignedIn]);
 
   if (!supabaseClient) {
     return (
