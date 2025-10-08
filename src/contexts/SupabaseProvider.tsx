@@ -11,6 +11,7 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY!;
 export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   const { getToken, isLoaded, isSignedIn } = useAuth();
   const [supabaseClient, setSupabaseClient] = useState<SupabaseClient<Database> | null>(null);
+  const [isRealtimeAuthed, setIsRealtimeAuthed] = useState(false);
   const lastTokenRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -53,16 +54,20 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
             supabaseClient.realtime.setAuth(token);
             console.log('[AUDIT-TOKEN] setAuth(token) called.');
             lastTokenRef.current = token;
+            setIsRealtimeAuthed(true); // Auth is ready
           } else if (token === lastTokenRef.current) {
             console.log('[AUDIT-TOKEN] Token is the same as before. No auth change needed.');
+            if (!isRealtimeAuthed) setIsRealtimeAuthed(true); // Ensure state is correct even if token is cached
           }
         } catch (e) {
           console.error('[AUDIT-TOKEN] Error getting token for Realtime auth.', e);
+          setIsRealtimeAuthed(false);
         }
       } else {
         console.log('[AUDIT-TOKEN] User signed out. Clearing Realtime auth.');
         supabaseClient.realtime.setAuth(null);
         lastTokenRef.current = null;
+        setIsRealtimeAuthed(false); // Auth is not ready
       }
     };
 
@@ -85,6 +90,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
             supabaseClient.realtime.setAuth(token);
             console.log('[AUDIT-TOKEN] Periodic refresh: setAuth(token) called.');
             lastTokenRef.current = token;
+            if (!isRealtimeAuthed) setIsRealtimeAuthed(true);
           }
         } catch (e) {
           console.warn('[AUDIT-TOKEN] Periodic refresh: Could not get token. This might be expected if tab is in background.');
@@ -107,7 +113,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <SupabaseContext.Provider value={supabaseClient}>
+    <SupabaseContext.Provider value={{ supabaseClient, isRealtimeAuthed }}>
       {children}
     </SupabaseContext.Provider>
   );

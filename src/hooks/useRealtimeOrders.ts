@@ -8,7 +8,7 @@ export interface OrderNotification extends Order {
 
 export function useRealtimeOrders() {
   const [newOrderNotifications, setNewOrderNotifications] = useState<OrderNotification[]>([]);
-  const supabase = useSupabase(); // Obtém a instância do Supabase do contexto
+  const { supabaseClient, isRealtimeAuthed } = useSupabase();
 
   const markAsRead = useCallback((notificationId: string) => {
     setNewOrderNotifications((prev) =>
@@ -23,16 +23,14 @@ export function useRealtimeOrders() {
   }, []);
 
   useEffect(() => {
-    // Log when the effect runs and if supabase is available
-    console.log('[RT-DEBUG] useEffect triggered. Supabase client available:', !!supabase);
-
-    if (!supabase) {
-      console.log('[RT-DEBUG] Supabase client not available. Bailing out.');
+    console.log('[RT-DEBUG] useEffect triggered. Supabase client available:', !!supabaseClient, 'Realtime Authed:', isRealtimeAuthed);
+    if (!supabaseClient || !isRealtimeAuthed) {
+      console.log('[RT-DEBUG] Bailing out: Supabase client not ready or Realtime not authenticated.');
       return;
     }
 
     console.log('[RT-DEBUG] Attempting to subscribe to channel: public:orders');
-    const channel = supabase
+    const channel = supabaseClient
       .channel('public:orders')
       .on(
         'postgres_changes',
@@ -47,7 +45,6 @@ export function useRealtimeOrders() {
         }
       )
       .subscribe((status, err) => {
-        // Log subscription status changes
         console.log(`[RT-DEBUG] Subscription status: ${status}`);
         if (status === 'SUBSCRIBED') {
           console.log('[RT-DEBUG] Successfully subscribed to channel!');
@@ -60,12 +57,11 @@ export function useRealtimeOrders() {
         }
       });
 
-    // Cleanup function
     return () => {
       console.warn('[RT-DEBUG] Cleanup: Unsubscribing from channel.');
-      supabase.removeChannel(channel);
+      supabaseClient.removeChannel(channel);
     };
-  }, [supabase]);
+  }, [supabaseClient, isRealtimeAuthed]);
 
   const unreadCount = newOrderNotifications.filter((notif) => !notif.isRead).length;
 
