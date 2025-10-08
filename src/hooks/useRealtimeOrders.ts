@@ -23,16 +23,22 @@ export function useRealtimeOrders() {
   }, []);
 
   useEffect(() => {
-    if (!supabase) return; // Garante que o cliente Supabase esteja disponível
+    // Log when the effect runs and if supabase is available
+    console.log('[RT-DEBUG] useEffect triggered. Supabase client available:', !!supabase);
 
-    console.log('DEBUG: Attempting to subscribe to orders_channel...');
+    if (!supabase) {
+      console.log('[RT-DEBUG] Supabase client not available. Bailing out.');
+      return;
+    }
+
+    console.log('[RT-DEBUG] Attempting to subscribe to channel: public:orders');
     const channel = supabase
       .channel('public:orders')
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'orders' },
         (payload) => {
-          console.log('DEBUG: New order INSERT event received!', payload);
+          console.log('[RT-DEBUG] Payload received:', payload);
           const newOrder = payload.new as Order;
           setNewOrderNotifications((prev) => [
             { ...newOrder, isRead: false },
@@ -41,17 +47,25 @@ export function useRealtimeOrders() {
         }
       )
       .subscribe((status, err) => {
-        console.log('DEBUG: Supabase Realtime channel status:', status);
+        // Log subscription status changes
+        console.log(`[RT-DEBUG] Subscription status: ${status}`);
+        if (status === 'SUBSCRIBED') {
+          console.log('[RT-DEBUG] Successfully subscribed to channel!');
+        }
+        if (status === 'CLOSED') {
+          console.warn('[RT-DEBUG] Channel closed.');
+        }
         if (err) {
-          console.error('!!! REALTIME SERVER ERROR !!!', JSON.stringify(err, null, 2));
+          console.error('[RT-DEBUG] Subscription error:', err);
         }
       });
 
+    // Cleanup function
     return () => {
-      console.error('!!! CLIENT-SIDE CLEANUP !!! Unsubscribing from orders_channel because component unmounted or dependency changed.');
+      console.warn('[RT-DEBUG] Cleanup: Unsubscribing from channel.');
       supabase.removeChannel(channel);
     };
-  }, [supabase]); // Adiciona supabase como dependência
+  }, [supabase]);
 
   const unreadCount = newOrderNotifications.filter((notif) => !notif.isRead).length;
 
