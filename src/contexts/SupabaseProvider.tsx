@@ -42,19 +42,25 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     if (!supabaseClient || !isLoaded) return;
 
     const setRealtimeAuth = async () => {
+      console.log('[AUDIT-TOKEN] Auth effect triggered. User signed in:', isSignedIn);
       if (isSignedIn) {
         try {
+          console.log('[AUDIT-TOKEN] Attempting to get token for Realtime auth...');
           const token = await getToken();
           if (token && token !== lastTokenRef.current) {
-            console.debug('[SupabaseProvider] Applying new token to Realtime.');
+            console.log(`[AUDIT-TOKEN] New token obtained. Starts: ${token.substring(0, 10)}, Ends: ${token.substring(token.length - 10)}`);
+            console.log('[AUDIT-TOKEN] Applying new token to Realtime client...');
             supabaseClient.realtime.setAuth(token);
+            console.log('[AUDIT-TOKEN] setAuth(token) called.');
             lastTokenRef.current = token;
+          } else if (token === lastTokenRef.current) {
+            console.log('[AUDIT-TOKEN] Token is the same as before. No auth change needed.');
           }
         } catch (e) {
-          console.error('[SupabaseProvider] Error getting token for Realtime auth.', e);
+          console.error('[AUDIT-TOKEN] Error getting token for Realtime auth.', e);
         }
       } else {
-        console.debug('[SupabaseProvider] User signed out, clearing Realtime auth.');
+        console.log('[AUDIT-TOKEN] User signed out. Clearing Realtime auth.');
         supabaseClient.realtime.setAuth(null);
         lastTokenRef.current = null;
       }
@@ -69,17 +75,22 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     if (!supabaseClient) return;
 
     const interval = setInterval(async () => {
+      console.log('[AUDIT-TOKEN] Periodic refresh (30min interval) triggered.');
       if (isSignedIn) {
         try {
           const token = await getToken();
           if (token && token !== lastTokenRef.current) {
-            console.debug('[SupabaseProvider] Periodic refresh: Applying new token to Realtime.');
+            console.log(`[AUDIT-TOKEN] Periodic refresh: New token obtained. Starts: ${token.substring(0, 10)}, Ends: ${token.substring(token.length - 10)}`);
+            console.log('[AUDIT-TOKEN] Periodic refresh: Applying new token to Realtime client...');
             supabaseClient.realtime.setAuth(token);
+            console.log('[AUDIT-TOKEN] Periodic refresh: setAuth(token) called.');
             lastTokenRef.current = token;
           }
         } catch (e) {
-          // Errors are expected.
+          console.warn('[AUDIT-TOKEN] Periodic refresh: Could not get token. This might be expected if tab is in background.');
         }
+      } else {
+        console.log('[AUDIT-TOKEN] Periodic refresh: User not signed in.');
       }
     }, 1000 * 60 * 30);
 
