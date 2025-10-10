@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { useAuth } from '@clerk/clerk-react';
 import { SupabaseContext } from "@/contexts/SupabaseContext";
@@ -7,11 +7,13 @@ import type { Database } from '../integrations/supabase/types';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL!;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY!;
+const TOKEN_RENEWAL_INTERVAL = 55 * 60 * 1000; // 55 minutes
 
 export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   const { getToken, isLoaded, isSignedIn } = useAuth();
   const [supabaseClient, setSupabaseClient] = useState<SupabaseClient<Database> | null>(null);
   const [isRealtimeAuthed, setIsRealtimeAuthed] = useState(false);
+
   // This useEffect handles the creation of the Supabase client.
   // It runs once after Clerk is loaded.
   useEffect(() => {
@@ -37,44 +39,54 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       });
       setSupabaseClient(client);
     }
-  }, [isLoaded, supabaseClient, getToken]);
+  }, [isLoaded, supabaseClient]);
 
-  // This useEffect solely manages the Realtime authentication state.
-  // It runs when the client is created or the user's sign-in status changes.
-  useEffect(() => {
-    if (!supabaseClient || !isLoaded) {
-      return;
-    }
-
-    const setRealtimeAuth = async () => {
-      if (isSignedIn) {
-        console.log('[RT-AUTH] User is signed in. Attempting to set Realtime auth.');
-        try {
-          // Using the 'supabase' template as requested for the stability test.
-          const token = await getToken({ template: 'supabase' });
-
-          if (token) {
-            console.log('[RT-AUTH] Token obtained. Applying to Realtime client.');
-            supabaseClient.realtime.setAuth(token);
-            setIsRealtimeAuthed(true);
-            console.log('[RT-AUTH] Realtime auth has been set.');
-          } else {
-            console.warn('[RT-AUTH] Null token received. Realtime auth not set.');
-            setIsRealtimeAuthed(false);
-          }
-        } catch (e) {
-          console.error('[RT-AUTH] Error getting token for Realtime auth:', e);
+  // Memoized function to handle Realtime authentication to ensure stable reference
+  const setRealtimeAuth = useCallback(async (client: SupabaseClient<Database>) => {
+    if (isSignedIn) {
+      console.log('[RT-AUTH] Attempting to set/refresh Realtime auth.');
+      try {
+        const token = await getToken({ template: 'supabase' });
+        if (token) {
+          client.realtime.setAuth(token);
+          setIsRealtimeAuthed(true);
+          console.log('[RT-AUTH] Realtime auth has been set/refreshed.');
+        } else {
+          console.warn('[RT-AUTH] Null token received. Realtime auth not set.');
           setIsRealtimeAuthed(false);
         }
-      } else {
-        console.log('[RT-AUTH] User is not signed in. Clearing Realtime auth.');
-        supabaseClient.realtime.setAuth(null);
+      } catch (e) {
+        console.error('[RT-AUTH] Error getting token for Realtime auth:', e);
         setIsRealtimeAuthed(false);
       }
-    };
+    } else {
+      console.log('[RT-AUTH] User is not signed in. Clearing Realtime auth.');
+      client.realtime.setAuth(null);
+      setIsRealtimeAuthed(false);
+    }
+  }, [isSignedIn, getToken]);
 
-    setRealtimeAuth();
-  }, [supabaseClient, isSignedIn, isLoaded, getToken]);
+  // This useEffect handles the initial authentication and re-authentication on sign-in changes.
+  useEffect(() => {
+    if (supabaseClient && isLoaded) {
+      setRealtimeAuth(supabaseClient);
+    }
+  }, [supabaseClient, isLoaded, isSignedIn, setRealtimeAuth]);
+
+  // This useEffect sets up the proactive token renewal timer.
+  useEffect(() => {
+    if (!supabaseClient) return;
+
+    console.log('[RT-RENEW] Setting up proactive token renewal timer.');
+    const timer = setInterval(() => {
+      setRealtimeAuth(supabaseClient);
+    }, TOKEN_RENEWAL_INTERVAL);
+
+    return () => {
+      console.log('[RT-RENEW] Clearing proactive token renewal timer.');
+      clearInterval(timer);
+    };
+  }, [supabaseClient, setRealtimeAuth]);
 
   if (!supabaseClient) {
     return (
