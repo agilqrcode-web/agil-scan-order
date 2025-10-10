@@ -48,6 +48,16 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         try {
           console.log('[AUDIT-TOKEN] Attempting to get token for Realtime auth...');
           const token = await getToken();
+
+          if (token) {
+            try {
+              const payload = JSON.parse(atob(token.split('.')[1]));
+              console.log('[JWT-PAYLOAD]', payload);
+            } catch (e) {
+              console.error('[JWT-DECODE-ERROR]', e);
+            }
+          }
+
           if (token && token !== lastTokenRef.current) {
             console.log(`[AUDIT-TOKEN] New token obtained. Starts: ${token.substring(0, 10)}, Ends: ${token.substring(token.length - 10)}`);
             console.log('[AUDIT-TOKEN] Applying new token to Realtime client...');
