@@ -12,16 +12,17 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   const { getToken, isLoaded, isSignedIn } = useAuth();
   const [supabaseClient, setSupabaseClient] = useState<SupabaseClient<Database> | null>(null);
   const [isRealtimeAuthed, setIsRealtimeAuthed] = useState(false);
-  const lastTokenRef = useRef<string | null>(null);
-
+  // This useEffect handles the creation of the Supabase client.
+  // It runs once after Clerk is loaded.
   useEffect(() => {
-    if (supabaseClient) return;
-
-    if (isLoaded) {
+    if (isLoaded && !supabaseClient) {
+      console.log('[SupabaseProvider] Clerk is loaded, creating Supabase client.');
       const client = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
         global: {
+          // This fetch interceptor is for standard API requests (e.g., via RPC), not Realtime.
           fetch: async (input: RequestInfo, init?: RequestInit) => {
             try {
+              // Use the standard getToken() for API calls.
               const token = await getToken();
               const headers = new Headers(init?.headers);
               if (token) {
@@ -36,83 +37,44 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       });
       setSupabaseClient(client);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoaded, supabaseClient]);
+  }, [isLoaded, supabaseClient, getToken]);
 
+  // This useEffect solely manages the Realtime authentication state.
+  // It runs when the client is created or the user's sign-in status changes.
   useEffect(() => {
-    if (!supabaseClient || !isLoaded) return;
+    if (!supabaseClient || !isLoaded) {
+      return;
+    }
 
     const setRealtimeAuth = async () => {
-      console.log('[AUDIT-TOKEN] Auth effect triggered. User signed in:', isSignedIn);
       if (isSignedIn) {
+        console.log('[RT-AUTH] User is signed in. Attempting to set Realtime auth.');
         try {
-          console.log('[AUDIT-TOKEN] Attempting to get token for Realtime auth...');
-          const token = await getToken();
+          // Using the 'supabase' template as requested for the stability test.
+          const token = await getToken({ template: 'supabase' });
 
           if (token) {
-            try {
-              const payload = JSON.parse(atob(token.split('.')[1]));
-              console.log('[JWT-PAYLOAD]', payload);
-            } catch (e) {
-              console.error('[JWT-DECODE-ERROR]', e);
-            }
-          }
-
-          if (token && token !== lastTokenRef.current) {
-            console.log(`[AUDIT-TOKEN] New token obtained. Starts: ${token.substring(0, 10)}, Ends: ${token.substring(token.length - 10)}`);
-            console.log('[AUDIT-TOKEN] Applying new token to Realtime client...');
+            console.log('[RT-AUTH] Token obtained. Applying to Realtime client.');
             supabaseClient.realtime.setAuth(token);
-            console.log('[AUDIT-TOKEN] setAuth(token) called.');
-            lastTokenRef.current = token;
-            setIsRealtimeAuthed(true); // Auth is ready
-          } else if (token === lastTokenRef.current) {
-            console.log('[AUDIT-TOKEN] Token is the same as before. No auth change needed.');
-            if (!isRealtimeAuthed) setIsRealtimeAuthed(true); // Ensure state is correct even if token is cached
+            setIsRealtimeAuthed(true);
+            console.log('[RT-AUTH] Realtime auth has been set.');
+          } else {
+            console.warn('[RT-AUTH] Null token received. Realtime auth not set.');
+            setIsRealtimeAuthed(false);
           }
         } catch (e) {
-          console.error('[AUDIT-TOKEN] Error getting token for Realtime auth.', e);
+          console.error('[RT-AUTH] Error getting token for Realtime auth:', e);
           setIsRealtimeAuthed(false);
         }
       } else {
-        console.log('[AUDIT-TOKEN] User signed out. Clearing Realtime auth.');
+        console.log('[RT-AUTH] User is not signed in. Clearing Realtime auth.');
         supabaseClient.realtime.setAuth(null);
-        lastTokenRef.current = null;
-        setIsRealtimeAuthed(false); // Auth is not ready
+        setIsRealtimeAuthed(false);
       }
     };
 
     setRealtimeAuth();
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [supabaseClient, isLoaded, isSignedIn]);
-
-  useEffect(() => {
-    if (!supabaseClient) return;
-
-    const interval = setInterval(async () => {
-      console.log('[AUDIT-TOKEN] Periodic refresh (30min interval) triggered.');
-      if (isSignedIn) {
-        try {
-          const token = await getToken();
-          if (token && token !== lastTokenRef.current) {
-            console.log(`[AUDIT-TOKEN] Periodic refresh: New token obtained. Starts: ${token.substring(0, 10)}, Ends: ${token.substring(token.length - 10)}`);
-            console.log('[AUDIT-TOKEN] Periodic refresh: Applying new token to Realtime client...');
-            supabaseClient.realtime.setAuth(token);
-            console.log('[AUDIT-TOKEN] Periodic refresh: setAuth(token) called.');
-            lastTokenRef.current = token;
-            if (!isRealtimeAuthed) setIsRealtimeAuthed(true);
-          }
-        } catch (e) {
-          console.warn('[AUDIT-TOKEN] Periodic refresh: Could not get token. This might be expected if tab is in background.');
-        }
-      } else {
-        console.log('[AUDIT-TOKEN] Periodic refresh: User not signed in.');
-      }
-    }, 1000 * 60 * 30);
-
-    return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [supabaseClient, isSignedIn]);
+  }, [supabaseClient, isSignedIn, isLoaded, getToken]);
 
   if (!supabaseClient) {
     return (
