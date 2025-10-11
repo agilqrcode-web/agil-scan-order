@@ -12,7 +12,7 @@ const TOKEN_RENEWAL_INTERVAL = 55 * 60 * 1000; // 55 minutes
 export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   const { getToken, isLoaded, isSignedIn } = useAuth();
   const [supabaseClient, setSupabaseClient] = useState<SupabaseClient<Database> | null>(null);
-  const [isRealtimeAuthed, setIsRealtimeAuthed] = useState(false);
+  const [realtimeAuthCounter, setRealtimeAuthCounter] = useState(0);
 
   // This useEffect handles the creation of the Supabase client.
   // It runs once after Clerk is loaded.
@@ -49,20 +49,20 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         const token = await getToken({ template: 'supabase' });
         if (token) {
           client.realtime.setAuth(token);
-          setIsRealtimeAuthed(true);
+          setRealtimeAuthCounter(prev => prev + 1);
           console.log('[RT-AUTH] Realtime auth has been set/refreshed.');
         } else {
           console.warn('[RT-AUTH] Null token received. Realtime auth not set.');
-          setIsRealtimeAuthed(false);
+          setRealtimeAuthCounter(0);
         }
       } catch (e) {
         console.error('[RT-AUTH] Error getting token for Realtime auth:', e);
-        setIsRealtimeAuthed(false);
+        setRealtimeAuthCounter(0);
       }
     } else {
       console.log('[RT-AUTH] User is not signed in. Clearing Realtime auth.');
       client.realtime.setAuth(null);
-      setIsRealtimeAuthed(false);
+      setRealtimeAuthCounter(0);
     }
   }, [isSignedIn, getToken]);
 
@@ -97,7 +97,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <SupabaseContext.Provider value={{ supabaseClient, isRealtimeAuthed }}>
+    <SupabaseContext.Provider value={{ supabaseClient, realtimeAuthCounter }}>
       {children}
     </SupabaseContext.Provider>
   );

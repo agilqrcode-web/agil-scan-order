@@ -8,7 +8,7 @@ export interface OrderNotification extends Order {
 
 export function useRealtimeOrders() {
   const [newOrderNotifications, setNewOrderNotifications] = useState<OrderNotification[]>([]);
-  const { supabaseClient, isRealtimeAuthed } = useSupabase();
+  const { supabaseClient, realtimeAuthCounter } = useSupabase();
 
   const markAsRead = useCallback((notificationId: string) => {
     setNewOrderNotifications((prev) =>
@@ -23,8 +23,8 @@ export function useRealtimeOrders() {
   }, []);
 
   useEffect(() => {
-    console.log('[RT-DEBUG] useEffect triggered. Supabase client available:', !!supabaseClient, 'Realtime Authed:', isRealtimeAuthed);
-    if (!supabaseClient || !isRealtimeAuthed) {
+    console.log('[RT-DEBUG] useEffect triggered. Supabase client available:', !!supabaseClient, 'Auth Counter:', realtimeAuthCounter);
+    if (!supabaseClient || realtimeAuthCounter === 0) {
       console.log('[RT-DEBUG] Bailing out: Supabase client not ready or Realtime not authenticated.');
       return;
     }
@@ -61,7 +61,7 @@ export function useRealtimeOrders() {
       console.warn('[RT-DEBUG] Cleanup: Unsubscribing from channel.');
       supabaseClient.removeChannel(channel);
     };
-  }, [supabaseClient, isRealtimeAuthed]);
+  }, [supabaseClient, realtimeAuthCounter]);
 
   const unreadCount = newOrderNotifications.filter((notif) => !notif.isRead).length;
 
