@@ -41,8 +41,9 @@ import {
   ArrowLeft
 } from "lucide-react";
 import { MobileBottomNavbar } from "@/components/layout/MobileBottomNavbar";
+import { useNotifications } from "@/hooks/useNotifications";
 import { PageHeaderProvider, usePageHeader } from "@/contexts/PageHeaderContext";
-import { NotificationsProvider, useNotifications } from "@/contexts/NotificationsContext";
+
 import React from "react";
 import { Badge } from "@/components/ui/badge";
 
@@ -97,7 +98,8 @@ function DashboardHeader() {
   const { user } = useUser();
   const { signOut } = useClerk();
   const navigate = useNavigate();
-  const { unreadCount } = useNotifications();
+  const { notificationsData } = useNotifications();
+  const unreadCount = notificationsData?.stats.unread ?? 0;
   
   // Consumir o contexto do cabeçalho
   const { title, backButtonHref, headerActions } = usePageHeader();
