@@ -8,18 +8,18 @@ import { User } from "@supabase/supabase-js";
 import { useSupabase } from "@/contexts/SupabaseContext";
 
 export default function Profile() {
-  const supabase = useSupabase();
+  const { supabaseClient } = useSupabase();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!supabase) return;
+    if (!supabaseClient) return;
 
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabaseClient.auth.getUser().then(({ data: { user } }) => {
       setUser(user);
       setLoading(false);
     });
-  }, [supabase]);
+  }, [supabaseClient]);
 
   if (loading) {
     return <div>Carregando...</div>;
