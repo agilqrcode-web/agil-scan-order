@@ -184,6 +184,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   const showMobileNavbar = isMobile && !backButtonHref && !headerActions;
 
   useNotifications(); // Ensure notifications query is always active
+  useRealtimeOrders(); // Re-added here
 
   return (
     <div className={cn("min-h-screen w-full flex", isMobile ? "flex-col" : "flex-row")}>

@@ -4,7 +4,6 @@ import { useAuth } from '@clerk/clerk-react';
 import { SupabaseContext } from "@/contexts/SupabaseContext";
 import { Spinner } from '@/components/ui/spinner';
 import type { Database } from '../integrations/supabase/types';
-import { useRealtimeOrders } from '@/hooks/useRealtimeOrders';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL!;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY!;
@@ -100,7 +99,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     );
   }
 
-  useRealtimeOrders(); // NEW CALL
+  // useRealtimeOrders(); // Moved to DashboardLayoutContent
 
   return (
     <SupabaseContext.Provider value={{ supabaseClient, realtimeAuthCounter }}>
