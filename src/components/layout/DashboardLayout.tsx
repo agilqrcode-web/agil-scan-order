@@ -42,6 +42,7 @@ import {
 } from "lucide-react";
 import { MobileBottomNavbar } from "@/components/layout/MobileBottomNavbar";
 import { useNotifications } from "@/hooks/useNotifications";
+import { useRealtimeOrders } from "@/hooks/useRealtimeOrders";
 import { PageHeaderProvider, usePageHeader } from "@/contexts/PageHeaderContext";
 
 import React from "react";
