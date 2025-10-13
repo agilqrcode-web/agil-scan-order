@@ -48,7 +48,9 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       try {
         const token = await getToken({ template: 'supabase' });
         if (token) {
+          console.log(`[RT-AUTH] Calling client.realtime.setAuth() with token length: ${token.length}`);
           client.realtime.setAuth(token);
+          console.log('[RT-AUTH] client.realtime.setAuth() call completed.');
           setRealtimeAuthCounter(prev => {
             console.log(`[RT-DEBUG] realtimeAuthCounter incremented: ${prev} -> ${prev + 1}`);
             return prev + 1;

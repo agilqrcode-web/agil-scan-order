@@ -34,12 +34,15 @@ export function useRealtimeOrders() {
         console.log(`[RT-DEBUG] Subscription status: ${status}`);
         if (status === 'SUBSCRIBED') {
           console.log('[RT-DEBUG] Successfully subscribed to real-time orders channel!');
-        }
-        if (status === 'CLOSED') {
+        } else if (status === 'CLOSED') {
           console.warn('[RT-DEBUG] Real-time orders channel closed.');
+        } else if (status === 'TIMED_OUT') {
+          console.error('[RT-DEBUG] Real-time subscription TIMED_OUT. This indicates a problem establishing or maintaining the connection.');
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('[RT-DEBUG] Real-time subscription CHANNEL_ERROR. The channel encountered an error and closed.', err);
         }
         if (err) {
-          console.error('[RT-DEBUG] Real-time subscription error:', err);
+          console.error('[RT-DEBUG] Real-time subscription error details:', err);
         }
       });
 
