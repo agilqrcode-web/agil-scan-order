@@ -4,6 +4,7 @@ import { useAuth } from '@clerk/clerk-react';
 import { SupabaseContext } from "@/contexts/SupabaseContext";
 import { Spinner } from '@/components/ui/spinner';
 import type { Database } from '../integrations/supabase/types';
+import { useRealtimeOrders } from '@/hooks/useRealtimeOrders';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL!;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY!;
@@ -49,7 +50,10 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         const token = await getToken({ template: 'supabase' });
         if (token) {
           client.realtime.setAuth(token);
-          setRealtimeAuthCounter(prev => prev + 1);
+          setRealtimeAuthCounter(prev => {
+            console.log(`[RT-DEBUG] realtimeAuthCounter incremented: ${prev} -> ${prev + 1}`);
+            return prev + 1;
+          });
           console.log('[RT-AUTH] Realtime auth has been set/refreshed.');
         } else {
           console.warn('[RT-AUTH] Null token received. Realtime auth not set.');
@@ -95,6 +99,8 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
+
+  useRealtimeOrders(); // NEW CALL
 
   return (
     <SupabaseContext.Provider value={{ supabaseClient, realtimeAuthCounter }}>

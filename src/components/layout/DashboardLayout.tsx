@@ -183,6 +183,8 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   // Esconde a barra de navegação principal no mobile se a página for de edição (tiver ações)
   const showMobileNavbar = isMobile && !backButtonHref && !headerActions;
 
+  useNotifications(); // Ensure notifications query is always active
+
   return (
     <div className={cn("min-h-screen w-full flex", isMobile ? "flex-col" : "flex-row")}>
       {!isMobile && <DashboardSidebar />}
