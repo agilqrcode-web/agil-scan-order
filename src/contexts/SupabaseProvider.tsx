@@ -13,6 +13,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   const { getToken, isLoaded, isSignedIn } = useAuth();
   const [supabaseClient, setSupabaseClient] = useState<SupabaseClient<Database> | null>(null);
   const [realtimeChannel, setRealtimeChannel] = useState<RealtimeChannel | null>(null);
+  const [isRealtimeReadyForSubscription, setIsRealtimeReadyForSubscription] = useState(false);
 
   // This useEffect handles the creation of the Supabase client.
   // It runs once after Clerk is loaded.
@@ -71,19 +72,23 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
           console.log(`[RT-AUTH] Calling client.realtime.setAuth() with token length: ${token.length}`);
           await client.realtime.setAuth(token);
           console.log('[RT-AUTH] client.realtime.setAuth() call completed. Channel should remain open.');
+          setIsRealtimeReadyForSubscription(true);
         } else {
           console.warn('[RT-AUTH] Null token received. Realtime auth not set. Clearing auth.');
           await client.realtime.setAuth(null);
+          setIsRealtimeReadyForSubscription(false);
         }
       } catch (e) {
         console.error('[RT-AUTH] Error getting token for Realtime auth:', e);
         await client.realtime.setAuth(null);
+        setIsRealtimeReadyForSubscription(false);
       }
     } else {
       console.log('[RT-AUTH] User is not signed in. Clearing Realtime auth.');
       await client.realtime.setAuth(null);
+      setIsRealtimeReadyForSubscription(false);
     }
-  }, [isSignedIn, getToken]);
+  }, [isSignedIn, getToken, setIsRealtimeReadyForSubscription]);
 
   // This useEffect handles the initial authentication and re-authentication on sign-in changes.
   useEffect(() => {
@@ -121,7 +126,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   // useRealtimeOrders(); // Moved to DashboardLayoutContent
 
   return (
-    <SupabaseContext.Provider value={{ supabaseClient, realtimeChannel }}>
+    <SupabaseContext.Provider value={{ supabaseClient, realtimeChannel, isRealtimeReadyForSubscription }}>
       {children}
     </SupabaseContext.Provider>
   );

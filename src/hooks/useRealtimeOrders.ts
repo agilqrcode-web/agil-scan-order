@@ -10,13 +10,13 @@ import { useAuth } from '@clerk/clerk-react'; // NEW IMPORT
  * It does not hold any state itself.
  */
 export function useRealtimeOrders() {
-  const { supabaseClient, realtimeChannel } = useSupabase();
+  const { supabaseClient, realtimeChannel, isRealtimeReadyForSubscription } = useSupabase();
   const queryClient = useQueryClient();
   const { isSignedIn } = useAuth(); // NEW: Get isSignedIn
 
   useEffect(() => {
-    console.log('[RT-DEBUG] useEffect START. Supabase client available:', !!supabaseClient, 'Realtime Channel available:', !!realtimeChannel, 'User Signed In:', isSignedIn); // MODIFIED LOG
-    if (!isSignedIn || !supabaseClient || !realtimeChannel) { // MODIFIED GUARD
+    console.log('[RT-DEBUG] useEffect START. Supabase client available:', !!supabaseClient, 'Realtime Channel available:', !!realtimeChannel, 'User Signed In:', isSignedIn, 'Realtime Ready:', isRealtimeReadyForSubscription); // MODIFIED LOG
+    if (!isSignedIn || !supabaseClient || !realtimeChannel || !isRealtimeReadyForSubscription) { // MODIFIED GUARD
       console.log('[RT-DEBUG] Bailing out: User not signed in, Supabase client or Realtime Channel not ready.'); // MODIFIED LOG
       return;
     }
@@ -61,5 +61,5 @@ export function useRealtimeOrders() {
       realtimeChannel.unsubscribe(); // NEW: Unsubscribe the channel
       realtimeChannel.off('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, handlePostgresChanges);
     };
-  }, [supabaseClient, realtimeChannel, queryClient, isSignedIn]); // ADDED isSignedIn to dependencies
+  }, [supabaseClient, realtimeChannel, queryClient, isSignedIn, isRealtimeReadyForSubscription]); // ADDED isSignedIn, isRealtimeReadyForSubscription to dependencies
 }
