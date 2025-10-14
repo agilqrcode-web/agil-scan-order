@@ -12,7 +12,7 @@ const TOKEN_RENEWAL_INTERVAL = 55 * 60 * 1000; // 55 minutes
 export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   const { getToken, isLoaded, isSignedIn } = useAuth();
   const [supabaseClient, setSupabaseClient] = useState<SupabaseClient<Database> | null>(null);
-  const [realtimeAuthCounter, setRealtimeAuthCounter] = useState(0);
+  const [realtimeChannel, setRealtimeChannel] = useState<RealtimeChannel | null>(null);
 
   // This useEffect handles the creation of the Supabase client.
   // It runs once after Clerk is loaded.
@@ -38,6 +38,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         },
       });
       setSupabaseClient(client);
+      setRealtimeChannel(client.channel('public:orders'));
     }
   }, [isLoaded, supabaseClient]);
 
@@ -49,25 +50,19 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         const token = await getToken({ template: 'supabase' });
         if (token) {
           console.log(`[RT-AUTH] Calling client.realtime.setAuth() with token length: ${token.length}`);
-          client.realtime.setAuth(token);
-          console.log('[RT-AUTH] client.realtime.setAuth() call completed.');
-          setRealtimeAuthCounter(prev => {
-            console.log(`[RT-DEBUG] realtimeAuthCounter incremented: ${prev} -> ${prev + 1}`);
-            return prev + 1;
-          });
-          console.log('[RT-AUTH] Realtime auth has been set/refreshed.');
+          await client.realtime.setAuth(token);
+          console.log('[RT-AUTH] client.realtime.setAuth() call completed. Channel should remain open.');
         } else {
-          console.warn('[RT-AUTH] Null token received. Realtime auth not set.');
-          setRealtimeAuthCounter(0);
+          console.warn('[RT-AUTH] Null token received. Realtime auth not set. Clearing auth.');
+          await client.realtime.setAuth(null);
         }
       } catch (e) {
         console.error('[RT-AUTH] Error getting token for Realtime auth:', e);
-        setRealtimeAuthCounter(0);
+        await client.realtime.setAuth(null);
       }
     } else {
       console.log('[RT-AUTH] User is not signed in. Clearing Realtime auth.');
-      client.realtime.setAuth(null);
-      setRealtimeAuthCounter(0);
+      await client.realtime.setAuth(null);
     }
   }, [isSignedIn, getToken]);
 
@@ -93,6 +88,29 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     };
   }, [supabaseClient, setRealtimeAuth]);
 
+  // NEW: useEffect to manage Realtime channel subscription
+  useEffect(() => {
+    if (realtimeChannel) {
+      console.log('[RT-DEBUG] Attempting to subscribe to channel: public:orders (from SupabaseProvider)');
+      realtimeChannel.subscribe((status, err) => {
+        console.log(`[RT-DEBUG] SupabaseProvider Channel status: ${status}`);
+        if (status === 'SUBSCRIBED') {
+          console.log('[RT-DEBUG] SupabaseProvider Successfully subscribed to real-time orders channel!');
+        }
+        if (err) {
+          console.error('[RT-DEBUG] SupabaseProvider Channel error:', err);
+        }
+      });
+    }
+
+    return () => {
+      if (realtimeChannel) {
+        console.warn('[RT-DEBUG] SupabaseProvider Cleanup: Unsubscribing from real-time orders channel.');
+        realtimeChannel.unsubscribe();
+      }
+    };
+  }, [realtimeChannel]);
+
   if (!supabaseClient) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -104,7 +122,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   // useRealtimeOrders(); // Moved to DashboardLayoutContent
 
   return (
-    <SupabaseContext.Provider value={{ supabaseClient, realtimeAuthCounter }}>
+    <SupabaseContext.Provider value={{ supabaseClient, realtimeChannel }}>
       {children}
     </SupabaseContext.Provider>
   );
