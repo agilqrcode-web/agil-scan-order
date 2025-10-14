@@ -1,9 +1,12 @@
 import { createContext, useContext } from 'react';
-import { SupabaseClient } from '@supabase/supabase-js';
+import { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js'; // NEW: Import RealtimeChannel
 
 export interface SupabaseContextType {
   supabaseClient: SupabaseClient | null;
-  isRealtimeAuthed: boolean;
+  realtimeChannel: RealtimeChannel | null;
+  realtimeAuthCounter: number;
+  requestReconnect: (maxAttempts?: number) => Promise<boolean>;
+  setRealtimeAuth: (client: SupabaseClient) => Promise<void>;
 }
 
 export const SupabaseContext = createContext<SupabaseContextType | null>(null);
