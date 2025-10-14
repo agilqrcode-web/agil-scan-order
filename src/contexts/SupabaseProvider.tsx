@@ -25,6 +25,9 @@ function decodeJwtPayload(token: string) {
   }
 }
 
+// Global helper delay function
+const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
+
 export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   const { getToken, isLoaded, isSignedIn } = useAuth();
   const [supabaseClient, setSupabaseClient] = useState<SupabaseClient<Database> | null>(null);
@@ -77,8 +80,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isLoaded, supabaseClient, isSignedIn, getToken]);
 
-  // helper delay
-  const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
+
 
   // schedule renewal using exp if available
   const scheduleRenewal = useCallback((exp?: number | null) => {
