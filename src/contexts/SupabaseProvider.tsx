@@ -36,6 +36,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   const [isRealtimeReadyForSubscription, setIsRealtimeReadyForSubscription] = useState(false);
   const renewTimerRef = useRef<number | null>(null);
   const reconnectLockRef = useRef(false);
+  const setRealtimeAuthRef = useRef<typeof setRealtimeAuth | null>(null);
 
   // create client once clerk loaded
   useEffect(() => {
@@ -91,7 +92,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     if (!exp) {
       // fallback periodic renewal
       renewTimerRef.current = window.setTimeout(() => {
-        if (supabaseClient) setRealtimeAuth(supabaseClient);
+        if (supabaseClient && setRealtimeAuthRef.current) setRealtimeAuthRef.current(supabaseClient);
       }, DEFAULT_RENEW_INTERVAL_MS);
       return;
     }
@@ -101,7 +102,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     renewTimerRef.current = window.setTimeout(() => {
       if (supabaseClient) setRealtimeAuth(supabaseClient);
     }, ms);
-  }, [supabaseClient, setRealtimeAuth]);
+  }, [supabaseClient]);
 
   // controlled reconnect (used if channel closed after setAuth)
   const attemptReconnectWithBackoff = useCallback(async (maxAttempts = RECONNECT_MAX_ATTEMPTS) => {
@@ -146,6 +147,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
   // central setRealtimeAuth function
   const setRealtimeAuth = useCallback(async (client: SupabaseClient<Database>) => {
+    setRealtimeAuthRef.current = setRealtimeAuth;
     if (!client) return;
     if (isSignedIn) {
       console.log('[RT-AUTH] Attempting to set/refresh Realtime auth.');
@@ -206,7 +208,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       try { await client.realtime.setAuth(null); } catch {} // AWAIT HERE
       setIsRealtimeReadyForSubscription(false);
     }
-  }, [isSignedIn, getToken, scheduleRenewal, attemptReconnectWithBackoff, delay]); // ADDED delay to dependencies
+  }, [isSignedIn, getToken, scheduleRenewal, attemptReconnectWithBackoff, delay, setIsRealtimeReadyForSubscription]); // ADDED delay to dependencies
 
   // initial auth when client ready / sign-in changes
   useEffect(() => {
