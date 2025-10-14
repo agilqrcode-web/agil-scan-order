@@ -7,75 +7,70 @@ export function useRealtimeOrders() {
   const { realtimeChannel } = useSupabase();
   const queryClient = useQueryClient();
 
-  // Keep a ref to the channel to ensure cleanup uses the correct instance
   const channelRef = useRef(realtimeChannel);
   channelRef.current = realtimeChannel;
 
-  // Stable handler for processing new order notifications
-  const handleNewOrder = useCallback((payload: any) => {
-    console.log('[RT-ORDERS] New order event received:', payload);
+  const handleNewNotification = useCallback((payload: any) => {
+    console.log('[RT-NOTIFICATIONS] New postgres_changes event received:', payload);
     toast.info("Novo pedido recebido!", {
       description: "Um novo pedido foi registrado e a lista será atualizada.",
       action: {
         label: "Ver",
-        onClick: () => {
-          // Optional: navigate to orders page
-        },
+        onClick: () => {},
       },
     });
-    // Invalidate queries to refetch data from the database as the source of truth
     queryClient.invalidateQueries({ queryKey: ['orders'] });
     queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
   }, [queryClient]);
 
-
   useEffect(() => {
-    // Do nothing if the channel is not yet created.
     if (!realtimeChannel) {
       return;
     }
 
-    console.log('[RT-ORDERS] useEffect: Channel instance available. Setting up subscription.');
+    console.log('[RT-NOTIFICATIONS] useEffect: Channel instance available. Setting up subscription.');
 
-    // 1. Define the event handlers
-    const newOrderHandler = (payload: any) => handleNewOrder(payload);
+    const notificationHandler = (payload: any) => handleNewNotification(payload);
 
-    // 2. Register handlers
-    // The `postgres_changes` event is more reliable for DB changes.
     realtimeChannel
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
-        table: 'orders'
-      }, newOrderHandler)
+        table: 'orders' // The trigger is on the 'orders' table, which sends a notification.
+      }, notificationHandler)
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
         table: 'orders'
-      }, newOrderHandler);
+      }, notificationHandler);
 
+    // New polling logic as suggested
+    const subscribeAndPoll = async () => {
+      console.log(`[RT-NOTIFICATIONS] Calling subscribe. Current state: ${realtimeChannel.state}`);
+      realtimeChannel.subscribe();
 
-    // 3. Subscribe to the channel
-    realtimeChannel.subscribe((status, err) => {
-      if (status === 'SUBSCRIBED') {
-        console.log('[RT-ORDERS] Successfully subscribed to "public:notifications" channel.');
-      }
-      if (status === 'CHANNEL_ERROR') {
-        console.error('[RT-ORDERS] Channel error:', err);
-      }
-      if (status === 'TIMED_OUT') {
-        console.warn('[RT-ORDERS] Channel subscription timed out.');
-      }
-    });
+      const start = Date.now();
+      const timeout = 10000; // 10 seconds
 
-    // 4. Cleanup function
+      while (Date.now() - start < timeout) {
+        if (realtimeChannel.state === 'SUBSCRIBED') {
+          console.log(`[RT-NOTIFICATIONS] Trophy unlocked: SUBSCRIBED to channel "public:notifications" successfully!`);
+          return true;
+        }
+        await new Promise(r => setTimeout(r, 500)); // Poll every 500ms
+      }
+
+      console.warn(`[RT-NOTIFICATIONS] Subscription timed out after ${timeout / 1000}s. Final state: ${realtimeChannel.state}`);
+      return false;
+    };
+
+    subscribeAndPoll();
+
     return () => {
-      console.log('[RT-ORDERS] Cleanup: Unsubscribing from channel.');
+      console.log('[RT-NOTIFICATIONS] Cleanup: Unsubscribing from channel "public:notifications".');
       if (realtimeChannel) {
         realtimeChannel.unsubscribe();
       }
     };
-  }, [realtimeChannel, handleNewOrder]); // Effect depends only on stable channel instance and handler
-
-  // The hook doesn't need to return anything for this simplified usage
+  }, [realtimeChannel, handleNewNotification]);
 }
