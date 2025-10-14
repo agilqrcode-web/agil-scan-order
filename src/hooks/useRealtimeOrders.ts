@@ -30,7 +30,7 @@ export function useRealtimeOrders() {
     // Register the listener on the existing channel
     realtimeChannel.on(
       'postgres_changes',
-      { event: 'INSERT', schema: 'public', table: 'orders' },
+      { event: 'INSERT', schema: 'public', table: 'notifications' },
       handlePostgresChanges
     );
 
