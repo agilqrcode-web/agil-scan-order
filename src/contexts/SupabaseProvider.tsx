@@ -19,7 +19,21 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (isLoaded && !supabaseClient) {
       console.log('[SupabaseProvider] Clerk is loaded, creating Supabase client.');
+      let authOptions: any = {};
+      if (isSignedIn) {
+        console.log('[SupabaseProvider] User is signed in, attempting to get initial auth token for client creation.');
+        const token = await getToken(); // Get default Clerk token
+        if (token) {
+          authOptions = {
+            auth: {
+              accessToken: token,
+            },
+          };
+        }
+      }
+
       const client = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+        ...authOptions,
         global: {
           // This fetch interceptor is for standard API requests (e.g., via RPC), not Realtime.
           fetch: async (input: RequestInfo, init?: RequestInit) => {
@@ -40,7 +54,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       setSupabaseClient(client);
       setRealtimeChannel(client.channel('public:notifications'));
     }
-  }, [isLoaded, supabaseClient]);
+  }, [isLoaded, supabaseClient, isSignedIn, getToken]);
 
   // Memoized function to handle Realtime authentication to ensure stable reference
   const setRealtimeAuth = useCallback(async (client: SupabaseClient<Database>) => {
