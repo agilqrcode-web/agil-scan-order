@@ -38,6 +38,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   const reconnectLockRef = useRef(false);
   const setRealtimeAuthRef = useRef<typeof setRealtimeAuth | null>(null);
 
+
   // create client once clerk loaded
   useEffect(() => {
     if (isLoaded && !supabaseClient) {
@@ -100,8 +101,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     const renewAtMs = (exp * 1000) - SAFETY_MARGIN_SECONDS * 1000;
     const ms = Math.max(renewAtMs - nowMs, 5000); // at least 5s
     renewTimerRef.current = window.setTimeout(() => {
-      if (supabaseClient) setRealtimeAuth(supabaseClient);
-    }, ms);
+              if (supabaseClient && setRealtimeAuthRef.current) setRealtimeAuthRef.current(supabaseClient);    }, ms);
   }, [supabaseClient]);
 
   // controlled reconnect (used if channel closed after setAuth)
@@ -208,7 +208,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       try { await client.realtime.setAuth(null); } catch {} // AWAIT HERE
       setIsRealtimeReadyForSubscription(false);
     }
-  }, [isSignedIn, getToken, scheduleRenewal, attemptReconnectWithBackoff, delay, setIsRealtimeReadyForSubscription]); // ADDED delay to dependencies
+  }, [isSignedIn, getToken, delay, setIsRealtimeReadyForSubscription]);
 
   // initial auth when client ready / sign-in changes
   useEffect(() => {
@@ -225,7 +225,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       setRealtimeAuth(supabaseClient);
     }, DEFAULT_RENEW_INTERVAL_MS);
     return () => clearInterval(timer);
-  }, [supabaseClient, setRealtimeAuth]);
+  }, [supabaseClient]);
 
   // cleanup on unmount
   useEffect(() => {
