@@ -19,40 +19,45 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (isLoaded && !supabaseClient) {
       console.log('[SupabaseProvider] Clerk is loaded, creating Supabase client.');
-      let authOptions: any = {};
-      if (isSignedIn) {
-        console.log('[SupabaseProvider] User is signed in, attempting to get initial auth token for client creation.');
-        const token = await getToken(); // Get default Clerk token
-        if (token) {
-          authOptions = {
-            auth: {
-              accessToken: token,
-            },
-          };
-        }
-      }
 
-      const client = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-        ...authOptions,
-        global: {
-          // This fetch interceptor is for standard API requests (e.g., via RPC), not Realtime.
-          fetch: async (input: RequestInfo, init?: RequestInit) => {
-            try {
-              // Use the standard getToken() for API calls.
-              const token = await getToken();
-              const headers = new Headers(init?.headers);
-              if (token) {
-                headers.set('Authorization', `Bearer ${token}`);
+      const initializeSupabaseClient = async () => {
+        let authOptions: any = {};
+        if (isSignedIn) {
+          console.log('[SupabaseProvider] User is signed in, attempting to get initial auth token for client creation.');
+          const token = await getToken(); // AWAIT IS NOW INSIDE ASYNC FUNCTION
+          if (token) {
+            authOptions = {
+              auth: {
+                accessToken: token,
+              },
+            };
+          }
+        }
+
+        const client = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+          ...authOptions,
+          global: {
+            // This fetch interceptor is for standard API requests (e.g., via RPC), not Realtime.
+            fetch: async (input: RequestInfo, init?: RequestInit) => {
+              try {
+                // Use the standard getToken() for API calls.
+                const token = await getToken();
+                const headers = new Headers(init?.headers);
+                if (token) {
+                  headers.set('Authorization', `Bearer ${token}`);
+                }
+                return fetch(input, { ...init, headers });
+              } catch (e) {
+                return fetch(input, init);
               }
-              return fetch(input, { ...init, headers });
-            } catch (e) {
-              return fetch(input, init);
-            }
+            },
           },
-        },
-      });
-      setSupabaseClient(client);
-      setRealtimeChannel(client.channel('public:notifications'));
+        });
+        setSupabaseClient(client);
+        setRealtimeChannel(client.channel('public:notifications'));
+      };
+
+      initializeSupabaseClient(); // NEW: Call the async function
     }
   }, [isLoaded, supabaseClient, isSignedIn, getToken]);
 
@@ -102,31 +107,8 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     };
   }, [supabaseClient, setRealtimeAuth]);
 
-  // NEW: useEffect to manage Realtime channel subscription
-  useEffect(() => {
-    if (!isSignedIn || !realtimeChannel) { // NEW GUARD
-      console.log('[RT-DEBUG] SupabaseProvider: Not subscribing to Realtime channel. User not signed in or channel not ready.'); // NEW LOG
-      return;
-    }
-
-    console.log('[RT-DEBUG] Attempting to subscribe to channel: public:notifications (from SupabaseProvider)');
-    realtimeChannel.subscribe((status, err) => {
-      console.log(`[RT-DEBUG] SupabaseProvider Channel status: ${status}`);
-      if (status === 'SUBSCRIBED') {
-        console.log('[RT-DEBUG] SupabaseProvider Successfully subscribed to real-time orders channel!');
-      }
-      if (err) {
-        console.error('[RT-DEBUG] SupabaseProvider Channel error:', err);
-      }
-    });
-
-    return () => {
-      if (realtimeChannel) {
-        console.warn('[RT-DEBUG] SupabaseProvider Cleanup: Unsubscribing from real-time orders channel.');
-        realtimeChannel.unsubscribe();
-      }
-    };
-  }, [realtimeChannel, isSignedIn]);
+  // Removed the useEffect that managed Realtime channel subscription.
+  // Subscription logic is now entirely within useRealtimeOrders.ts
 
   if (!supabaseClient) {
     return (
