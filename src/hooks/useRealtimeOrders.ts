@@ -12,13 +12,13 @@ export function useRealtimeOrders() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    console.log('[RT-DEBUG] useEffect triggered. Supabase client available:', !!supabaseClient, 'Auth Counter:', realtimeAuthCounter);
+    console.log('[RT-DEBUG] useEffect START. Supabase client available:', !!supabaseClient, 'Auth Counter:', realtimeAuthCounter);
     if (!supabaseClient || realtimeAuthCounter === 0) {
       console.log('[RT-DEBUG] Bailing out: Supabase client not ready or Realtime not authenticated.');
       return;
     }
 
-    console.log('[RT-DEBUG] Attempting to subscribe to channel: public:orders');
+    console.log('[RT-DEBUG] Attempting to subscribe to channel: public:orders (Auth Counter:', realtimeAuthCounter, ')');
     const channel = supabaseClient
       .channel('public:orders')
       .on(
@@ -26,28 +26,29 @@ export function useRealtimeOrders() {
         { event: 'INSERT', schema: 'public', table: 'orders' },
         (payload) => {
           console.log('[RT-DEBUG] New order payload received, invalidating notifications query.', payload);
-          // Invalidate the notifications query to trigger a refetch
           queryClient.invalidateQueries({ queryKey: ['notifications'] });
         }
       )
       .subscribe((status, err) => {
-        console.log(`[RT-DEBUG] Subscription status: ${status}`);
+        console.log(`[RT-DEBUG] Subscription status: ${status} (Auth Counter: ${realtimeAuthCounter})`);
         if (status === 'SUBSCRIBED') {
-          console.log('[RT-DEBUG] Successfully subscribed to real-time orders channel!');
+          console.log('[RT-DEBUG] Successfully subscribed to real-time orders channel! (Auth Counter:', realtimeAuthCounter, ')');
         } else if (status === 'CLOSED') {
-          console.warn('[RT-DEBUG] Real-time orders channel closed.');
+          console.warn('[RT-DEBUG] Real-time orders channel closed. (Auth Counter:', realtimeAuthCounter, ')');
         } else if (status === 'TIMED_OUT') {
-          console.error('[RT-DEBUG] Real-time subscription TIMED_OUT. This indicates a problem establishing or maintaining the connection.');
+          console.error('[RT-DEBUG] Real-time subscription TIMED_OUT. This indicates a problem establishing or maintaining the connection. (Auth Counter:', realtimeAuthCounter, ')');
         } else if (status === 'CHANNEL_ERROR') {
-          console.error('[RT-DEBUG] Real-time subscription CHANNEL_ERROR. The channel encountered an error and closed.', err);
+          console.error('[RT-DEBUG] Real-time subscription CHANNEL_ERROR. The channel encountered an error and closed. (Auth Counter:', realtimeAuthCounter, ')', err);
         }
         if (err) {
           console.error('[RT-DEBUG] Real-time subscription error details:', err);
         }
       });
 
+    console.log('[RT-DEBUG] useEffect END. Subscription logic initiated. (Auth Counter:', realtimeAuthCounter, ')');
+
     return () => {
-      console.warn('[RT-DEBUG] Cleanup: Unsubscribing from real-time orders channel.');
+      console.warn('[RT-DEBUG] Cleanup: Unsubscribing from real-time orders channel. (Auth Counter:', realtimeAuthCounter, ')');
       supabaseClient.removeChannel(channel);
     };
   }, [supabaseClient, realtimeAuthCounter, queryClient]);
