@@ -109,8 +109,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     const renewAtMs = (exp * 1000) - SAFETY_MARGIN_SECONDS * 1000;
     const ms = Math.max(renewAtMs - nowMs, 5000); // at least 5s
     renewTimerRef.current = window.setTimeout(() => {
-      if (supabaseClient) setRealtimeAuth(supabaseClient);
-    }, ms);
+              if (supabaseClient && setRealtimeAuthRef.current) setRealtimeAuthRef.current(supabaseClient);    }, ms);
   }, [supabaseClient]);
 
   // Controlled reconnect with lock/backoff. Returns true if reconnected.
@@ -226,7 +225,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       console.log('[RT-AUTH] User not signed in — clearing Realtime auth.');
       try { await client.realtime.setAuth(null); } catch {}
     }
-    }, [isSignedIn, getToken, scheduleRenewal, attemptReconnectWithBackoff, delay, setIsRealtimeReadyForSubscription]);
+    }, [isSignedIn, getToken, delay, setIsRealtimeReadyForSubscription, setRealtimeAuthRef]);
 
   // Trigger initial auth flow when client ready or sign-in state changes
   useEffect(() => {
