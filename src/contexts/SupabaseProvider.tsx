@@ -38,6 +38,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
   const renewTimerRef = useRef<number | null>(null);
   const reconnectLockRef = useRef<boolean>(false);
+  const setRealtimeAuthRef = useRef<typeof setRealtimeAuth | null>(null);
 
   // Helper: delay
   const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
@@ -100,7 +101,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     if (!exp) {
       // fallback periodic renewal
       renewTimerRef.current = window.setTimeout(() => {
-        if (supabaseClient) setRealtimeAuth(supabaseClient);
+        if (supabaseClient && setRealtimeAuthRef.current) setRealtimeAuthRef.current(supabaseClient);
       }, DEFAULT_RENEW_INTERVAL_MS);
       return;
     }
@@ -161,6 +162,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
   // Central setRealtimeAuth (stable reference)
   const setRealtimeAuth = useCallback(async (client: SupabaseClient<Database>) => {
+    setRealtimeAuthRef.current = setRealtimeAuth;
     if (!client) return;
     if (isSignedIn) {
       console.log('[RT-AUTH] Attempting to set/refresh Realtime auth.');
@@ -224,7 +226,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       console.log('[RT-AUTH] User not signed in — clearing Realtime auth.');
       try { await client.realtime.setAuth(null); } catch {}
     }
-  }, [isSignedIn, getToken, attemptReconnectWithBackoff, scheduleRenewal]);
+    }, [isSignedIn, getToken, scheduleRenewal, attemptReconnectWithBackoff, delay, setIsRealtimeReadyForSubscription]);
 
   // Trigger initial auth flow when client ready or sign-in state changes
   useEffect(() => {
@@ -240,7 +242,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       setRealtimeAuth(supabaseClient);
     }, DEFAULT_RENEW_INTERVAL_MS);
     return () => clearInterval(id);
-  }, [supabaseClient, setRealtimeAuth]);
+  }, [supabaseClient]);
 
   // Cleanup on unmount
   useEffect(() => {
