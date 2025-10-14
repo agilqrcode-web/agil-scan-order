@@ -19,7 +19,7 @@ export function useRealtimeOrders() {
       return;
     }
 
-    console.log('[RT-DEBUG] Registering listener for channel: public:orders'); // MODIFIED LOG
+    console.log('[RT-DEBUG] Registering listener for channel: public:notifications'); // MODIFIED LOG
 
     // Define the listener function
     const handlePostgresChanges = (payload: any) => {
@@ -39,7 +39,7 @@ export function useRealtimeOrders() {
     return () => {
       console.warn('[RT-DEBUG] Cleanup: Removing listener from real-time orders channel.'); // MODIFIED LOG
       // Remove only this specific listener, not the entire channel
-      realtimeChannel.off('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, handlePostgresChanges);
+      realtimeChannel.off('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, handlePostgresChanges);
     };
   }, [supabaseClient, realtimeChannel, queryClient]); // MODIFIED DEPENDENCIES
 
