@@ -91,7 +91,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   // NEW: useEffect to manage Realtime channel subscription
   useEffect(() => {
     if (realtimeChannel) {
-      console.log('[RT-DEBUG] Attempting to subscribe to channel: public:orders (from SupabaseProvider)');
+      console.log('[RT-DEBUG] Attempting to subscribe to channel: public:notifications (from SupabaseProvider)');
       realtimeChannel.subscribe((status, err) => {
         console.log(`[RT-DEBUG] SupabaseProvider Channel status: ${status}`);
         if (status === 'SUBSCRIBED') {
