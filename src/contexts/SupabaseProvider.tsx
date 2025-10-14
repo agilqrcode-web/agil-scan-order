@@ -38,7 +38,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         },
       });
       setSupabaseClient(client);
-      setRealtimeChannel(client.channel('public:orders'));
+      setRealtimeChannel(client.channel('public:notifications'));
     }
   }, [isLoaded, supabaseClient]);
 
