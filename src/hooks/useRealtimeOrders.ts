@@ -62,3 +62,4 @@ export function useRealtimeOrders() {
       realtimeChannel.off('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, handlePostgresChanges);
     };
   }, [supabaseClient, realtimeChannel, queryClient, isSignedIn]); // ADDED isSignedIn to dependencies
+}
