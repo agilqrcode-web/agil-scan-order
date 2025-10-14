@@ -90,18 +90,21 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
   // NEW: useEffect to manage Realtime channel subscription
   useEffect(() => {
-    if (realtimeChannel) {
-      console.log('[RT-DEBUG] Attempting to subscribe to channel: public:notifications (from SupabaseProvider)');
-      realtimeChannel.subscribe((status, err) => {
-        console.log(`[RT-DEBUG] SupabaseProvider Channel status: ${status}`);
-        if (status === 'SUBSCRIBED') {
-          console.log('[RT-DEBUG] SupabaseProvider Successfully subscribed to real-time orders channel!');
-        }
-        if (err) {
-          console.error('[RT-DEBUG] SupabaseProvider Channel error:', err);
-        }
-      });
+    if (!isSignedIn || !realtimeChannel) { // NEW GUARD
+      console.log('[RT-DEBUG] SupabaseProvider: Not subscribing to Realtime channel. User not signed in or channel not ready.'); // NEW LOG
+      return;
     }
+
+    console.log('[RT-DEBUG] Attempting to subscribe to channel: public:notifications (from SupabaseProvider)');
+    realtimeChannel.subscribe((status, err) => {
+      console.log(`[RT-DEBUG] SupabaseProvider Channel status: ${status}`);
+      if (status === 'SUBSCRIBED') {
+        console.log('[RT-DEBUG] SupabaseProvider Successfully subscribed to real-time orders channel!');
+      }
+      if (err) {
+        console.error('[RT-DEBUG] SupabaseProvider Channel error:', err);
+      }
+    });
 
     return () => {
       if (realtimeChannel) {
@@ -109,7 +112,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         realtimeChannel.unsubscribe();
       }
     };
-  }, [realtimeChannel]);
+  }, [realtimeChannel, isSignedIn]);
 
   if (!supabaseClient) {
     return (
