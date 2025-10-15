@@ -95,7 +95,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
       // Create a single, stable channel instance.
       // Subscription is handled by consumer hooks.
-      const ch = client.channel('public:notifications');
+      const ch = client.channel('public:orders');
       setRealtimeChannel(ch);
     }
   }, [isLoaded, getToken, supabaseClient]);
