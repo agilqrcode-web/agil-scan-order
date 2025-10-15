@@ -16,8 +16,7 @@ export function useRealtimeOrders() {
         onClick: () => {},
       },
     });
-    queryClient.invalidateQueries({ queryKey: ['orders'] });
-    queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
+    queryClient.invalidateQueries({ queryKey: ['notifications'] });
   }, [queryClient]);
 
   useEffect(() => {
