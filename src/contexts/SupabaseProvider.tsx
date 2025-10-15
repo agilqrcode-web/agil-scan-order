@@ -26,29 +26,50 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
   const [supabaseClient, setSupabaseClient] = useState<SupabaseClient<Database> | null>(null);
   const [realtimeChannel, setRealtimeChannel] = useState<RealtimeChannel | null>(null);
+  
+  // Refs for robust token renewal
   const renewTimerRef = useRef<number | null>(null);
+  const isRefreshingRef = useRef<boolean>(false); // Lock to prevent concurrent renewals
+  const lastTokenRef = useRef<string | null>(null);    // Store the last used token
 
-  // This function will be stable
+  // This function is now "armored" based on Supabase agent's advice
   const setRealtimeAuth = useCallback(async (client: SupabaseClient<Database>) => {
-    if (!client || !isSignedIn) {
-      try { await client?.realtime.setAuth(null); } catch {}
+    if (isRefreshingRef.current) {
+      console.log('[RT-AUTH] Refresh already in progress. Skipping.');
       return;
     }
+    isRefreshingRef.current = true;
 
-    console.log('[RT-AUTH] Refreshing Realtime auth token.');
     try {
-      const token = await getToken({ template: 'supabase' });
-      if (!token) {
-        console.warn('[RT-AUTH] Null token received from Clerk.');
-        await client.realtime.setAuth(null);
+      if (!client || !isSignedIn) {
+        try { await client?.realtime.setAuth(null); } catch {}
+        lastTokenRef.current = null;
+        isRefreshingRef.current = false;
         return;
       }
 
-      // Call setAuth and trust the SDK to handle it.
+      console.log('[RT-AUTH] Attempting to refresh Realtime auth token.');
+      const token = await getToken({ template: 'supabase' });
+
+      if (lastTokenRef.current === token) {
+        console.log('[RT-AUTH] Token is the same as last time. Skipping setAuth.');
+        isRefreshingRef.current = false;
+        return;
+      }
+
+      if (!token) {
+        console.warn('[RT-AUTH] Null token received from Clerk. Clearing auth.');
+        await client.realtime.setAuth(null);
+        lastTokenRef.current = null;
+        isRefreshingRef.current = false;
+        return;
+      }
+
       await client.realtime.setAuth(token);
+      lastTokenRef.current = token; // Store the new token after it has been successfully set
       console.log('[RT-AUTH] client.realtime.setAuth() called successfully.');
 
-      // Schedule the next renewal based on the new token's expiration
+      // Schedule the next renewal
       const payload = decodeJwtPayload(token);
       const exp = payload?.exp ?? null;
       if (renewTimerRef.current) {
@@ -58,14 +79,18 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         const safetyMarginMs = 2 * 60 * 1000; // 2 minutes
         const nowMs = Date.now();
         const renewInMs = (exp * 1000) - nowMs - safetyMarginMs;
-        const timeout = Math.max(renewInMs, 5000); // minimum 5 seconds
-        console.log(`[RT-AUTH] Scheduling next token renewal in ${Math.round(timeout / 1000)}s.`);
+        const timeout = Math.max(renewInMs, 30000); // 30 seconds minimum timeout
+
+        console.log(`[RT-AUTH-DIAG] Token exp: ${exp}, Now: ${Math.floor(nowMs / 1000)}, RenewInMs: ${renewInMs}, FinalTimeout: ${timeout}`);
+
         renewTimerRef.current = window.setTimeout(() => setRealtimeAuth(client), timeout);
       }
-
     } catch (e) {
       console.error('[RT-AUTH] Error during realtime auth flow:', e);
       try { await client.realtime.setAuth(null); } catch {}
+      lastTokenRef.current = null;
+    } finally {
+      isRefreshingRef.current = false; // Release lock in all cases
     }
   }, [isSignedIn, getToken]);
 
@@ -75,7 +100,6 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     if (isLoaded && !supabaseClient) {
       console.log('[SupabaseProvider] Clerk loaded — creating Supabase client and channel instance.');
 
-      // Create client with an auth interceptor for regular fetches
       const client = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
         global: {
           fetch: async (input: RequestInfo, init?: RequestInit) => {
@@ -93,8 +117,6 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
       setSupabaseClient(client);
 
-      // Create a single, stable channel instance.
-      // Subscription is handled by consumer hooks.
       const ch = client.channel('public:orders');
       setRealtimeChannel(ch);
     }
@@ -105,19 +127,11 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!supabaseClient || !isLoaded) return;
 
-    // 1. Set auth immediately when client is ready or user signs in/out
     setRealtimeAuth(supabaseClient);
 
-    // 2. Set up a fallback interval timer for renewal
-    const fallbackIntervalMs = 55 * 60 * 1000; // 55 minutes
-    const intervalId = setInterval(() => {
-      console.log('[RT-AUTH] Triggering fallback periodic token renewal.');
-      setRealtimeAuth(supabaseClient);
-    }, fallbackIntervalMs);
+    // The fallback interval is removed to prevent conflicts with the smart scheduling.
 
-    // 3. Cleanup on unmount
     return () => {
-      clearInterval(intervalId);
       if (renewTimerRef.current) {
         clearTimeout(renewTimerRef.current);
       }
@@ -140,7 +154,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     <SupabaseContext.Provider value={{
       supabaseClient,
       realtimeChannel,
-      // These are no longer needed with the simplified approach
+      // Deprecated values, kept for compatibility if other hooks use them, but they do nothing.
       realtimeAuthCounter: 0,
       requestReconnect: async () => { console.warn("requestReconnect is deprecated"); return false; },
       setRealtimeAuth: () => supabaseClient && setRealtimeAuth(supabaseClient),
