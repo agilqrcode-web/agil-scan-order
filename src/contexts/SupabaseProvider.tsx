@@ -41,7 +41,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
     try {
       if (!client || !isSignedIn) {
-        try { await client?.realtime.setAuth(null); } catch {}
+        try { await client?.realtime.setAuth(null); } catch {} 
         lastTokenRef.current = null;
         return;
       }
@@ -84,64 +84,79 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isSignedIn, getToken]);
 
+  // Effect 1: Create Client
   useEffect(() => {
-    if (isLoaded && !supabaseClient) {
-      console.log('[SupabaseProvider] Clerk loaded — creating Supabase client.');
+    if (isLoaded) {
+      console.log('[SupabaseProvider] Clerk loaded. Creating Supabase client.');
       const client = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
         global: {
-          fetch: async (input: RequestInfo, init?: RequestInit) => {
-            try {
-              const token = await getToken();
-              const headers = new Headers(init?.headers);
-              if (token) headers.set('Authorization', `Bearer ${token}`);
-              return fetch(input, { ...init, headers });
-            } catch { return fetch(input, init); }
+          fetch: async (input, init) => {
+            const token = await getToken();
+            const headers = new Headers(init?.headers);
+            if (token) headers.set('Authorization', `Bearer ${token}`);
+            return fetch(input, { ...init, headers });
           },
         },
       });
       setSupabaseClient(client);
     }
-  }, [isLoaded, getToken, supabaseClient]);
+  }, [isLoaded, getToken]);
 
+  // Effect 2: Manage Channel Lifecycle
   useEffect(() => {
-    if (!supabaseClient || !isLoaded || realtimeChannel) return;
+    if (!supabaseClient) return;
 
-    console.log('[RT-LIFECYCLE] Creating and subscribing to channel: public:orders');
+    console.log('[RT-LIFECYCLE] Client available. Creating and managing channel.');
     const channel = supabaseClient.channel('public:orders');
 
     const handleReconnect = () => {
       if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
-      const attempts = reconnectAttemptsRef.current;
-      const delay = Math.min(1000 * (2 ** attempts), 60000); // Exponential backoff, max 60s
-      console.log(`[RT-LIFECYCLE] Connection lost. Attempting to reconnect in ${delay / 1000}s (attempt ${attempts + 1}).`);
-      reconnectTimerRef.current = window.setTimeout(() => {
-        reconnectAttemptsRef.current = attempts + 1;
-        channel.subscribe(); // The SDK will handle the full join flow
-      }, delay);
+      if (channel.state === 'closed') {
+        const attempts = reconnectAttemptsRef.current;
+        const delay = Math.min(1000 * (2 ** attempts), 60000);
+        console.log(`[RT-LIFECYCLE] Connection lost. Attempting to reconnect in ${delay / 1000}s (attempt ${attempts + 1}).`);
+        
+        reconnectTimerRef.current = window.setTimeout(() => {
+          reconnectAttemptsRef.current = attempts + 1;
+          console.log('[RT-LIFECYCLE] Reconnect attempt: calling subscribe()');
+          channel.subscribe();
+        }, delay);
+      }
     };
 
     channel.on('SUBSCRIBED', () => {
-      console.log(`[RT-LIFECYCLE] Successfully SUBSCRIBED to channel "${channel.topic}". Resetting reconnect attempts.`);
+      console.log(`[RT-LIFECYCLE] SUBSCRIBED to ${channel.topic}. Resetting reconnect attempts.`);
       if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
       reconnectAttemptsRef.current = 0;
     });
 
-    channel.on('CLOSED', (payload) => {
-      console.warn('[RT-LIFECYCLE] Channel CLOSED.', payload);
+    channel.on('CLOSED', () => {
+      console.warn('[RT-LIFECYCLE] Channel CLOSED. Initiating reconnect logic.');
       handleReconnect();
     });
 
     setRealtimeChannel(channel);
-    setRealtimeAuth(supabaseClient);
-    channel.subscribe();
+    
+    // Initial subscription is triggered by the auth effect
 
     return () => {
-      console.log('[RT-LIFECYCLE] Cleanup: Unsubscribing and removing channel.');
+      console.log('[RT-LIFECYCLE] Cleanup: Removing channel.');
       if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
-      if (renewTimerRef.current) clearTimeout(renewTimerRef.current);
       supabaseClient.removeChannel(channel);
     };
-  }, [supabaseClient, isLoaded, isSignedIn, setRealtimeAuth, realtimeChannel]);
+  }, [supabaseClient]); // This effect only depends on the client existing.
+
+  // Effect 3: React to user sign-in state and channel availability
+  useEffect(() => {
+    if (supabaseClient && realtimeChannel && isLoaded) {
+      console.log('[RT-AUTH] Auth state changed or channel ready, setting auth and subscribing.');
+      setRealtimeAuth(supabaseClient).then(() => {
+        if (realtimeChannel.state !== 'joined' && realtimeChannel.state !== 'subscribed') {
+          realtimeChannel.subscribe();
+        }
+      });
+    }
+  }, [isSignedIn, isLoaded, supabaseClient, realtimeChannel, setRealtimeAuth]);
 
   if (!supabaseClient || !realtimeChannel) {
     return (
