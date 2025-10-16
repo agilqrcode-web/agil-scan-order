@@ -86,7 +86,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
   // Effect 1: Create Client
   useEffect(() => {
-    if (isLoaded) {
+    if (isLoaded && !supabaseClient) {
       console.log('[SupabaseProvider] Clerk loaded. Creating Supabase client.');
       const client = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
         global: {
@@ -100,13 +100,15 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       });
       setSupabaseClient(client);
     }
-  }, [isLoaded, getToken]);
+  }, [isLoaded, getToken, supabaseClient]);
 
-  // Effect 2: Manage Channel Lifecycle
+  // Effect 2: Consolidated Channel & Auth Lifecycle
   useEffect(() => {
-    if (!supabaseClient) return;
+    if (!supabaseClient || !isLoaded) {
+      return;
+    }
 
-    console.log('[RT-LIFECYCLE] Client available. Creating and managing channel.');
+    console.log('[RT-LIFECYCLE] Initializing channel and auth flow...');
     const channel = supabaseClient.channel('public:orders');
 
     const handleReconnect = () => {
@@ -136,27 +138,23 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     });
 
     setRealtimeChannel(channel);
-    
-    // Initial subscription is triggered by the auth effect
+
+    // Authenticate and then subscribe
+    console.log('[RT-LIFECYCLE] Setting auth and subscribing...');
+    setRealtimeAuth(supabaseClient).then(() => {
+      if (channel.state !== 'joined' && channel.state !== 'subscribed') {
+        channel.subscribe();
+      }
+    });
 
     return () => {
       console.log('[RT-LIFECYCLE] Cleanup: Removing channel.');
       if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+      if (renewTimerRef.current) clearTimeout(renewTimerRef.current);
       supabaseClient.removeChannel(channel);
+      setRealtimeChannel(null);
     };
-  }, [supabaseClient]); // This effect only depends on the client existing.
-
-  // Effect 3: React to user sign-in state and channel availability
-  useEffect(() => {
-    if (supabaseClient && realtimeChannel && isLoaded) {
-      console.log('[RT-AUTH] Auth state changed or channel ready, setting auth and subscribing.');
-      setRealtimeAuth(supabaseClient).then(() => {
-        if (realtimeChannel.state !== 'joined' && realtimeChannel.state !== 'subscribed') {
-          realtimeChannel.subscribe();
-        }
-      });
-    }
-  }, [isSignedIn, isLoaded, supabaseClient, realtimeChannel, setRealtimeAuth]);
+  }, [supabaseClient, isLoaded, isSignedIn, setRealtimeAuth]);
 
   if (!supabaseClient || !realtimeChannel) {
     return (
