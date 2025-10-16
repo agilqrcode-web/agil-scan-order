@@ -17,6 +17,7 @@ export function useRealtimeOrders() {
       },
     });
     queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    queryClient.invalidateQueries({ queryKey: ['orders'] });
   }, [queryClient]);
 
   useEffect(() => {
@@ -24,42 +25,19 @@ export function useRealtimeOrders() {
       return;
     }
 
-    console.log('[RT-NOTIFICATIONS] useEffect: Channel instance available. Setting up subscription.');
+    console.log('[RT-NOTIFICATIONS] Attaching postgres_changes listeners.');
 
-    const notificationHandler = (payload: any) => handleNewNotification(payload);
+    const handler = (payload: any) => handleNewNotification(payload);
 
-    // Register handlers for database changes
+    // Attach listeners. The Provider is responsible for the channel subscription itself.
     realtimeChannel
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'orders'
-      }, notificationHandler)
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'orders'
-      }, notificationHandler);
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, handler);
 
-    // Subscribe using the standard callback method
-    realtimeChannel.subscribe((status, err) => {
-      if (status === 'SUBSCRIBED') {
-        console.log(`[RT-NOTIFICATIONS] Trophy unlocked: SUBSCRIBED to channel "${realtimeChannel.topic}" successfully!`);
-      }
-      if (status === 'CHANNEL_ERROR') {
-        console.error(`[RT-NOTIFICATIONS] Channel error on topic "${realtimeChannel.topic}":`, err);
-      }
-      if (status === 'TIMED_OUT') {
-        // This timeout is from the SDK itself, which is more reliable
-        console.warn(`[RT-NOTIFICATIONS] Subscription timed out on topic "${realtimeChannel.topic}".`);
-      }
-    });
-
-    // Cleanup function on unmount
+    // Cleanup: remove the listener when the component unmounts.
     return () => {
-      console.log(`[RT-NOTIFICATIONS] Cleanup: Unsubscribing from channel "${realtimeChannel.topic}".`);
       if (realtimeChannel) {
-        realtimeChannel.unsubscribe();
+        console.log('[RT-NOTIFICATIONS] Detaching postgres_changes listeners.');
+        realtimeChannel.off('postgres_changes', handler);
       }
     };
   }, [realtimeChannel, handleNewNotification]);
