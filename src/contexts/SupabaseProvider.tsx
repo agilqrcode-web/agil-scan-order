@@ -34,36 +34,37 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
   const setRealtimeAuth = useCallback(async (client: SupabaseClient<Database>) => {
     if (isRefreshingRef.current) {
-      console.log('[RT-AUTH] Refresh already in progress. Skipping.');
+      console.log('[RT-AUTH] ⏳ Renovação já em progresso. Pulando.');
       return;
     }
     isRefreshingRef.current = true;
+    console.log('[RT-AUTH] 1. Tentando renovar token...');
 
     try {
       if (!client || !isSignedIn) {
-        try { await client?.realtime.setAuth(null); } catch {} 
+        try { await client?.realtime.setAuth(null); } catch {}
         lastTokenRef.current = null;
         return;
       }
 
-      console.log('[RT-AUTH] Attempting to refresh Realtime auth token.');
       const token = await getToken({ template: 'supabase' });
 
       if (lastTokenRef.current === token) {
-        console.log('[RT-AUTH] Token is the same as last time. Skipping setAuth.');
+        console.log('[RT-AUTH] --> Token idêntico. Renovação pulada. (OK)');
         return;
       }
 
       if (!token) {
-        console.warn('[RT-AUTH] Null token received from Clerk. Clearing auth.');
+        console.warn('[RT-AUTH] --> Token nulo recebido do Clerk. Limpando autenticação.');
         await client.realtime.setAuth(null);
         lastTokenRef.current = null;
         return;
       }
-
+      
+      console.log('[RT-AUTH] --> Token novo. Enviando para o Supabase...');
       await client.realtime.setAuth(token);
       lastTokenRef.current = token;
-      console.log('[RT-AUTH] client.realtime.setAuth() called successfully.');
+      console.log('[RT-AUTH] --> Supabase aceitou o novo token. (SUCESSO)');
 
       const payload = decodeJwtPayload(token);
       const exp = payload?.exp ?? null;
@@ -73,11 +74,11 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         const nowMs = Date.now();
         const renewInMs = (exp * 1000) - nowMs - safetyMarginMs;
         const timeout = Math.max(renewInMs, 30000);
-        console.log(`[RT-AUTH-DIAG] Token exp: ${exp}, Now: ${Math.floor(nowMs / 1000)}, RenewInMs: ${renewInMs}, FinalTimeout: ${timeout}`);
+        console.log(`[RT-AUTH] --> Próxima renovação agendada para daqui a ~${Math.round(timeout / 60000)} minutos.`);
         renewTimerRef.current = window.setTimeout(() => setRealtimeAuth(client), timeout);
       }
     } catch (e) {
-      console.error('[RT-AUTH] Error during realtime auth flow:', e);
+      console.error('[RT-AUTH] ‼️ Erro durante o fluxo de autenticação:', e);
       lastTokenRef.current = null;
     } finally {
       isRefreshingRef.current = false;
@@ -87,7 +88,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   // Effect 1: Create Client
   useEffect(() => {
     if (isLoaded && !supabaseClient) {
-      console.log('[SupabaseProvider] Clerk loaded. Creating Supabase client.');
+      console.log('[SupabaseProvider] ⚙️ Clerk carregado. Criando cliente Supabase.');
       const client = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
         global: {
           fetch: async (input, init) => {
@@ -108,7 +109,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    console.log('[RT-LIFECYCLE] Initializing channel and auth flow...');
+    console.log('[RT-LIFECYCLE] 🚀 Inicializando canal e fluxo de autenticação...');
     const channel = supabaseClient.channel('public:orders');
 
     const handleReconnect = () => {
@@ -116,31 +117,30 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       if (channel.state === 'closed') {
         const attempts = reconnectAttemptsRef.current;
         const delay = Math.min(1000 * (2 ** attempts), 60000);
-        console.log(`[RT-LIFECYCLE] Connection lost. Attempting to reconnect in ${delay / 1000}s (attempt ${attempts + 1}).`);
+        console.log(`[RT-LIFECYCLE] 🔄 Conexão perdida. Tentando reconectar em ${delay / 1000}s (tentativa ${attempts + 1}).`);
         
         reconnectTimerRef.current = window.setTimeout(() => {
           reconnectAttemptsRef.current = attempts + 1;
-          console.log('[RT-LIFECYCLE] Reconnect attempt: calling subscribe()');
+          console.log('[RT-LIFECYCLE] --> Tentando se inscrever novamente...');
           channel.subscribe();
         }, delay);
       }
     };
 
     channel.on('SUBSCRIBED', () => {
-      console.log(`[RT-LIFECYCLE] SUBSCRIBED to ${channel.topic}. Resetting reconnect attempts.`);
+      console.log(`[RT-LIFECYCLE] ✅ CONEXÃO REALTIME ESTABELECIDA (SUBSCRIBED) no canal ${channel.topic}. Resetting reconnect attempts.`);
       if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
       reconnectAttemptsRef.current = 0;
     });
 
     channel.on('CLOSED', () => {
-      console.warn('[RT-LIFECYCLE] Channel CLOSED. Initiating reconnect logic.');
+      console.warn(`[RT-LIFECYCLE] ❌ CANAL FECHADO! Iniciando lógica de reconexão...`);
       handleReconnect();
     });
 
     setRealtimeChannel(channel);
 
-    // Authenticate and then subscribe
-    console.log('[RT-LIFECYCLE] Setting auth and subscribing...');
+    console.log('[RT-LIFECYCLE] --> Autenticando e se inscrevendo no canal...');
     setRealtimeAuth(supabaseClient).then(() => {
       if (channel.state !== 'joined' && channel.state !== 'subscribed') {
         channel.subscribe();
@@ -148,13 +148,27 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     });
 
     return () => {
-      console.log('[RT-LIFECYCLE] Cleanup: Removing channel.');
+      console.log('[RT-LIFECYCLE] 🧹 Limpando: Removendo canal e timers.');
       if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
       if (renewTimerRef.current) clearTimeout(renewTimerRef.current);
       supabaseClient.removeChannel(channel);
       setRealtimeChannel(null);
     };
   }, [supabaseClient, isLoaded, isSignedIn, setRealtimeAuth]);
+
+  // Effect 3: The "Wake-Up Call"
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && supabaseClient) {
+        console.log('👁️ Aba se tornou visível. Verificando saúde da conexão...');
+        setRealtimeAuth(supabaseClient);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [supabaseClient, setRealtimeAuth]);
 
   if (!supabaseClient || !realtimeChannel) {
     return (
