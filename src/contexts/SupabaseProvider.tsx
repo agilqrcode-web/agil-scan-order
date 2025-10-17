@@ -32,6 +32,9 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   const reconnectTimerRef = useRef<number | null>(null);
   const reconnectAttemptsRef = useRef<number>(0);
 
+  // FIX: useRef to hold the latest version of the auth function, preventing stale closures in setTimeout.
+  const authFnRef = useRef<((client: SupabaseClient<Database>) => Promise<void>) | null>(null);
+
   const setRealtimeAuth = useCallback(async (client: SupabaseClient<Database>) => {
     if (isRefreshingRef.current) {
       console.log('[AUTH] ⏳ Renovação já em progresso. Pulando.');
@@ -71,12 +74,14 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       const exp = payload?.exp ?? null;
       if (renewTimerRef.current) clearTimeout(renewTimerRef.current);
       if (exp) {
-        const safetyMarginMs = 2 * 60 * 1000;
+        // FIX: Increased safety margin to 5 minutes for robustness.
+        const safetyMarginMs = 5 * 60 * 1000;
         const nowMs = Date.now();
         const renewInMs = (exp * 1000) - nowMs - safetyMarginMs;
         const timeout = Math.max(renewInMs, 30000);
         console.log(`[AUTH] ----> Próxima renovação agendada para daqui a ~${Math.round(timeout / 60000)} minutos.`);
-        renewTimerRef.current = window.setTimeout(() => setRealtimeAuth(client), timeout);
+        // Use the ref to call the latest auth function, avoiding stale closure.
+        renewTimerRef.current = window.setTimeout(() => authFnRef.current?.(client), timeout);
       }
     } catch (e) {
       console.error('[AUTH] ‼️ Erro durante o fluxo de autenticação:', e);
@@ -85,6 +90,11 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       isRefreshingRef.current = false;
     }
   }, [isSignedIn, getToken]);
+
+  // Update the ref on every render to point to the latest auth function.
+  useEffect(() => {
+    authFnRef.current = setRealtimeAuth;
+  });
 
   // Effect 1: Create Client
   useEffect(() => {
