@@ -34,11 +34,11 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
   const setRealtimeAuth = useCallback(async (client: SupabaseClient<Database>) => {
     if (isRefreshingRef.current) {
-      console.log('[RT-AUTH] ⏳ Renovação já em progresso. Pulando.');
+      console.log('[AUTH] ⏳ Renovação já em progresso. Pulando.');
       return;
     }
     isRefreshingRef.current = true;
-    console.log('[RT-AUTH] 1. Tentando renovar token...');
+    console.log('[AUTH] 3. Processo de autenticação do canal iniciado.');
 
     try {
       if (!client || !isSignedIn) {
@@ -47,24 +47,25 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      const token = await getToken({ template: 'supabase' });
+      console.log('[AUTH] --> Pedindo novo token ao Clerk (com skipCache: true)...');
+      const token = await getToken({ template: 'supabase', skipCache: true });
 
       if (lastTokenRef.current === token) {
-        console.log('[RT-AUTH] --> Token idêntico. Renovação pulada. (OK)');
+        console.log('[AUTH] --> Token idêntico ao anterior. Renovação pulada. (OK)');
         return;
       }
 
       if (!token) {
-        console.warn('[RT-AUTH] --> Token nulo recebido do Clerk. Limpando autenticação.');
+        console.warn('[AUTH] --> Token nulo recebido do Clerk. Limpando autenticação.');
         await client.realtime.setAuth(null);
         lastTokenRef.current = null;
         return;
       }
       
-      console.log('[RT-AUTH] --> Token novo. Enviando para o Supabase...');
+      console.log('[AUTH] --> Token novo recebido. Enviando para o Supabase...');
       await client.realtime.setAuth(token);
       lastTokenRef.current = token;
-      console.log('[RT-AUTH] --> Supabase aceitou o novo token. (SUCESSO)');
+      console.log('[AUTH] ----> Supabase aceitou o novo token. (SUCESSO)');
 
       const payload = decodeJwtPayload(token);
       const exp = payload?.exp ?? null;
@@ -74,11 +75,11 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         const nowMs = Date.now();
         const renewInMs = (exp * 1000) - nowMs - safetyMarginMs;
         const timeout = Math.max(renewInMs, 30000);
-        console.log(`[RT-AUTH] --> Próxima renovação agendada para daqui a ~${Math.round(timeout / 60000)} minutos.`);
+        console.log(`[AUTH] ----> Próxima renovação agendada para daqui a ~${Math.round(timeout / 60000)} minutos.`);
         renewTimerRef.current = window.setTimeout(() => setRealtimeAuth(client), timeout);
       }
     } catch (e) {
-      console.error('[RT-AUTH] ‼️ Erro durante o fluxo de autenticação:', e);
+      console.error('[AUTH] ‼️ Erro durante o fluxo de autenticação:', e);
       lastTokenRef.current = null;
     } finally {
       isRefreshingRef.current = false;
@@ -88,7 +89,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   // Effect 1: Create Client
   useEffect(() => {
     if (isLoaded && !supabaseClient) {
-      console.log('[SupabaseProvider] ⚙️ Clerk carregado. Criando cliente Supabase.');
+      console.log('[PROVIDER-INIT] ⚙️ 1. Clerk carregado. Criando cliente Supabase.');
       const client = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
         global: {
           fetch: async (input, init) => {
@@ -109,7 +110,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    console.log('[RT-LIFECYCLE] 🚀 Inicializando canal e fluxo de autenticação...');
+    console.log('[LIFECYCLE] 🚀 2. Cliente Supabase pronto. Iniciando ciclo de vida do canal...');
     const channel = supabaseClient.channel('public:orders');
 
     const handleReconnect = () => {
@@ -117,30 +118,31 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       if (channel.state === 'closed') {
         const attempts = reconnectAttemptsRef.current;
         const delay = Math.min(1000 * (2 ** attempts), 60000);
-        console.log(`[RT-LIFECYCLE] 🔄 Conexão perdida. Tentando reconectar em ${delay / 1000}s (tentativa ${attempts + 1}).`);
+        console.log(`[LIFECYCLE] 🔄 Conexão perdida. Tentando reconectar em ${delay / 1000}s (tentativa ${attempts + 1}).`);
         
         reconnectTimerRef.current = window.setTimeout(() => {
           reconnectAttemptsRef.current = attempts + 1;
-          console.log('[RT-LIFECYCLE] --> Tentando se inscrever novamente...');
+          console.log('[LIFECYCLE] --> Tentando se inscrever novamente...');
           channel.subscribe();
         }, delay);
       }
     };
 
+    console.log('[LIFECYCLE] --> Anexando listeners de SUBSCRIBED e CLOSED.');
     channel.on('SUBSCRIBED', () => {
-      console.log(`[RT-LIFECYCLE] ✅ CONEXÃO REALTIME ESTABELECIDA (SUBSCRIBED) no canal ${channel.topic}. Resetting reconnect attempts.`);
+      console.log(`[LIFECYCLE] ✅ SUCESSO! Inscrição no canal '${channel.topic}' confirmada.`);
       if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
       reconnectAttemptsRef.current = 0;
     });
 
     channel.on('CLOSED', () => {
-      console.warn(`[RT-LIFECYCLE] ❌ CANAL FECHADO! Iniciando lógica de reconexão...`);
+      console.warn(`[LIFECYCLE] ❌ ATENÇÃO: Canal fechado. Acionando lógica de reconexão...`);
       handleReconnect();
     });
 
     setRealtimeChannel(channel);
 
-    console.log('[RT-LIFECYCLE] --> Autenticando e se inscrevendo no canal...');
+    console.log('[LIFECYCLE] --> Disparando autenticação e inscrição inicial.');
     setRealtimeAuth(supabaseClient).then(() => {
       if (channel.state !== 'joined' && channel.state !== 'subscribed') {
         channel.subscribe();
@@ -148,7 +150,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     });
 
     return () => {
-      console.log('[RT-LIFECYCLE] 🧹 Limpando: Removendo canal e timers.');
+      console.log('[LIFECYCLE] 🧹 Limpando... Removendo canal e timers.');
       if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
       if (renewTimerRef.current) clearTimeout(renewTimerRef.current);
       supabaseClient.removeChannel(channel);
