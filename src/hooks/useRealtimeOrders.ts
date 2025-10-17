@@ -25,19 +25,28 @@ export function useRealtimeOrders() {
       return;
     }
 
-    console.log('[RT-NOTIFICATIONS] Attaching postgres_changes listeners.');
+    console.log('[RT-HOOK] ⚓️ Anexando listeners de postgres_changes e iniciando inscrição.');
 
     const handler = (payload: any) => handleNewNotification(payload);
 
-    // Attach listeners. The Provider is responsible for the channel subscription itself.
+    // A inscrição só é chamada AQUI, depois que o listener .on() foi registrado.
     realtimeChannel
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, handler);
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, handler)
+      .subscribe((status, err) => {
+        if (status === 'SUBSCRIBED') {
+          console.log(`[RT-HOOK] ✅ Inscrição para notificações de pedidos confirmada!`);
+        }
+        if (status === 'CHANNEL_ERROR') {
+          console.error('[RT-HOOK] ‼️ Erro no canal de notificações:', err);
+        }
+      });
 
-    // Cleanup: remove the listener when the component unmounts.
+    // Cleanup: remove o listener e a inscrição quando o componente desmontar.
     return () => {
       if (realtimeChannel) {
-        console.log('[RT-NOTIFICATIONS] Detaching postgres_changes listeners.');
-        realtimeChannel.off('postgres_changes', handler);
+        console.log('[RT-HOOK] 🧹 Limpando... Desinscrevendo e removendo listeners de notificações.');
+        // O unsubscribe remove todos os listeners do canal automaticamente
+        realtimeChannel.unsubscribe();
       }
     };
   }, [realtimeChannel, handleNewNotification]);

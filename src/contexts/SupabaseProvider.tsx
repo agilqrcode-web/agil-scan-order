@@ -142,12 +142,8 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
     setRealtimeChannel(channel);
 
-    console.log('[LIFECYCLE] --> Disparando autenticação e inscrição inicial.');
-    setRealtimeAuth(supabaseClient).then(() => {
-      if (channel.state !== 'joined' && channel.state !== 'subscribed') {
-        channel.subscribe();
-      }
-    });
+    console.log('[LIFECYCLE] --> Disparando autenticação inicial (inscrição será feita pelos hooks).');
+    setRealtimeAuth(supabaseClient);
 
     return () => {
       console.log('[LIFECYCLE] 🧹 Limpando... Removendo canal e timers.');
