@@ -32,14 +32,7 @@ export function useRealtimeOrders() {
     // A inscrição só é chamada AQUI, depois que o listener .on() foi registrado.
     realtimeChannel
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, handler)
-      .subscribe((status, err) => {
-        if (status === 'SUBSCRIBED') {
-          console.log(`[RT-HOOK] ✅ Inscrição para notificações de pedidos confirmada!`);
-        }
-        if (status === 'CHANNEL_ERROR') {
-          console.error('[RT-HOOK] ‼️ Erro no canal de notificações:', err);
-        }
-      });
+      .subscribe();
 
     // Cleanup: remove o listener e a inscrição quando o componente desmontar.
     return () => {
