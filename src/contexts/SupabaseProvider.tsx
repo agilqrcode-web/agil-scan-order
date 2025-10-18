@@ -106,6 +106,12 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       handleRecovery();
     });
 
+    channel.on('error', (error) => {
+      console.error('[LIFECYCLE] 💥 OCORREU UM ERRO NO CANAL:', error);
+      console.log('[LIFECYCLE] --> Acionando lógica de recuperação devido a erro.');
+      handleRecovery();
+    });
+
     setRealtimeChannel(channel);
 
     console.log('[LIFECYCLE] --> Disparando autenticação inicial (inscrição será feita pelos hooks).');
