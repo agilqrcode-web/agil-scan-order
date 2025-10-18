@@ -10,10 +10,8 @@ import type { Database } from '../integrations/supabase/types';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL!;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY!;
 
-// Configuráveis
-const MIN_VALIDITY_MS = 2 * 60 * 1000; // 2 minutos mínimos de validade
-const SHORT_TOKEN_RETRY_MS = 30 * 1000; // se token curto, re-tentar em 30s
-const WATCHDOG_INTERVAL_MS = 20 * 1000; // Cão de Guarda verifica a cada 20s
+const MIN_VALIDITY_MS = 2 * 60 * 1000;
+const SHORT_TOKEN_RETRY_MS = 30 * 1000;
 
 export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   const { getToken, isLoaded, isSignedIn } = useAuth();
@@ -26,7 +24,6 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   const lastTokenRef = useRef<string | null>(null);
   const lastAuthAtRef = useRef<number | null>(null);
   const pendingForceRecreateRef = useRef<boolean>(false);
-  const watchdogTimerRef = useRef<number | null>(null); // Ref para o Cão de Guarda
 
   const decodeExp = (token: string): number | null => {
     try {
@@ -49,7 +46,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       console.log('[AUTH] token exp (s):', exp, 'remainingMs:', remainingMs);
       if (remainingMs >= MIN_VALIDITY_MS) return token;
 
-      console.warn('[AUTH] Token recebido com validade curta (< MIN_VALIDITY_MS). Tentando obter token fresco skipCache.');
+      console.warn('[AUTH] Token recebido com validade curta. Tentando obter token fresco skipCache.');
       const fresh = await getToken({ template: 'supabase', skipCache: true });
       if (!fresh) return token;
 
@@ -65,21 +62,18 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     }
   }, [getToken]);
 
-  const forceRecreateChannel = useCallback(async (client: SupabaseClient<Database> | null) => {
-    if (pendingForceRecreateRef.current || !client) return;
+  // FIX: forceRecreateChannel agora é estável e não causa loop
+  const forceRecreateChannel = useCallback(() => {
+    if (pendingForceRecreateRef.current) return;
     pendingForceRecreateRef.current = true;
 
     try {
-      console.log('[LIFECYCLE] Forçando remoção e recriação do canal (forceRecreateChannel)...');
-      if (realtimeChannel) {
-        try { client.removeChannel(realtimeChannel); } catch {}
-        setRealtimeChannel(null);
-      }
+      console.log('[LIFECYCLE] Forçando recriação do canal via reset...');
       setResetCounter(c => c + 1);
     } finally {
-      setTimeout(() => { pendingForceRecreateRef.current = false; }, 2000); // Cooldown
+      setTimeout(() => { pendingForceRecreateRef.current = false; }, 2000);
     }
-  }, [realtimeChannel]);
+  }, []); // Sem dependências, agora é uma função estável
 
   const setRealtimeAuth = useCallback(async (client: SupabaseClient<Database>) => {
     if (isRefreshingRef.current) {
@@ -117,7 +111,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         console.log('[AUTH] ----> Supabase aceitou o novo token. (SUCESSO)');
       } catch (e) {
         console.error('[AUTH] setAuth falhou:', e);
-        await forceRecreateChannel(client);
+        forceRecreateChannel();
       }
     } catch (e) {
       console.error('[AUTH] ‼️ Erro durante o fluxo de autenticação:', e);
@@ -153,49 +147,27 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     console.log(`[LIFECYCLE] 🚀 Tentativa de conexão #${resetCounter + 1}. Criando novo canal...`);
     const channel = supabaseClient.channel('public:orders');
 
-    const triggerReset = (reason: string) => {
-      if (pendingForceRecreateRef.current) return; // Evita reset durante um reset já em curso
-      console.warn(`[LIFECYCLE] 🔄 ${reason}. Acionando reset completo do canal.`);
-      forceRecreateChannel(supabaseClient);
-    };
-
-    // CÃO DE GUARDA (WATCHDOG)
-    const startWatchdog = () => {
-      if (watchdogTimerRef.current) clearInterval(watchdogTimerRef.current);
-      watchdogTimerRef.current = window.setInterval(() => {
-        if (isSignedIn && channel) {
-          const isConnected = channel.socket.isConnected();
-          console.log(`[WATCHDOG] 🕵️ Verificando saúde. Conectado: ${isConnected}`);
-          if (!isConnected) {
-            console.warn('[WATCHDOG] 🚨 Cão de Guarda detectou conexão silenciosamente perdida!');
-            triggerReset('Watchdog detectou falha de conexão');
-          }
-        }
-      }, WATCHDOG_INTERVAL_MS);
-    };
-
     channel.on('SUBSCRIBED', () => {
       console.log(`[LIFECYCLE] ✅ SUCESSO! Inscrição no canal '${channel.topic}' confirmada.`);
-      startWatchdog(); // Inicia o cão de guarda após a conexão ser bem-sucedida
     });
 
-    channel.on('CLOSED', () => triggerReset('Canal fechado pelo servidor'));
+    channel.on('CLOSED', () => {
+        console.warn(`[LIFECYCLE] 🔄 Canal fechado pelo servidor. Acionando reset completo.`);
+        forceRecreateChannel();
+    });
+
     channel.on('CHANNEL_ERROR', (err) => {
       console.error('[LIFECYCLE] CHANNEL_ERROR detectado:', err);
-      triggerReset('CHANNEL_ERROR detectado');
-    });
-    channel.on('error', (error) => {
-      console.error('[LIFECYCLE] 💥 OCORREU UM ERRO NO CANAL:', error);
-      triggerReset('Erro detectado no canal');
+      forceRecreateChannel();
     });
 
     setRealtimeChannel(channel);
+
     console.log('[LIFECYCLE] --> Disparando autenticação inicial...');
     setRealtimeAuth(supabaseClient);
 
     return () => {
       console.log(`[LIFECYCLE] 🧹 Limpando e destruindo canal da tentativa #${resetCounter + 1}...`);
-      if (watchdogTimerRef.current) clearInterval(watchdogTimerRef.current);
       try { supabaseClient.removeChannel(channel); } catch (e) {}
       setRealtimeChannel(null);
     };
