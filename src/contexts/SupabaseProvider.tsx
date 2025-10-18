@@ -1,3 +1,4 @@
+// Savepoint before refactoring to a reactive real-time connection strategy.
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { createClient, SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 import { useAuth } from '@clerk/clerk-react';
