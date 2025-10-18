@@ -13,10 +13,9 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
   const [supabaseClient, setSupabaseClient] = useState<SupabaseClient<Database> | null>(null);
   const [realtimeChannel, setRealtimeChannel] = useState<RealtimeChannel | null>(null);
+  const [resetCounter, setResetCounter] = useState(0); // O "botão de reset"
   
   const isRefreshingRef = useRef<boolean>(false);
-  const reconnectTimerRef = useRef<number | null>(null);
-  const reconnectAttemptsRef = useRef<number>(0);
 
   const setRealtimeAuth = useCallback(async (client: SupabaseClient<Database>) => {
     if (isRefreshingRef.current) {
@@ -69,67 +68,50 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isLoaded, getToken, supabaseClient]);
 
-  // Effect 2: Reactive Channel & Auth Lifecycle
+  // Effect 2: The Self-Healing Channel Lifecycle
   useEffect(() => {
     if (!supabaseClient || !isLoaded) {
       return;
     }
 
-    console.log('[LIFECYCLE] 🚀 2. Cliente Supabase pronto. Iniciando ciclo de vida do canal...');
+    console.log(`[LIFECYCLE] 🚀 Tentativa de conexão #${resetCounter + 1}. Criando novo canal...`);
     const channel = supabaseClient.channel('public:orders');
 
-    const handleRecovery = () => {
-      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
-      
-      const attempts = reconnectAttemptsRef.current;
-      const delay = Math.min(1000 * (2 ** attempts), 30000); // Max 30s delay
-      console.log(`[LIFECYCLE] 🔄 Tentando recuperar conexão em ${delay / 1000}s (tentativa ${attempts + 1}).`);
-      
-      reconnectTimerRef.current = window.setTimeout(() => {
-        reconnectAttemptsRef.current = attempts + 1;
-        console.log('[LIFECYCLE] --> Etapa 1: Re-autenticando canal...');
-        setRealtimeAuth(supabaseClient).then(() => {
-            console.log('[LIFECYCLE] --> Etapa 2: Tentando se inscrever novamente...');
-            channel.subscribe();
-        });
-      }, delay);
+    const triggerReset = (reason: string) => {
+      console.warn(`[LIFECYCLE] 🔄 ${reason}. Acionando reset completo do canal.`);
+      // Apenas incrementa o contador. O useEffect cuidará do resto.
+      setResetCounter(c => c + 1);
     };
 
     channel.on('SUBSCRIBED', () => {
       console.log(`[LIFECYCLE] ✅ SUCESSO! Inscrição no canal '${channel.topic}' confirmada.`);
-      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
-      reconnectAttemptsRef.current = 0;
     });
 
-    channel.on('CLOSED', () => {
-      console.warn(`[LIFECYCLE] ❌ ATENÇÃO: Canal fechado. Acionando lógica de recuperação automática.`);
-      handleRecovery();
-    });
-
+    channel.on('CLOSED', () => triggerReset('Canal fechado pelo servidor'));
+    
     channel.on('error', (error) => {
       console.error('[LIFECYCLE] 💥 OCORREU UM ERRO NO CANAL:', error);
-      console.log('[LIFECYCLE] --> Acionando lógica de recuperação devido a erro.');
-      handleRecovery();
+      triggerReset('Erro detectado no canal');
     });
 
     setRealtimeChannel(channel);
 
-    console.log('[LIFECYCLE] --> Disparando autenticação inicial (inscrição será feita pelos hooks).');
+    console.log('[LIFECYCLE] --> Disparando autenticação inicial...');
     setRealtimeAuth(supabaseClient);
 
+    // A função de limpeza é crucial. Ela roda sempre que o useEffect é re-executado (ou seja, no reset).
     return () => {
-      console.log('[LIFECYCLE] 🧹 Limpando... Removendo canal e timers.');
-      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+      console.log(`[LIFECYCLE] 🧹 Limpando e destruindo canal da tentativa #${resetCounter + 1}...`);
       supabaseClient.removeChannel(channel);
       setRealtimeChannel(null);
     };
-  }, [supabaseClient, isLoaded, isSignedIn, setRealtimeAuth]);
+  }, [supabaseClient, isLoaded, isSignedIn, setRealtimeAuth, resetCounter]); // O resetCounter na dependência é a chave
 
-  // Effect 3: The "Wake-Up Call"
+  // Effect 3: The "Wake-Up Call" (ainda útil para re-autenticar ao voltar para a aba)
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && supabaseClient) {
-        console.log('👁️ Aba se tornou visível. Verificando saúde da conexão...');
+      if (document.visibilityState === 'visible' && supabaseClient && isSignedIn) {
+        console.log('👁️ Aba se tornou visível. Verificando saúde da autenticação...');
         setRealtimeAuth(supabaseClient);
       }
     };
@@ -137,7 +119,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [supabaseClient, setRealtimeAuth]);
+  }, [supabaseClient, isSignedIn, setRealtimeAuth]);
 
   if (!supabaseClient || !realtimeChannel) {
     return (
@@ -151,7 +133,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     <SupabaseContext.Provider value={{
       supabaseClient,
       realtimeChannel,
-      realtimeAuthCounter: 0,
+      realtimeAuthCounter: 0, // Deprecated, mas mantido para não quebrar outros componentes
       requestReconnect: async () => { console.warn("requestReconnect is deprecated"); return false; },
       setRealtimeAuth: () => supabaseClient && setRealtimeAuth(supabaseClient),
     }}>
