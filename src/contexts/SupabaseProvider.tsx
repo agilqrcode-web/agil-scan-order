@@ -1,4 +1,4 @@
-// SupabaseProvider.tsx - VERSÃO COM DETECÇÃO ATIVA DE EXPIRAÇÃO
+// SupabaseProvider.tsx - VERSÃO FINAL OTIMIZADA
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { createClient, SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 import { useAuth } from '@clerk/clerk-react';
@@ -36,11 +36,10 @@ const isBusinessHours = (): boolean => {
 };
 
 // =============================================================================
-// ⚙️ CONFIGURAÇÕES OTIMIZADAS
+// ⚙️ CONFIGURAÇÕES OTIMIZADAS BASEADAS EM TEMPO CONHECIDO
 // =============================================================================
-const HEALTH_CHECK_INTERVAL = 2 * 60 * 1000; // 2 minutos (reduzido para detecção mais rápida)
-const TOKEN_REFRESH_MARGIN = 10 * 60 * 1000; // 10 minutos (reduzido)
-const TOKEN_EXPIRY_CHECK = 30 * 1000; // 30 segundos (NOVO: verificação rápida de expiração)
+const TOKEN_REFRESH_MARGIN = 10 * 60 * 1000; // 10 minutos antes da expiração
+const HEALTH_CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutos
 const MAX_RECONNECT_ATTEMPTS = 3;
 
 export function SupabaseProvider({ children }: { children: React.ReactNode }) {
@@ -54,32 +53,46 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   const isRefreshingRef = useRef<boolean>(false);
   const reconnectAttemptsRef = useRef<number>(0);
   const lastEventTimeRef = useRef<number>(Date.now());
-  const lastTokenRefreshRef = useRef<number>(Date.now());
   const isActiveRef = useRef<boolean>(true);
-  const currentTokenExpiryRef = useRef<number>(0); // ✅ NOVO: Controla expiração do token
+  const scheduledRefreshTimeoutRef = useRef<number | null>(null);
+  const scheduledReconnectTimeoutRef = useRef<number | null>(null);
 
-  // ✅ FUNÇÃO CRÍTICA: Verificar se o token está prestes a expirar
-  const isTokenExpiredOrClose = useCallback((): boolean => {
-    if (currentTokenExpiryRef.current === 0) return false;
-    
+  // ✅ FUNÇÃO: Agendamento inteligente baseado no tempo conhecido
+  const scheduleTokenRefresh = useCallback((expiryTime: number) => {
+    // Limpar agendamentos anteriores
+    if (scheduledRefreshTimeoutRef.current) {
+      clearTimeout(scheduledRefreshTimeoutRef.current);
+    }
+    if (scheduledReconnectTimeoutRef.current) {
+      clearTimeout(scheduledReconnectTimeoutRef.current);
+    }
+
     const now = Date.now();
-    const timeUntilExpiry = currentTokenExpiryRef.current - now;
-    const isExpired = timeUntilExpiry <= 0;
-    const isCloseToExpiry = timeUntilExpiry < 2 * 60 * 1000; // 2 minutos
-    
-    if (isExpired) {
-      console.warn('[TOKEN-EXPIRY] 🔴 TOKEN EXPIRADO! Deveria ter reconectado');
-      return true;
-    }
-    
-    if (isCloseToExpiry) {
-      console.log(`[TOKEN-EXPIRY] 🟡 Token expira em ${Math.round(timeUntilExpiry / 1000 / 60)} minutos`);
-    }
-    
-    return isExpired;
-  }, []);
+    const timeUntilExpiry = expiryTime - now;
+    const refreshTime = timeUntilExpiry - TOKEN_REFRESH_MARGIN;
 
-  // ✅ NOVA FUNÇÃO: Reconexão forçada por expiração de token
+    console.log(`[TOKEN-SCHEDULER] 🔄 Token expira em ${Math.round(timeUntilExpiry / 1000 / 60)} minutos`);
+    console.log(`[TOKEN-SCHEDULER] 📅 Refresh agendado para ${Math.round(refreshTime / 1000 / 60)} minutos antes`);
+    
+    // Agendar refresh proativo 10 minutos antes da expiração
+    scheduledRefreshTimeoutRef.current = window.setTimeout(() => {
+      if (isActiveRef.current && supabaseClient && isSignedIn) {
+        console.log('[TOKEN-SCHEDULER] ⏰ Hora do refresh proativo (10min antes da expiração)');
+        setRealtimeAuth(supabaseClient);
+      }
+    }, Math.max(0, refreshTime));
+    
+    // Agendar reconexão forçada no momento exato da expiração
+    scheduledReconnectTimeoutRef.current = window.setTimeout(() => {
+      if (isActiveRef.current) {
+        console.log('[TOKEN-SCHEDULER] 🔴 Token expirando agora - forçando reconexão');
+        forceReconnectForTokenExpiry();
+      }
+    }, Math.max(0, timeUntilExpiry));
+    
+  }, [supabaseClient, isSignedIn]);
+
+  // ✅ FUNÇÃO: Reconexão forçada por expiração de token
   const forceReconnectForTokenExpiry = useCallback(async () => {
     if (!isActiveRef.current || !supabaseClient || !isSignedIn) return;
     
@@ -101,6 +114,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     reconnectAttemptsRef.current = 0;
   }, [supabaseClient, isSignedIn, realtimeChannel]);
 
+  // ✅ FUNÇÃO: Obter token com agendamento inteligente
   const getTokenWithValidation = useCallback(async (): Promise<{ token: string | null; expiry: number }> => {
     try {
       const token = await getToken({ template: 'supabase' });
@@ -109,27 +123,23 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         return { token: null, expiry: 0 };
       }
 
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        const exp = payload.exp * 1000; // Converter para milliseconds
-        const remainingMs = exp - Date.now();
-        
-        console.log(`[AUTH] Token expira em: ${Math.round(remainingMs / 1000 / 60)} minutos`);
-        
-        // ✅ ATUALIZAR referência de expiração
-        currentTokenExpiryRef.current = exp;
-        
-        return { token, expiry: exp };
-      } catch (parseError) {
-        console.error('[AUTH] Erro ao parsear token:', parseError);
-        return { token, expiry: 0 };
-      }
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const exp = payload.exp * 1000;
+      const remainingMs = exp - Date.now();
+      
+      console.log(`[AUTH] Token expira em: ${Math.round(remainingMs / 1000 / 60)} minutos`);
+      
+      // ✅ AGENDAR refresh baseado no tempo conhecido
+      scheduleTokenRefresh(exp);
+      
+      return { token, expiry: exp };
     } catch (error) {
       console.error('[AUTH] Erro ao obter token:', error);
       return { token: null, expiry: 0 };
     }
-  }, [getToken]);
+  }, [getToken, scheduleTokenRefresh]);
 
+  // ✅ FUNÇÃO: Autenticação RealTime
   const setRealtimeAuth = useCallback(async (client: SupabaseClient) => {
     if (isRefreshingRef.current) {
       console.log('[AUTH] ⏳ Autenticação já em progresso');
@@ -157,7 +167,6 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       console.log('[AUTH] ✅ Token aplicado com sucesso');
       setConnectionHealthy(true);
       setRealtimeAuthCounter(prev => prev + 1);
-      lastTokenRefreshRef.current = Date.now();
       
     } catch (error) {
       console.error('[AUTH] ‼️ Erro na autenticação:', error);
@@ -167,7 +176,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isSignedIn, getTokenWithValidation]);
 
-  // ✅ INICIALIZAÇÃO DO CANAL (extraída para reuso)
+  // ✅ FUNÇÃO: Inicialização do canal
   const initializeChannel = useCallback(async (channel: RealtimeChannel) => {
     const handleRealtimeEvent = (payload: any) => {
       if (!isActiveRef.current) return;
@@ -228,7 +237,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isLoaded, getToken, supabaseClient]);
 
-  // Effect 2: Canal RealTime com Detecção Ativa de Expiração
+  // Effect 2: Canal RealTime com Health Check Inteligente
   useEffect(() => {
     if (!supabaseClient || !isLoaded) {
       return;
@@ -241,24 +250,17 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     initializeChannel(channel);
     setRealtimeChannel(channel);
 
-    // ✅ HEALTH CHECK INTELIGENTE COM VERIFICAÇÃO DE TOKEN
+    // ✅ HEALTH CHECK INTELIGENTE
     const healthCheckInterval = setInterval(() => {
       if (!isActiveRef.current) return;
       
       const timeSinceLastEvent = Date.now() - lastEventTimeRef.current;
       const isChannelSubscribed = channel.state === 'joined';
       
-      // 🎯 VERIFICAÇÃO CRÍTICA: Token expirado?
-      if (isTokenExpiredOrClose()) {
-        console.warn('[HEALTH-CHECK] 🔴 Token expirado detectado - forçando reconexão');
-        forceReconnectForTokenExpiry();
-        return;
-      }
-      
       // Verificação normal de health check
-      if (isChannelSubscribed && timeSinceLastEvent > 2 * 60 * 1000) {
+      if (isChannelSubscribed && timeSinceLastEvent > 5 * 60 * 1000) {
         if (isBusinessHours()) {
-          console.warn('[HEALTH-CHECK] ⚠️ Sem eventos há 2+ minutos em horário comercial');
+          console.warn('[HEALTH-CHECK] ⚠️ Sem eventos há 5+ minutos em horário comercial');
           setConnectionHealthy(false);
           channel.unsubscribe().then(() => {
             setTimeout(() => {
@@ -271,54 +273,38 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       }
     }, HEALTH_CHECK_INTERVAL);
 
-    // ✅ VERIFICAÇÃO RÁPIDA DE EXPIRAÇÃO (NOVO)
-    const tokenExpiryCheckInterval = setInterval(() => {
-      if (!isActiveRef.current || !isSignedIn) return;
-      
-      if (isTokenExpiredOrClose()) {
-        console.warn('[TOKEN-EXPIRY-CHECK] 🔴 Token expirado - reconectando...');
-        forceReconnectForTokenExpiry();
-      }
-    }, TOKEN_EXPIRY_CHECK);
-
-    // ✅ Token Refresh Otimizado
-    const tokenRefreshInterval = setInterval(() => {
-      if (!isActiveRef.current || !isSignedIn || !supabaseClient) return;
-      
-      console.log('[TOKEN-REFRESH] 🔄 Refresh proativo (10min)');
-      setRealtimeAuth(supabaseClient);
-    }, TOKEN_REFRESH_MARGIN);
-
     return () => {
       console.log('[LIFECYCLE] 🧹 Limpando recursos');
       isActiveRef.current = false;
+      
+      // Limpar timeouts agendados
+      if (scheduledRefreshTimeoutRef.current) {
+        clearTimeout(scheduledRefreshTimeoutRef.current);
+      }
+      if (scheduledReconnectTimeoutRef.current) {
+        clearTimeout(scheduledReconnectTimeoutRef.current);
+      }
+      
       clearInterval(healthCheckInterval);
-      clearInterval(tokenExpiryCheckInterval);
-      clearInterval(tokenRefreshInterval);
       channel.unsubscribe();
       setRealtimeChannel(null);
       setConnectionHealthy(false);
     };
-  }, [supabaseClient, isLoaded, isSignedIn, setRealtimeAuth, initializeChannel, isTokenExpiredOrClose, forceReconnectForTokenExpiry]);
+  }, [supabaseClient, isLoaded, initializeChannel]);
 
   // Effect 3: Wake-Up Call
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && supabaseClient && isSignedIn) {
-        console.log('👁️ Aba visível - verificando conexão e token');
-        // ✅ Verificar token ao voltar à aba
-        if (isTokenExpiredOrClose()) {
-          forceReconnectForTokenExpiry();
-        } else {
-          setRealtimeAuth(supabaseClient);
-        }
+        console.log('👁️ Aba visível - verificando conexão');
+        setRealtimeAuth(supabaseClient);
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [supabaseClient, isSignedIn, setRealtimeAuth, isTokenExpiredOrClose, forceReconnectForTokenExpiry]);
+  }, [supabaseClient, isSignedIn, setRealtimeAuth]);
 
   // ✅ Funções de reconexão
   const refreshConnection = useCallback(async () => {
@@ -352,11 +338,11 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     }}>
       {children}
       
-      {/* Indicador visual com status de token */}
+      {/* Indicador visual */}
       <div className={`fixed bottom-4 right-4 w-3 h-3 rounded-full ${
         connectionHealthy ? 'bg-green-500' : 'bg-red-500'
       } z-50 border border-white shadow-lg`} 
-      title={`${connectionHealthy ? 'Conexão saudável' : 'Conexão com problemas'} | Token expira em: ${Math.round((currentTokenExpiryRef.current - Date.now()) / 1000 / 60)}min`} />
+      title={connectionHealthy ? 'Conexão saudável' : 'Conexão com problemas'} />
     </SupabaseContext.Provider>
   );
 }
