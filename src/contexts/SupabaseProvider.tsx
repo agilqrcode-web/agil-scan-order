@@ -1,3 +1,4 @@
+// SupabaseProvider.tsx - VERSÃO COMPATÍVEL COM SEU CONTEXTO
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { createClient, SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 import { useAuth } from '@clerk/clerk-react';
@@ -8,17 +9,26 @@ import type { Database } from '../integrations/supabase/types';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL!;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY!;
 
+// Health check interval (5 minutes)
+const HEALTH_CHECK_INTERVAL = 5 * 60 * 1000;
+// Token refresh margin (10 minutes before expiry)
+const TOKEN_REFRESH_MARGIN = 10 * 60 * 1000;
+
 export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   const { getToken, isLoaded, isSignedIn } = useAuth();
 
-  const [supabaseClient, setSupabaseClient] = useState<SupabaseClient<Database> | null>(null);
+  const [supabaseClient, setSupabaseClient] = useState<SupabaseClient | null>(null);
   const [realtimeChannel, setRealtimeChannel] = useState<RealtimeChannel | null>(null);
+  const [connectionHealthy, setConnectionHealthy] = useState<boolean>(false);
+  const [realtimeAuthCounter, setRealtimeAuthCounter] = useState<number>(0);
   
   const isRefreshingRef = useRef<boolean>(false);
   const reconnectTimerRef = useRef<number | null>(null);
   const reconnectAttemptsRef = useRef<number>(0);
+  const healthCheckIntervalRef = useRef<number | null>(null);
+  const tokenRefreshIntervalRef = useRef<number | null>(null);
 
-  const setRealtimeAuth = useCallback(async (client: SupabaseClient<Database>) => {
+  const setRealtimeAuth = useCallback(async (client: SupabaseClient) => {
     if (isRefreshingRef.current) {
       console.log('[AUTH] ⏳ Autenticação já em progresso. Pulando.');
       return;
@@ -28,7 +38,10 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
     try {
       if (!client || !isSignedIn) {
-        try { await client?.realtime.setAuth(null); } catch {}
+        try { 
+          await client?.realtime.setAuth(null); 
+          setConnectionHealthy(false);
+        } catch {}
         return;
       }
 
@@ -38,14 +51,18 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       if (!token) {
         console.warn('[AUTH] --> Token nulo recebido do Clerk. Limpando autenticação.');
         await client.realtime.setAuth(null);
+        setConnectionHealthy(false);
         return;
       }
       
       console.log('[AUTH] --> Token novo recebido. Enviando para o Supabase...');
       await client.realtime.setAuth(token);
       console.log('[AUTH] ----> Supabase aceitou o novo token. (SUCESSO)');
+      setConnectionHealthy(true);
+      setRealtimeAuthCounter(prev => prev + 1);
     } catch (e) {
       console.error('[AUTH] ‼️ Erro durante o fluxo de autenticação:', e);
+      setConnectionHealthy(false);
     } finally {
       isRefreshingRef.current = false;
     }
@@ -55,7 +72,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (isLoaded && !supabaseClient) {
       console.log('[PROVIDER-INIT] ⚙️ 1. Clerk carregado. Criando cliente Supabase.');
-      const client = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+      const client = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
         global: {
           fetch: async (input, init) => {
             const token = await getToken();
@@ -99,18 +116,48 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       console.log(`[LIFECYCLE] ✅ SUCESSO! Inscrição no canal '${channel.topic}' confirmada.`);
       if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
       reconnectAttemptsRef.current = 0;
+      setConnectionHealthy(true);
     });
 
     channel.on('CLOSED', () => {
       console.warn(`[LIFECYCLE] ❌ ATENÇÃO: Canal fechado. Acionando lógica de recuperação automática.`);
+      setConnectionHealthy(false);
       handleRecovery();
     });
 
     channel.on('error', (error) => {
       console.error('[LIFECYCLE] 💥 OCORREU UM ERRO NO CANAL:', error);
       console.log('[LIFECYCLE] --> Acionando lógica de recuperação devido a erro.');
+      setConnectionHealthy(false);
       handleRecovery();
     });
+
+    // ✅ NOVO: Health Check Proativo
+    healthCheckIntervalRef.current = window.setInterval(() => {
+      if (channel && channel.state === 'joined') {
+        console.log('[HEALTH-CHECK] ✅ Conexão realtime saudável');
+        setConnectionHealthy(true);
+      } else {
+        console.warn('[HEALTH-CHECK] ⚠️ Conexão realtime com problemas');
+        setConnectionHealthy(false);
+      }
+    }, HEALTH_CHECK_INTERVAL);
+
+    // ✅ NOVO: Refresh Proativo de Token
+    tokenRefreshIntervalRef.current = window.setInterval(async () => {
+      if (isSignedIn && supabaseClient) {
+        console.log('[TOKEN-REFRESH] 🔄 Refresh proativo do token');
+        try {
+          const newToken = await getToken({ template: 'supabase' });
+          if (newToken) {
+            await supabaseClient.realtime.setAuth(newToken);
+            console.log('[TOKEN-REFRESH] ✅ Token atualizado com sucesso');
+          }
+        } catch (error) {
+          console.error('[TOKEN-REFRESH] ❌ Erro ao atualizar token:', error);
+        }
+      }
+    }, TOKEN_REFRESH_MARGIN);
 
     setRealtimeChannel(channel);
 
@@ -120,8 +167,11 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     return () => {
       console.log('[LIFECYCLE] 🧹 Limpando... Removendo canal e timers.');
       if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+      if (healthCheckIntervalRef.current) clearInterval(healthCheckIntervalRef.current);
+      if (tokenRefreshIntervalRef.current) clearInterval(tokenRefreshIntervalRef.current);
       supabaseClient.removeChannel(channel);
       setRealtimeChannel(null);
+      setConnectionHealthy(false);
     };
   }, [supabaseClient, isLoaded, isSignedIn, setRealtimeAuth]);
 
@@ -139,6 +189,26 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     };
   }, [supabaseClient, isSignedIn, setRealtimeAuth]);
 
+  // ✅ NOVO: Função para reconexão manual
+  const refreshConnection = useCallback(async () => {
+    console.log('[RECONNECT] 🔄 Reconexão manual solicitada');
+    if (realtimeChannel) {
+      realtimeChannel.unsubscribe();
+      setRealtimeChannel(null);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+    if (supabaseClient) {
+      await setRealtimeAuth(supabaseClient);
+    }
+  }, [supabaseClient, realtimeChannel, setRealtimeAuth]);
+
+  // ✅ Função requestReconnect mantida para compatibilidade
+  const requestReconnect = useCallback(async (maxAttempts?: number) => {
+    console.log('[RECONNECT] 🔄 Reconexão via requestReconnect solicitada');
+    await refreshConnection();
+    return true;
+  }, [refreshConnection]);
+
   if (!supabaseClient || !realtimeChannel) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -151,11 +221,19 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     <SupabaseContext.Provider value={{
       supabaseClient,
       realtimeChannel,
-      realtimeAuthCounter: 0,
-      requestReconnect: async () => { console.warn("requestReconnect is deprecated"); return false; },
+      connectionHealthy, // ✅ NOVO: Status da conexão
+      realtimeAuthCounter,
+      requestReconnect, // ✅ Mantido para compatibilidade
       setRealtimeAuth: () => supabaseClient && setRealtimeAuth(supabaseClient),
+      refreshConnection, // ✅ NOVO: Função de reconexão manual
     }}>
       {children}
+      
+      {/* ✅ NOVO: Indicador visual opcional da saúde da conexão */}
+      <div className={`fixed bottom-4 right-4 w-4 h-4 rounded-full border-2 border-white ${
+        connectionHealthy ? 'bg-green-500' : 'bg-red-500'
+      } z-50`} 
+      title={connectionHealthy ? 'Conexão realtime saudável' : 'Conexão realtime com problemas'} />
     </SupabaseContext.Provider>
   );
 }
