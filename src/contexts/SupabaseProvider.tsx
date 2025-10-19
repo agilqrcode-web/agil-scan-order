@@ -89,38 +89,13 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
             return;
         }
         
-        // CORREÇÃO DO LOOP: IMPEDE A RE-CRIAÇÃO DESNECESSÁRIA
-        if (realtimeChannel) {
-            return;
-        }
-
         console.log('[LIFECYCLE] 🚀 2. Cliente Supabase pronto. Iniciando ciclo de vida do canal...');
         const channel = supabaseClient.channel('public:orders');
 
         const handleRecovery = (reason: 'CLOSED' | 'ERROR') => {
-            if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
-            
-            const attempts = reconnectAttemptsRef.current;
-            const delayTime = Math.min(1000 * (2 ** attempts), 30000);
-            console.log(`[LIFECYCLE] 🔄 Tentando recuperar conexão em ${delayTime / 1000}s (tentativa ${attempts + 1}). Motivo: ${reason}`);
-            
-            reconnectTimerRef.current = window.setTimeout(() => {
-                reconnectAttemptsRef.current = attempts + 1;
-                console.log('[LIFECYCLE] --> Etapa 1: Re-autenticando...');
-                
-                // 1. Força a re-autenticação (define o novo token)
-                authFnRef.current?.(supabaseClient);
-                
-                // 2. Re-inscrição (usando o novo token)
-                if (channel.state === 'closed' || channel.state === 'errored') {
-                    channel.subscribe(); 
-                    console.log('[LIFECYCLE] --> Etapa 2: Tentando se inscrever novamente com novo token.');
-                } else {
-                     // Caso raro: o canal pode estar em outro estado, apenas garante que o subscribe rode
-                     channel.subscribe();
-                }
-
-            }, delayTime);
+            console.warn(`[LIFECYCLE] 🔄 ${reason}. Acionando reset completo do canal.`);
+            // Apenas dispara o reset. O useEffect principal cuidará da recriação.
+            setResetCounter(c => c + 1);
         };
 
         channel.on('SUBSCRIBED', () => {
