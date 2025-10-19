@@ -8,6 +8,9 @@ import type { Database } from '../integrations/supabase/types';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL!;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY!;
 
+// Função utilitária para introduzir um pequeno delay
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     const { getToken, isLoaded, isSignedIn } = useAuth();
 
@@ -32,7 +35,6 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         try {
             if (!client || !isSignedIn) {
                 try { await client?.realtime.setAuth(null); } catch {}
-                // Força o canal a se fechar em caso de logout
                 realtimeChannel?.unsubscribe();
                 return;
             }
@@ -51,12 +53,16 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
             await client.realtime.setAuth(token);
             console.log('[AUTH] ----> Supabase aceitou o novo token. (SUCESSO)');
 
-            // >>> A LINHA CRÍTICA: FORÇA A RE-INSCRIÇÃO APÓS A RENOVAÇÃO DO TOKEN <<<
+            // >>> CORREÇÃO DO ERRO E FORÇA DA RE-INSCRIÇÃO APÓS RENOVAÇÃO <<<
             if (realtimeChannel) {
-                // Remove a inscrição atual e força uma nova.
-                // Isso garante que o canal 'public:orders' use o novo token.
-                realtimeChannel.unsubscribe().subscribe(); 
-                console.log('[AUTH] ----> Canal Realtime forçado a re-inscrever com novo token.');
+                // Desinscreve-se e re-inscreve para garantir que o novo token seja usado pelo canal.
+                // É necessário um pequeno delay entre unsubscribe e subscribe.
+                if (realtimeChannel.state === 'subscribed') {
+                    realtimeChannel.unsubscribe();
+                    await delay(50); // Delay de 50ms para garantir que o comando unsubscribe seja processado.
+                    console.log('[AUTH] ----> Canal Realtime forçado a re-inscrever com novo token.');
+                }
+                realtimeChannel.subscribe();
             }
 
         } catch (e) {
@@ -94,6 +100,12 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         if (!supabaseClient || !isLoaded) {
             return;
         }
+        
+        // >>> CORREÇÃO DO LOOP: IMPEDE A RE-CRIAÇÃO DESNECESSÁRIA <<<
+        if (realtimeChannel) {
+            // Se o canal já existe, pulamos a criação e configuração.
+            return;
+        }
 
         console.log('[LIFECYCLE] 🚀 2. Cliente Supabase pronto. Iniciando ciclo de vida do canal...');
         const channel = supabaseClient.channel('public:orders');
@@ -102,8 +114,8 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
             if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
             
             const attempts = reconnectAttemptsRef.current;
-            const delay = Math.min(1000 * (2 ** attempts), 30000);
-            console.log(`[LIFECYCLE] 🔄 Tentando recuperar conexão em ${delay / 1000}s (tentativa ${attempts + 1}). Motivo: ${reason}`);
+            const delayTime = Math.min(1000 * (2 ** attempts), 30000);
+            console.log(`[LIFECYCLE] 🔄 Tentando recuperar conexão em ${delayTime / 1000}s (tentativa ${attempts + 1}). Motivo: ${reason}`);
             
             reconnectTimerRef.current = window.setTimeout(() => {
                 reconnectAttemptsRef.current = attempts + 1;
@@ -112,13 +124,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
                 // Força a re-autenticação, que agora contém a lógica de re-inscrição forçada
                 authFnRef.current?.(supabaseClient);
                 
-                // Nota: O authFnRef.current já chama subscribe() internamente. 
-                // Se o .subscribe() inicial do hook falhou, ele será re-executado aqui.
-                if (channel.state !== 'joined' && channel.state !== 'subscribed') {
-                    channel.subscribe();
-                }
-
-            }, delay);
+            }, delayTime);
         };
 
         channel.on('SUBSCRIBED', () => {
@@ -140,18 +146,17 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         setRealtimeChannel(channel);
 
         console.log('[LIFECYCLE] --> Disparando autenticação inicial.');
-        setRealtimeAuth(supabaseClient);
+        authFnRef.current?.(supabaseClient);
 
         return () => {
             console.log('[LIFECYCLE] 🧹 Limpando... Removendo canal e timers.');
             if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
-            // O removeChannel é importante para evitar vazamento de memória se o componente for desmontado
             supabaseClient.removeChannel(channel); 
-            setRealtimeChannel(null);
+            // O setRealtimeChannel(null) é omitido para permitir que o useEffect 2 detecte o estado nulo e se re-execute se necessário.
         };
-    }, [supabaseClient, isLoaded, setRealtimeAuth]);
+    }, [supabaseClient, isLoaded, setRealtimeAuth, realtimeChannel]); // Adicionei realtimeChannel
 
-    // Effect 3: Renovação Proativa do Token (Garante que o token seja sempre renovado)
+    // Effect 3: Renovação Proativa do Token (A SOLUÇÃO CONTRA A EXPIRAÇÃO)
     useEffect(() => {
         if (!supabaseClient || !isSignedIn) {
             return;
@@ -161,25 +166,30 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
         const renewAuth = () => {
             console.log('[AUTH-INTERVAL] ⏱️ Renovação periódica agendada acionada. Forçando novo token.');
-            // Usa a ref para chamar a função mais atualizada, que agora força a re-inscrição
             authFnRef.current?.(supabaseClient); 
         };
 
-        renewAuth(); 
-        const intervalId = window.setInterval(renewAuth, RENEW_INTERVAL_MS);
+        // O delay garante que a primeira execução proativa não conflite com a autenticação inicial do useEffect 2
+        const initialTimer = window.setTimeout(() => {
+            renewAuth();
+            const intervalId = window.setInterval(renewAuth, RENEW_INTERVAL_MS);
+            return () => {
+                console.log('[AUTH-INTERVAL] 🧹 Limpando intervalo de renovação.');
+                window.clearInterval(intervalId);
+            };
+        }, 5000); // Aguarda 5 segundos antes de iniciar o loop de renovação.
 
         return () => {
-            console.log('[AUTH-INTERVAL] 🧹 Limpando intervalo de renovação.');
-            window.clearInterval(intervalId);
+            window.clearTimeout(initialTimer);
         };
-    }, [supabaseClient, isSignedIn]); // setRealtimeAuth não é necessário aqui, pois usamos authFnRef
+    }, [supabaseClient, isSignedIn]);
 
     // Effect 4: The "Wake-Up Call"
     useEffect(() => {
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'visible' && supabaseClient && isSignedIn) {
                 console.log('👁️ Aba se tornou visível. Verificando saúde da conexão e token.');
-                authFnRef.current?.(supabaseClient); // Usa a ref
+                authFnRef.current?.(supabaseClient);
             }
         };
         document.addEventListener('visibilitychange', handleVisibilityChange);

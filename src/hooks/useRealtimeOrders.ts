@@ -29,7 +29,8 @@ export function useRealtimeOrders() {
 
         const handler = (payload: any) => handleNewNotification(payload);
 
-        // Anexa o listener e chama subscribe, mas a recuperação total será gerenciada pelo Provider.
+        // Anexa o listener e chama subscribe (para a inscrição inicial).
+        // A lógica de recuperação e re-subscrição é tratada no Provider.
         realtimeChannel
             .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, handler)
             .subscribe((status, err) => {
