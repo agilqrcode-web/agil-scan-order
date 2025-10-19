@@ -1,8 +1,10 @@
-// useRealtimeOrders.ts - VERSÃO CORRIGIDA
 import { useCallback, useEffect, useRef } from 'react';
 import { useSupabase } from '@/contexts/SupabaseContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+
+// ✅ CONFIGURAÇÕES OTIMIZADAS
+const POLLING_INTERVAL = 2 * 60 * 1000; // 2 minutos (reduzido de 30s)
 
 export function useRealtimeOrders() {
   const { realtimeChannel, connectionHealthy } = useSupabase();
@@ -11,7 +13,7 @@ export function useRealtimeOrders() {
   const lastNotificationRef = useRef<number>(Date.now());
 
   const handleNewNotification = useCallback((payload: any) => {
-    console.log('[RT-NOTIFICATIONS] ✅ New postgres_changes event received:', payload);
+    console.log('[RT-NOTIFICATIONS] ✅ Evento recebido:', payload);
     lastNotificationRef.current = Date.now();
     
     toast.info("Novo pedido recebido!", {
@@ -22,10 +24,16 @@ export function useRealtimeOrders() {
       },
     });
 
-    // Invalidar queries relevantes
-    queryClient.invalidateQueries({ queryKey: ['notifications'] });
-    queryClient.invalidateQueries({ queryKey: ['orders'] });
-    queryClient.invalidateQueries({ queryKey: ['orders-stats'] });
+    // Invalidar queries em lote para reduzir requests
+    queryClient.invalidateQueries({ 
+      queryKey: ['notifications'] 
+    });
+    queryClient.invalidateQueries({ 
+      queryKey: ['orders'] 
+    });
+    queryClient.invalidateQueries({ 
+      queryKey: ['orders-stats'] 
+    });
   }, [queryClient]);
 
   // Efeito 1: Configurar listeners do realtime
@@ -35,11 +43,10 @@ export function useRealtimeOrders() {
       return;
     }
 
-    console.log('[RT-HOOK] ⚓️ Anexando listeners de postgres_changes e iniciando inscrição.');
+    console.log('[RT-HOOK] ⚓️ Configurando listeners realtime');
 
     const handler = (payload: any) => handleNewNotification(payload);
 
-    // A inscrição só é chamada AQUI, depois que o listener .on() foi registrado.
     realtimeChannel
       .on('postgres_changes', { 
         event: '*', 
@@ -48,31 +55,27 @@ export function useRealtimeOrders() {
       }, handler)
       .subscribe();
 
-    // Cleanup: remove o listener e a inscrição quando o componente desmontar.
     return () => {
       if (realtimeChannel) {
-        console.log('[RT-HOOK] 🧹 Limpando... Desinscrevendo e removendo listeners de notificações.');
+        console.log('[RT-HOOK] 🧹 Limpando listeners');
         realtimeChannel.unsubscribe();
       }
     };
   }, [realtimeChannel, handleNewNotification]);
 
-  // Efeito 2: Fallback com polling quando realtime não está saudável
+  // ✅ Efeito 2: Polling Otimizado
   useEffect(() => {
     if (!connectionHealthy) {
-      console.log('[FALLBACK] 🔄 Conexão realtime não saudável - ativando polling como fallback');
+      console.log('[FALLBACK] 🔄 Ativando polling (2min)');
       
-      // Polling imediato primeiro
-      queryClient.invalidateQueries({ queryKey: ['orders'] });
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      // Polling imediato
+      queryClient.invalidateQueries({ queryKey: ['orders', 'notifications'] });
       
-      // Configurar polling periódico
+      // ✅ Polling reduzido para 2 minutos
       pollingIntervalRef.current = window.setInterval(() => {
-        console.log('[FALLBACK] 📡 Polling para atualizações de pedidos');
-        queryClient.invalidateQueries({ queryKey: ['orders'] });
-        queryClient.invalidateQueries({ queryKey: ['notifications'] });
-        queryClient.invalidateQueries({ queryKey: ['orders-stats'] });
-      }, 30000); // 30 segundos
+        console.log('[FALLBACK] 📡 Polling para atualizações (2min)');
+        queryClient.invalidateQueries({ queryKey: ['orders', 'notifications', 'orders-stats'] });
+      }, POLLING_INTERVAL);
 
       return () => {
         if (pollingIntervalRef.current) {
@@ -82,21 +85,17 @@ export function useRealtimeOrders() {
         }
       };
     } else {
-      // Conexão saudável - desativar polling se estiver ativo
+      // Conexão saudável - desativar polling
       if (pollingIntervalRef.current) {
         console.log('[FALLBACK] ✅ Realtime recuperado - desativando polling');
         clearInterval(pollingIntervalRef.current);
         pollingIntervalRef.current = undefined;
         
-        // Forçar uma atualização imediata ao voltar para realtime
-        queryClient.invalidateQueries({ queryKey: ['orders'] });
-        queryClient.invalidateQueries({ queryKey: ['notifications'] });
+        // Forçar atualização ao voltar para realtime
+        queryClient.invalidateQueries({ queryKey: ['orders', 'notifications'] });
       }
     }
   }, [connectionHealthy, queryClient]);
-
-  // Efeito 3: Health check - REMOVIDO (agora está no Provider)
-  // O health check de notificações deve ser feito no Provider onde temos o canal
 
   return {
     connectionHealthy,
