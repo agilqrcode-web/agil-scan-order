@@ -189,51 +189,33 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     }
   }, [getTokenWithValidation, isSignedIn, realtimeChannel]);
 
-  // Backoff/Reconexão inteligente
-  const handleReconnect = useCallback(async (channel?: RealtimeChannel) => {
-    if (!isActiveRef.current) return;
-    if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
-      console.warn('[RECONNECT] 🛑 Máximo de tentativas atingido');
-      return;
-    }
-    const delay = INITIAL_RECONNECT_DELAY * Math.pow(2, reconnectAttemptsRef.current);
-    reconnectAttemptsRef.current++;
-    console.log(`[RECONNECT] 🔄 Tentativa ${reconnectAttemptsRef.current} em ${delay}ms`);
-    setTimeout(async () => {
-      if (!isActiveRef.current || !supabaseClient) return;
-      try {
-        await setRealtimeAuthSafe(supabaseClient);
-        if (channel) channel.subscribe();
-      } catch (e) {
-        console.error('[RECONNECT] erro ao tentar reconnect:', e);
-      }
-    }, delay);
-  }, [supabaseClient, setRealtimeAuthSafe]);
-
-  // Effect: criar cliente
-  useEffect(() => {
-    if (isLoaded && !supabaseClient) {
-      console.log('[PROVIDER-INIT] Criando cliente Supabase');
-      const client = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-        global: {
-          fetch: async (input, init) => {
-            const token = await getToken();
-            const headers = new Headers(init?.headers);
-            if (token) headers.set('Authorization', `Bearer ${token}`);
-            return fetch(input, { ...init, headers });
-          },
-        },
-      });
-      setSupabaseClient(client);
-    }
-  }, [isLoaded, getToken, supabaseClient]);
-
   // Effect: montar canal realtime
   useEffect(() => {
     if (!supabaseClient || !isLoaded) return;
     isActiveRef.current = true;
     reconnectAttemptsRef.current = 0;
     console.log('[LIFECYCLE] Iniciando canal realtime');
+
+    // Backoff/Reconexão inteligente (movido para dentro para estabilizar dependência)
+    const handleReconnect = async (channel?: RealtimeChannel) => {
+      if (!isActiveRef.current) return;
+      if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
+        console.warn('[RECONNECT] 🛑 Máximo de tentativas atingido');
+        return;
+      }
+      const delay = INITIAL_RECONNECT_DELAY * Math.pow(2, reconnectAttemptsRef.current);
+      reconnectAttemptsRef.current++;
+      console.log(`[RECONNECT] 🔄 Tentativa ${reconnectAttemptsRef.current} em ${delay}ms`);
+      setTimeout(async () => {
+        if (!isActiveRef.current || !supabaseClient) return;
+        try {
+          await setRealtimeAuthSafe(supabaseClient);
+          if (channel) channel.subscribe();
+        } catch (e) {
+          console.error('[RECONNECT] erro ao tentar reconnect:', e);
+        }
+      }, delay);
+    };
 
     const channel = supabaseClient.channel('public:orders');
 
@@ -343,7 +325,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       setRealtimeChannel(null);
       setConnectionHealthy(false);
     };
-  }, [supabaseClient, isLoaded, isSignedIn, setRealtimeAuthSafe, handleReconnect]);
+  }, [supabaseClient, isLoaded, isSignedIn, setRealtimeAuthSafe]);
 
   // Visibility wake up
   useEffect(() => {
