@@ -1,15 +1,15 @@
-// SupabaseContext.ts - VERSÃO ATUALIZADA
+// SupabaseContext.ts - atualizado
 import { createContext, useContext } from 'react';
 import { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 
 export interface SupabaseContextType {
   supabaseClient: SupabaseClient | null;
   realtimeChannel: RealtimeChannel | null;
-  connectionHealthy: boolean; // ✅ NOVO: Status da conexão realtime
+  connectionHealthy: boolean;
   realtimeAuthCounter: number;
   requestReconnect: (maxAttempts?: number) => Promise<boolean>;
   setRealtimeAuth: (client: SupabaseClient) => Promise<void>;
-  refreshConnection: () => Promise<void>; // ✅ NOVO: Função para reconexão manual
+  refreshConnection: () => Promise<void>;
 }
 
 export const SupabaseContext = createContext<SupabaseContextType | null>(null);
