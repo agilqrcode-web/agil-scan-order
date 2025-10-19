@@ -1,6 +1,6 @@
 // SupabaseProvider.tsx
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { createClient, type SupabaseClient, type RealtimeChannel, type RealtimeSubscription } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient, type RealtimeChannel } from '@supabase/supabase-js';
 import { useAuth } from '@clerk/clerk-react';
 import { SupabaseContext } from './SupabaseContext';
 import { Spinner } from '@/components/ui/spinner';
@@ -8,11 +8,11 @@ import { Spinner } from '@/components/ui/spinner';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL!;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY!;
 
-const HEALTH_CHECK_INTERVAL = 5 * 60 * 1000;
-const TOKEN_REFRESH_MARGIN = 5 * 60 * 1000;
+const HEALTH_CHECK_INTERVAL = 60 * 1000; // check every 60s
+const TOKEN_REFRESH_MARGIN = 2 * 60 * 1000; // refresh 2 minutes before exp
 const INITIAL_RECONNECT_DELAY = 1000;
-const MAX_RECONNECT_ATTEMPTS = 6;
-const TOKEN_MIN_SAFE_MS = 2 * 60 * 1000;
+const MAX_RECONNECT_ATTEMPTS = 8;
+const TOKEN_MIN_SAFE_MS = 90 * 1000; // consider token still valid if > 90s left
 
 export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   const { getToken, isLoaded, isSignedIn } = useAuth();
@@ -28,9 +28,8 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   const isActiveRef = useRef<boolean>(true);
   const currentTokenExpRef = useRef<number | null>(null);
   const lastAppliedTokenRef = useRef<string | null>(null);
-
   const clientRef = useRef<SupabaseClient | null>(null);
-  const isMountingRef = useRef<boolean>(false);
+  const channelName = 'public:orders'; // public channel as requested
 
   const parseTokenExp = (token: string | null) => {
     if (!token) return null;
@@ -47,9 +46,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       const token = await getToken({ template: 'supabase' });
       if (!token) return null;
       const expMs = parseTokenExp(token);
-      if (expMs) {
-        currentTokenExpRef.current = expMs;
-      }
+      if (expMs) currentTokenExpRef.current = expMs;
       return token;
     } catch (e) {
       console.error('[AUTH] getToken error', e);
@@ -59,7 +56,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
   const setRealtimeAuthSafe = useCallback(async (client: SupabaseClient) => {
     if (isRefreshingRef.current) {
-      console.log('[AUTH] ⏳ Autenticação já em progresso - skip');
+      console.log('[AUTH] ⏳ setRealtimeAuth called but already refreshing - skip');
       return;
     }
     isRefreshingRef.current = true;
@@ -78,22 +75,25 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      // If same token and not near expiry -> skip
       if (lastAppliedTokenRef.current === token) {
         const remainingMs = (currentTokenExpRef.current || 0) - Date.now();
         if (remainingMs > TOKEN_MIN_SAFE_MS) {
-          console.log('[AUTH] Token já aplicado e válido - skip');
+          console.log('[AUTH] Token já aplicado e com folga -> skip');
           setConnectionHealthy(true);
           return;
         }
       }
 
-      // Unsubscribe existing subscriptions to avoid stale auth state (best-effort)
+      // Best-effort: unsubscribe existing subscriptions to avoid stale auth state
       try {
         const subs = (client as any).getSubscriptions?.() || [];
-        subs.forEach((s: RealtimeSubscription) => {
+        subs.forEach((s: any) => {
           try { s.unsubscribe(); } catch {}
         });
-      } catch (e) {}
+      } catch (e) {
+        // non-fatal
+      }
 
       await client.realtime.setAuth(token);
       lastAppliedTokenRef.current = token;
@@ -110,16 +110,20 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
   const handleReconnect = useCallback(async (channel?: RealtimeChannel) => {
     if (!isActiveRef.current) return;
-    if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) return;
+    if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
+      console.warn('[RECONNECT] atingiu tentativas máximas');
+      return;
+    }
     const delay = INITIAL_RECONNECT_DELAY * Math.pow(2, reconnectAttemptsRef.current);
     reconnectAttemptsRef.current++;
+    console.log(`[RECONNECT] tentativa ${reconnectAttemptsRef.current}, delay ${delay}ms`);
     setTimeout(async () => {
       if (!isActiveRef.current || !supabaseClient) return;
       try {
         await setRealtimeAuthSafe(supabaseClient);
         if (channel) channel.subscribe();
       } catch (e) {
-        console.error('[RECONNECT] erro', e);
+        console.error('[RECONNECT] erro ao reconectar', e);
       }
     }, delay);
   }, [supabaseClient, setRealtimeAuthSafe]);
@@ -146,30 +150,31 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   // mount channel (guarded)
   useEffect(() => {
     if (!supabaseClient || !isLoaded) return;
-    if (isMountingRef.current) {
-      console.log('[LIFECYCLE] Montagem já em progresso - skip');
-      return;
-    }
-    isMountingRef.current = true;
     isActiveRef.current = true;
     reconnectAttemptsRef.current = 0;
     console.log('[LIFECYCLE] Iniciando canal realtime (guarded)');
 
-    const channel = supabaseClient.channel('public:orders');
+    // create channel (public) - you requested public for testing
+    const channel = supabaseClient.channel(channelName, { config: { private: false } });
+
+    // debug immediate states
+    console.log('[CHANNEL] created', { name: channelName, state: channel.state });
+    setTimeout(() => console.log('[CHANNEL] state after 1s', channel.state), 1000);
+    setTimeout(() => console.log('[CHANNEL] state after 5s', channel.state), 5000);
 
     const handleRealtimeEvent = (payload: any) => {
       if (!isActiveRef.current) return;
       lastEventTimeRef.current = Date.now();
       setConnectionHealthy(true);
-      // Emit custom event for sinon/notification system + console log
+      console.log('[EVENT] realtime payload', payload);
       try {
-        window.dispatchEvent(new CustomEvent('order:notification', { detail: payload }));
+        window.dispatchEvent(new CustomEvent('order:notification:received', { detail: payload }));
       } catch {}
     };
 
     channel.on('SUBSCRIBED', () => {
       if (!isActiveRef.current) return;
-      console.log('[LIFECYCLE] Canal inscrito com sucesso');
+      console.log('[LIFECYCLE] Channel SUBSCRIBED');
       setConnectionHealthy(true);
       lastEventTimeRef.current = Date.now();
       reconnectAttemptsRef.current = 0;
@@ -177,14 +182,14 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
     channel.on('CLOSED', () => {
       if (!isActiveRef.current) return;
-      console.warn('[LIFECYCLE] Canal fechado');
+      console.warn('[LIFECYCLE] Channel CLOSED');
       setConnectionHealthy(false);
       handleReconnect(channel);
     });
 
     channel.on('ERROR', (err: any) => {
       if (!isActiveRef.current) return;
-      console.error('[LIFECYCLE] Erro no canal:', err);
+      console.error('[LIFECYCLE] Channel ERROR', err);
       setConnectionHealthy(false);
       const msg = err?.message || '';
       if (typeof msg === 'string' && msg.toLowerCase().includes('token')) {
@@ -195,13 +200,24 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
+    // Listen for DB changes on orders table
     channel.on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, handleRealtimeEvent);
+
+    // Immediately subscribe (should trigger SUBSCRIBED if succeeds)
+    try {
+      channel.subscribe((status, err) => {
+        console.log('[SUBSCRIBE-CALLBACK] status:', status, 'error:', err);
+      });
+    } catch (e) {
+      console.error('[SUBSCRIBE] falhou ao chamar subscribe()', e);
+    }
 
     const healthCheckInterval = setInterval(() => {
       if (!isActiveRef.current) return;
       const timeSinceLastEvent = Date.now() - lastEventTimeRef.current;
-      if (channel.state === 'joined' && timeSinceLastEvent > 5 * 60 * 1000) {
-        console.warn('[HEALTH-CHECK] Sem eventos há 5+ minutos durante atividade esperada');
+      // if no events for 5 minutes, mark unhealthy (only if channel thinks it's joined)
+      if ((channel.state === 'joined' || channel.state === 'SUBSCRIBED') && timeSinceLastEvent > 5 * 60 * 1000) {
+        console.warn('[HEALTH-CHECK] sem eventos há 5+ minutos, forçando refresh');
         setConnectionHealthy(false);
         (async () => {
           try { if (channel && channel.state !== 'closed') await channel.unsubscribe(); } catch {}
@@ -210,38 +226,42 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         })();
       }
 
+      // Token pre-refresh if close to expiry
       const expMs = currentTokenExpRef.current;
       if (expMs && expMs - Date.now() < TOKEN_REFRESH_MARGIN) {
+        console.log('[HEALTH-CHECK] token próximo do fim - renovando');
         setRealtimeAuthSafe(supabaseClient);
       }
     }, HEALTH_CHECK_INTERVAL);
 
-    const tokenRefreshInterval = setInterval(() => {
+    // periodic token refresh (defensive)
+    const tokenRefreshTimer = setInterval(() => {
       if (!isActiveRef.current || !isSignedIn || !supabaseClient) return;
       setRealtimeAuthSafe(supabaseClient);
-    }, TOKEN_REFRESH_MARGIN);
+    }, Math.max(30 * 1000, TOKEN_REFRESH_MARGIN / 2));
 
     setRealtimeChannel(channel);
+    // apply auth once
     setRealtimeAuthSafe(supabaseClient);
 
     return () => {
       isActiveRef.current = false;
       clearInterval(healthCheckInterval);
-      clearInterval(tokenRefreshInterval);
+      clearInterval(tokenRefreshTimer);
       try {
         if (channel && channel.state !== 'closed') channel.unsubscribe();
       } catch (e) {
-        console.warn('[LIFECYCLE] erro ao unsubscribing:', e);
+        console.warn('[LIFECYCLE] erro ao unsubscribe:', e);
       }
       setRealtimeChannel(null);
       setConnectionHealthy(false);
-      isMountingRef.current = false;
     };
   }, [supabaseClient, isLoaded, isSignedIn, setRealtimeAuthSafe, handleReconnect]);
 
   useEffect(() => {
     const handleVisibility = () => {
       if (document.visibilityState === 'visible' && supabaseClient && isSignedIn) {
+        console.log('[VISIBILITY] visible -> ensure auth');
         setRealtimeAuthSafe(supabaseClient);
       }
     };
