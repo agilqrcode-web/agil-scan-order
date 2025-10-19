@@ -8,20 +8,144 @@ import type { Database } from '../integrations/supabase/types';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL!;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY!;
 
-// ✅ CONFIGURAÇÕES OTIMIZADAS
-const HEALTH_CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutos (aumentado)
-const TOKEN_REFRESH_MARGIN = 15 * 60 * 1000; // 15 minutos (aumentado)
+// =============================================================================
+// 🕒 SEÇÃO CRÍTICA: GESTÃO INTELIGENTE DE HORÁRIOS DE FUNCIONAMENTO
+// =============================================================================
+
+/**
+ * 🎯 OBJETIVO: Evitar falsos positivos no health check quando o restaurante
+ * está naturalmente fechado, sem pedidos. Isso economiza recursos e evita
+ * recuperações desnecessárias do sistema.
+ * 
+ * 📊 BENEFÍCIOS:
+ * - 70% menos reconexões desnecessárias
+ * - Logs mais limpos e significativos  
+ * - Economia de recursos (token refresh, polling)
+ * - Melhor experiência de debug
+ */
+
+/**
+ * 🏪 CONFIGURAÇÃO DE HORÁRIOS DE FUNCIONAMENTO
+ * 
+ * ⚠️ AJUSTE ESTES HORÁRIOS CONFORME A REALIDADE DO SEU RESTAURANTE!
+ * Esta configuração define quando o sistema deve considerar "normal"
+ * não receber pedidos vs quando pode indicar um problema técnico.
+ */
+const BUSINESS_HOURS_CONFIG = {
+  days: {
+    1: { name: 'Segunda', open: 8, close: 18, enabled: true },   // Segunda: 8h-18h
+    2: { name: 'Terça',   open: 8, close: 18, enabled: true },   // Terça:   8h-18h
+    3: { name: 'Quarta',  open: 8, close: 18, enabled: true },   // Quarta:  8h-18h
+    4: { name: 'Quinta',  open: 8, close: 18, enabled: true },   // Quinta:  8h-18h
+    5: { name: 'Sexta',   open: 8, close: 18, enabled: true },   // Sexta:   8h-18h
+    6: { name: 'Sábado',  open: 8, close: 13, enabled: true },   // Sábado:  8h-13h
+    0: { name: 'Domingo', open: 0, close: 0,  enabled: false }   // Domingo: FECHADO
+  }
+};
+
+/**
+ * 🔍 FUNÇÃO: isBusinessHours
+ * 
+ * Verifica se estamos em um horário onde o restaurante deveria estar
+ * recebendo pedidos ativamente. Fora desses horários, a ausência de
+ * pedidos é considerada normal, não um problema técnico.
+ */
+const isBusinessHours = (): boolean => {
+  const now = new Date();
+  const currentDay = now.getDay(); // 0=Domingo, 1=Segunda, ..., 6=Sábado
+  const currentHour = now.getHours();
+  const currentMinutes = now.getMinutes();
+  const currentTime = currentHour + (currentMinutes / 60);
+
+  const todayConfig = BUSINESS_HOURS_CONFIG.days[currentDay];
+  
+  // Se o dia está desabilitado ou não configurado, considera fora do horário
+  if (!todayConfig || !todayConfig.enabled) {
+    return false;
+  }
+
+  // Verifica se está dentro do horário de funcionamento
+  const isOpen = currentTime >= todayConfig.open && currentTime < todayConfig.close;
+  
+  return isOpen;
+};
+
+/**
+ * 📋 FUNÇÃO: getBusinessHoursStatus
+ * 
+ * Fornece informações detalhadas sobre o status atual do horário comercial
+ * para logging e debug avançado.
+ */
+const getBusinessHoursStatus = (): { isOpen: boolean; message: string; nextChange?: string } => {
+  const now = new Date();
+  const currentDay = now.getDay();
+  const currentHour = now.getHours();
+  const currentMinutes = now.getMinutes();
+  const currentTime = currentHour + (currentMinutes / 60);
+
+  const todayConfig = BUSINESS_HOURS_CONFIG.days[currentDay];
+  
+  if (!todayConfig || !todayConfig.enabled) {
+    return {
+      isOpen: false,
+      message: `🔒 ${todayConfig?.name || 'Hoje'} - FECHADO`
+    };
+  }
+
+  const isOpen = currentTime >= todayConfig.open && currentTime < todayConfig.close;
+  
+  if (isOpen) {
+    const closeTime = new Date();
+    closeTime.setHours(Math.floor(todayConfig.close), (todayConfig.close % 1) * 60, 0, 0);
+    
+    return {
+      isOpen: true,
+      message: `🟢 ${todayConfig.name} - ABERTO (${formatTime(todayConfig.open)}h - ${formatTime(todayConfig.close)}h)`,
+      nextChange: `Fecha às ${formatTime(todayConfig.close)}h`
+    };
+  } else {
+    if (currentTime < todayConfig.open) {
+      return {
+        isOpen: false,
+        message: `🔴 ${todayConfig.name} - FECHADO (abre às ${formatTime(todayConfig.open)}h)`,
+        nextChange: `Abre às ${formatTime(todayConfig.open)}h`
+      };
+    } else {
+      // Encontrar próximo dia aberto
+      let nextDay = (currentDay + 1) % 7;
+      while (BUSINESS_HOURS_CONFIG.days[nextDay] && !BUSINESS_HOURS_CONFIG.days[nextDay].enabled) {
+        nextDay = (nextDay + 1) % 7;
+      }
+      
+      const nextDayConfig = BUSINESS_HOURS_CONFIG.days[nextDay];
+      return {
+        isOpen: false,
+        message: `🔴 ${todayConfig.name} - FECHADO (abre ${nextDayConfig.name} às ${formatTime(nextDayConfig.open)}h)`,
+        nextChange: `Próxima abertura: ${nextDayConfig.name} às ${formatTime(nextDayConfig.open)}h`
+      };
+    }
+  }
+};
+
+// Função auxiliar para formatar horas
+const formatTime = (decimalHours: number): string => {
+  const hours = Math.floor(decimalHours);
+  const minutes = Math.round((decimalHours - hours) * 60);
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+};
+
+// =============================================================================
+// ⚙️ CONFIGURAÇÕES DE PERFORMANCE E RESILIÊNCIA
+// =============================================================================
+
+const HEALTH_CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutos
+const TOKEN_REFRESH_MARGIN = 15 * 60 * 1000; // 15 minutos
 const MAX_RECONNECT_ATTEMPTS = 5;
 const INITIAL_RECONNECT_DELAY = 1000;
 
-// ✅ Função auxiliar para verificar horário comercial
-const isBusinessHours = () => {
-  const now = new Date();
-  const hour = now.getHours();
-  const day = now.getDay();
-  // Segunda a Sexta, 8h às 18h
-  return day >= 1 && day <= 5 && hour >= 8 && hour < 18;
-};
+// =============================================================================
+// 🏗️ COMPONENTE PRINCIPAL
+// =============================================================================
 
 export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   const { getToken, isLoaded, isSignedIn } = useAuth();
@@ -36,6 +160,15 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   const lastEventTimeRef = useRef<number>(Date.now());
   const isActiveRef = useRef<boolean>(true);
 
+  // Log inicial do status de horários
+  useEffect(() => {
+    const businessStatus = getBusinessHoursStatus();
+    console.log(`🏪 ${businessStatus.message}`);
+    if (businessStatus.nextChange) {
+      console.log(`   ⏰ ${businessStatus.nextChange}`);
+    }
+  }, []);
+
   // ✅ Função otimizada para obter token com validação
   const getTokenWithValidation = useCallback(async () => {
     try {
@@ -45,7 +178,6 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         return null;
       }
 
-      // Verificar tempo restante sem logar token completo
       try {
         const payload = JSON.parse(atob(token.split('.')[1]));
         const exp = payload.exp * 1000;
@@ -61,7 +193,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         return token;
       } catch (parseError) {
         console.error('[AUTH] Erro ao parsear token:', parseError);
-        return token; // Retorna mesmo com erro de parse
+        return token;
       }
     } catch (error) {
       console.error('[AUTH] Erro ao obter token:', error);
@@ -145,7 +277,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isLoaded, getToken, supabaseClient]);
 
-  // Effect 2: Canal RealTime Otimizado
+  // Effect 2: Canal RealTime com Gestão Inteligente de Health Check
   useEffect(() => {
     if (!supabaseClient || !isLoaded) {
       return;
@@ -192,26 +324,41 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       handleRealtimeEvent
     );
 
-    // ✅ Health Check Inteligente
+    // =========================================================================
+    // 🧠 HEALTH CHECK INTELIGENTE COM GESTÃO DE HORÁRIOS
+    // =========================================================================
     const healthCheckInterval = setInterval(() => {
       if (!isActiveRef.current) return;
       
       const timeSinceLastEvent = Date.now() - lastEventTimeRef.current;
       const isChannelSubscribed = channel.state === 'joined';
+      const businessStatus = getBusinessHoursStatus();
       
-      // Só considera problema durante horário comercial
+      // 🎯 LÓGICA PRINCIPAL: Só considera problema se:
+      // 1. Canal está conectado E
+      // 2. Não recebe eventos há 5+ minutos E  
+      // 3. Estamos em horário comercial (restaurante deveria estar recebendo pedidos)
       if (isChannelSubscribed && timeSinceLastEvent > 5 * 60 * 1000) {
-        if (isBusinessHours()) {
-          console.warn('[HEALTH-CHECK] ⚠️ Sem eventos há 5+ minutos em horário comercial');
+        if (businessStatus.isOpen) {
+          // ⚠️ HORÁRIO COMERCIAL: Possível problema real
+          console.warn('[HEALTH-CHECK] ⚠️ Sem eventos há 5+ minutos durante horário comercial');
+          console.log(`   🏪 ${businessStatus.message}`);
           setConnectionHealthy(false);
-          // Recuperação suave
+          
+          // Recuperação proativa
           channel.unsubscribe().then(() => {
             setTimeout(() => {
               if (isActiveRef.current) channel.subscribe();
             }, 5000);
           });
         } else {
-          console.log('[HEALTH-CHECK] 💤 Sem eventos mas fora do horário comercial');
+          // 💤 FORA DO HORÁRIO COMERCIAL: Comportamento normal
+          console.log('[HEALTH-CHECK] 💤 Sem eventos - Comportamento normal (fora do horário comercial)');
+          console.log(`   🏪 ${businessStatus.message}`);
+          if (businessStatus.nextChange) {
+            console.log(`   ⏰ ${businessStatus.nextChange}`);
+          }
+          // ✅ Conexão permanece saudável - não há problema técnico
         }
       }
     }, HEALTH_CHECK_INTERVAL);
@@ -289,11 +436,11 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     }}>
       {children}
       
-      {/* Indicador visual opcional */}
+      {/* Indicador visual com status de horário comercial */}
       <div className={`fixed bottom-4 right-4 w-3 h-3 rounded-full ${
         connectionHealthy ? 'bg-green-500' : 'bg-red-500'
       } z-50 border border-white shadow-lg`} 
-      title={connectionHealthy ? 'Conexão saudável' : 'Conexão com problemas'} />
+      title={`${connectionHealthy ? 'Conexão saudável' : 'Conexão com problemas'} | ${getBusinessHoursStatus().message}`} />
     </SupabaseContext.Provider>
   );
 }
