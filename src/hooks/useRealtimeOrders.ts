@@ -1,6 +1,6 @@
 // useRealtimeOrders.ts
 import { useEffect, useRef, useCallback } from 'react';
-import { useSupabase } from './SupabaseContext';
+import { useSupabase } from '@/contexts/SupabaseContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type { RealtimeSubscription } from '@supabase/supabase-js';
