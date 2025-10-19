@@ -1,129 +1,109 @@
-// useRealtimeOrders.ts - versão atualizada
-import { useCallback, useEffect, useRef } from 'react';
-import { useSupabase } from '@/contexts/SupabaseContext';
+// useRealtimeOrders.ts
+import { useEffect, useRef, useCallback } from 'react';
+import { useSupabase } from './SupabaseContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type { RealtimeSubscription } from '@supabase/supabase-js';
 
-// ✅ CONFIGURAÇÕES OTIMIZADAS
-const POLLING_INTERVAL = 2 * 60 * 1000; // 2 minutos
+const POLLING_INTERVAL = 2 * 60 * 1000;
 
 export function useRealtimeOrders() {
   const { realtimeChannel, connectionHealthy } = useSupabase();
   const queryClient = useQueryClient();
-  const pollingIntervalRef = useRef<number | undefined>();
-  const lastNotificationRef = useRef<number>(Date.now());
   const localSubRef = useRef<RealtimeSubscription | null>(null);
+  const pollingRef = useRef<number | null>(null);
+  const lastNotificationRef = useRef<number>(0);
 
-  const handleNewNotification = useCallback((payload: any) => {
-    console.log('[RT-NOTIFICATIONS] ✅ Evento recebido:', payload);
+  const handlePayload = useCallback((payload: any) => {
+    console.log('[useRealtimeOrders] payload received', payload);
     lastNotificationRef.current = Date.now();
 
-    toast.info("Novo pedido recebido!", {
-      description: "Um novo pedido foi registrado e a lista será atualizada.",
-      action: {
-        label: "Ver",
-        onClick: () => {},
-      },
-    });
+    // Dispatch global custom event for notification UI (sino)
+    try {
+      window.dispatchEvent(new CustomEvent('order:notification:received', { detail: payload }));
+    } catch {}
 
-    // Invalidar queries em lote
-    queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    // Show toast briefly (if desired)
+    try {
+      toast.success('Novo pedido recebido');
+    } catch {}
+
+    // Invalidate queries so UI updates
     queryClient.invalidateQueries({ queryKey: ['orders'] });
+    queryClient.invalidateQueries({ queryKey: ['notifications'] });
     queryClient.invalidateQueries({ queryKey: ['orders-stats'] });
   }, [queryClient]);
 
-  // Efeito: configurar listener apontando para a subscription local
   useEffect(() => {
-    // Cleanup prévio caso o hook seja reexecutado
+    // cleanup previous local subscription if exists
     if (localSubRef.current) {
       try { localSubRef.current.unsubscribe(); } catch {}
       localSubRef.current = null;
     }
 
     if (!realtimeChannel) {
-      console.log('[RT-HOOK] Canal realtime não disponível');
+      console.log('[useRealtimeOrders] realtimeChannel not available');
       return;
     }
 
-    console.log('[RT-HOOK] ⚓️ Configurando listener realtime local');
-
-    // Cria subscription local (apenas para este handler)
+    // Create a subscription scoped to this hook only
     const sub = realtimeChannel
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload: any) => {
-        handleNewNotification(payload);
+        handlePayload(payload);
       })
       .subscribe();
 
-    // Guardar referência para cleanup específico
     localSubRef.current = sub;
 
-    // Caso o provider re-subscribe o channel globalmente, o handler permanece válido
-    // mas alguns fluxos podem recriar o channel; por isso monitoramos state changes:
-    const stateHandler = () => {
-      // Se channel for rejoined e não temos subscription ativa, recriar
-      if (realtimeChannel.state === 'joined' && (!localSubRef.current || localSubRef.current.state !== 'SUBSCRIBED')) {
-        try {
-          if (localSubRef.current) {
-            localSubRef.current.unsubscribe();
-            localSubRef.current = null;
+    // If channel later re-joins and our sub isn't active, try to re-subscribe
+    const statePoll = window.setInterval(() => {
+      try {
+        if (!localSubRef.current || localSubRef.current.state !== 'SUBSCRIBED') {
+          if (realtimeChannel && realtimeChannel.state === 'joined') {
+            try {
+              if (localSubRef.current) { localSubRef.current.unsubscribe(); }
+            } catch {}
+            const newSub = realtimeChannel.on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload: any) => handlePayload(payload)).subscribe();
+            localSubRef.current = newSub;
           }
-          const newSub = realtimeChannel
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload: any) => {
-              handleNewNotification(payload);
-            })
-            .subscribe();
-          localSubRef.current = newSub;
-        } catch (e) {
-          console.warn('[RT-HOOK] Falha ao recriar subscription local:', e);
         }
+      } catch (e) {
+        console.warn('[useRealtimeOrders] statePoll error', e);
       }
-    };
-
-    // Não há API direta para "on state", mas podemos observar channel.state via polling leve
-    let statePoll = window.setInterval(stateHandler, 2000);
+    }, 2000);
 
     return () => {
-      console.log('[RT-HOOK] 🧹 Limpando listener local');
       if (localSubRef.current) {
         try { localSubRef.current.unsubscribe(); } catch {}
         localSubRef.current = null;
       }
       clearInterval(statePoll);
     };
-  }, [realtimeChannel, handleNewNotification]);
+  }, [realtimeChannel, handlePayload]);
 
-  // Efeito: polling fallback
+  // Polling fallback if connection not healthy
   useEffect(() => {
     if (!connectionHealthy) {
-      console.log('[FALLBACK] 🔄 Ativando polling (2min)');
-
       queryClient.invalidateQueries({ queryKey: ['orders', 'notifications'] });
-
-      pollingIntervalRef.current = window.setInterval(() => {
-        console.log('[FALLBACK] 📡 Polling para atualizações (2min)');
+      pollingRef.current = window.setInterval(() => {
         queryClient.invalidateQueries({ queryKey: ['orders', 'notifications', 'orders-stats'] });
-      }, POLLING_INTERVAL);
-
+      }, POLLING_INTERVAL) as unknown as number;
       return () => {
-        if (pollingIntervalRef.current) {
-          console.log('[FALLBACK] 🧹 Desativando polling');
-          clearInterval(pollingIntervalRef.current);
-          pollingIntervalRef.current = undefined;
+        if (pollingRef.current) {
+          clearInterval(pollingRef.current);
+          pollingRef.current = null;
         }
       };
     } else {
-      if (pollingIntervalRef.current) {
-        console.log('[FALLBACK] ✅ Realtime recuperado - desativando polling');
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = undefined;
-        queryClient.invalidateQueries({ queryKey: ['orders', 'notifications'] });
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
       }
     }
   }, [connectionHealthy, queryClient]);
 
   return {
     connectionHealthy,
-    isUsingFallback: !!pollingIntervalRef.current,
+    lastNotificationAt: lastNotificationRef.current,
   };
 }

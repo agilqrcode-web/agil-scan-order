@@ -1,6 +1,6 @@
-// SupabaseContext.ts - atualizado
-import { createContext, useContext } from 'react';
-import { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
+// SupabaseContext.tsx
+import React, { createContext, useContext } from 'react';
+import type { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 
 export interface SupabaseContextType {
   supabaseClient: SupabaseClient | null;
@@ -14,10 +14,8 @@ export interface SupabaseContextType {
 
 export const SupabaseContext = createContext<SupabaseContextType | null>(null);
 
-export const useSupabase = () => {
-  const context = useContext(SupabaseContext);
-  if (context === null) {
-    throw new Error('useSupabase must be used within a SupabaseProvider');
-  }
-  return context;
+export const useSupabase = (): SupabaseContextType => {
+  const ctx = useContext(SupabaseContext);
+  if (!ctx) throw new Error('useSupabase must be used within a SupabaseProvider');
+  return ctx;
 };
