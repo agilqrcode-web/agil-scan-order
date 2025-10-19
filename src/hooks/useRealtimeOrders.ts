@@ -1,39 +1,23 @@
-import { useCallback, useEffect, useRef } from 'react';
+// useRealtimeOrders.ts - VERSÃO CORRIGIDA
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSupabase } from '@/contexts/SupabaseContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
-// ✅ CONFIGURAÇÕES OTIMIZADAS
-const POLLING_INTERVAL = 2 * 60 * 1000; // 2 minutos (reduzido de 30s)
+const POLLING_INTERVAL = 2 * 60 * 1000; // 2 minutos
 
 export function useRealtimeOrders() {
   const { realtimeChannel, connectionHealthy } = useSupabase();
   const queryClient = useQueryClient();
   const pollingIntervalRef = useRef<number>();
-  const lastNotificationRef = useRef<number>(Date.now());
+  const [hasRealTimeWorked, setHasRealTimeWorked] = useState(false);
 
   const handleNewNotification = useCallback((payload: any) => {
     console.log('[RT-NOTIFICATIONS] ✅ Evento recebido:', payload);
-    lastNotificationRef.current = Date.now();
+    setHasRealTimeWorked(true); // ✅ MARCA que RealTime funcionou
     
-    toast.info("Novo pedido recebido!", {
-      description: "Um novo pedido foi registrado e a lista será atualizada.",
-      action: {
-        label: "Ver",
-        onClick: () => {},
-      },
-    });
-
-    // Invalidar queries em lote para reduzir requests
-    queryClient.invalidateQueries({ 
-      queryKey: ['notifications'] 
-    });
-    queryClient.invalidateQueries({ 
-      queryKey: ['orders'] 
-    });
-    queryClient.invalidateQueries({ 
-      queryKey: ['orders-stats'] 
-    });
+    toast.info("Novo pedido recebido!");
+    queryClient.invalidateQueries({ queryKey: ['notifications', 'orders', 'orders-stats'] });
   }, [queryClient]);
 
   // Efeito 1: Configurar listeners do realtime
@@ -63,42 +47,41 @@ export function useRealtimeOrders() {
     };
   }, [realtimeChannel, handleNewNotification]);
 
-  // ✅ Efeito 2: Polling Otimizado
+  // ✅ Efeito 2: Polling INTELIGENTE - Só ativa se RealTime nunca funcionou
   useEffect(() => {
-    if (!connectionHealthy) {
-      console.log('[FALLBACK] 🔄 Ativando polling (2min)');
+    // ⚠️ NÃO ativar polling se:
+    // - connectionHealthy é true (RealTime está funcionando)  
+    // - OU se RealTime já funcionou antes (hasRealTimeWorked)
+    if (connectionHealthy || hasRealTimeWorked) {
+      if (pollingIntervalRef.current) {
+        console.log('[FALLBACK] ✅ RealTime funcionando - desativando polling');
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = undefined;
+      }
+      return;
+    }
+
+    // ✅ Só ativar polling se RealTime NUNCA funcionou
+    if (!connectionHealthy && !hasRealTimeWorked) {
+      console.log('[FALLBACK] 🔄 RealTime não inicializou - ativando polling temporário');
       
-      // Polling imediato
-      queryClient.invalidateQueries({ queryKey: ['orders', 'notifications'] });
-      
-      // ✅ Polling reduzido para 2 minutos
       pollingIntervalRef.current = window.setInterval(() => {
-        console.log('[FALLBACK] 📡 Polling para atualizações (2min)');
-        queryClient.invalidateQueries({ queryKey: ['orders', 'notifications', 'orders-stats'] });
+        console.log('[FALLBACK] 📡 Polling (aguardando RealTime)');
+        queryClient.invalidateQueries({ queryKey: ['orders', 'notifications'] });
       }, POLLING_INTERVAL);
 
       return () => {
         if (pollingIntervalRef.current) {
-          console.log('[FALLBACK] 🧹 Desativando polling');
           clearInterval(pollingIntervalRef.current);
           pollingIntervalRef.current = undefined;
         }
       };
-    } else {
-      // Conexão saudável - desativar polling
-      if (pollingIntervalRef.current) {
-        console.log('[FALLBACK] ✅ Realtime recuperado - desativando polling');
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = undefined;
-        
-        // Forçar atualização ao voltar para realtime
-        queryClient.invalidateQueries({ queryKey: ['orders', 'notifications'] });
-      }
     }
-  }, [connectionHealthy, queryClient]);
+  }, [connectionHealthy, hasRealTimeWorked, queryClient]);
 
   return {
     connectionHealthy,
-    isUsingFallback: !!pollingIntervalRef.current
+    isUsingFallback: !!pollingIntervalRef.current,
+    hasRealTimeWorked
   };
 }
