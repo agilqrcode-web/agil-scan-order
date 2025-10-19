@@ -1,3 +1,4 @@
+// SupabaseProvider.tsx - VERSÃO COM DETECÇÃO ATIVA DE EXPIRAÇÃO
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { createClient, SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 import { useAuth } from '@clerk/clerk-react';
@@ -9,74 +10,21 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL!;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY!;
 
 // =============================================================================
-// 🕒 SEÇÃO CRÍTICA: GESTÃO INTELIGENTE DE HORÁRIOS DE FUNCIONAMENTO
+// 🕒 CONFIGURAÇÃO DE HORÁRIOS DE FUNCIONAMENTO
 // =============================================================================
-
-/**
- * 🎯 OBJETIVO: Evitar falsos positivos no health check quando o restaurante
- * está naturalmente fechado, sem pedidos. Isso economiza recursos e evita
- * recuperações desnecessárias do sistema.
- * 
- * 📊 BENEFÍCIOS:
- * - 70% menos reconexões desnecessárias
- * - Logs mais limpos e significativos  
- * - Economia de recursos (token refresh, polling)
- * - Melhor experiência de debug
- */
-
-/**
- * 🏪 CONFIGURAÇÃO DE HORÁRIOS DE FUNCIONAMENTO
- * 
- * ⚠️ AJUSTE ESTES HORÁRIOS CONFORME A REALIDADE DO SEU RESTAURANTE!
- * Esta configuração define quando o sistema deve considerar "normal"
- * não receber pedidos vs quando pode indicar um problema técnico.
- */
 const BUSINESS_HOURS_CONFIG = {
   days: {
-    1: { name: 'Segunda', open: 8, close: 18, enabled: true },   // Segunda: 8h-18h
-    2: { name: 'Terça',   open: 8, close: 18, enabled: true },   // Terça:   8h-18h
-    3: { name: 'Quarta',  open: 8, close: 18, enabled: true },   // Quarta:  8h-18h
-    4: { name: 'Quinta',  open: 8, close: 18, enabled: true },   // Quinta:  8h-18h
-    5: { name: 'Sexta',   open: 8, close: 18, enabled: true },   // Sexta:   8h-18h
-    6: { name: 'Sábado',  open: 8, close: 13, enabled: true },   // Sábado:  8h-13h
-    0: { name: 'Domingo', open: 0, close: 0,  enabled: false }   // Domingo: FECHADO
+    1: { name: 'Segunda', open: 8, close: 18, enabled: true },
+    2: { name: 'Terça',   open: 8, close: 18, enabled: true },
+    3: { name: 'Quarta',  open: 8, close: 18, enabled: true },
+    4: { name: 'Quinta',  open: 8, close: 18, enabled: true },
+    5: { name: 'Sexta',   open: 8, close: 18, enabled: true },
+    6: { name: 'Sábado',  open: 8, close: 13, enabled: true },
+    0: { name: 'Domingo', open: 0, close: 0,  enabled: false }
   }
 };
 
-/**
- * 🔍 FUNÇÃO: isBusinessHours
- * 
- * Verifica se estamos em um horário onde o restaurante deveria estar
- * recebendo pedidos ativamente. Fora desses horários, a ausência de
- * pedidos é considerada normal, não um problema técnico.
- */
 const isBusinessHours = (): boolean => {
-  const now = new Date();
-  const currentDay = now.getDay(); // 0=Domingo, 1=Segunda, ..., 6=Sábado
-  const currentHour = now.getHours();
-  const currentMinutes = now.getMinutes();
-  const currentTime = currentHour + (currentMinutes / 60);
-
-  const todayConfig = BUSINESS_HOURS_CONFIG.days[currentDay];
-  
-  // Se o dia está desabilitado ou não configurado, considera fora do horário
-  if (!todayConfig || !todayConfig.enabled) {
-    return false;
-  }
-
-  // Verifica se está dentro do horário de funcionamento
-  const isOpen = currentTime >= todayConfig.open && currentTime < todayConfig.close;
-  
-  return isOpen;
-};
-
-/**
- * 📋 FUNÇÃO: getBusinessHoursStatus
- * 
- * Fornece informações detalhadas sobre o status atual do horário comercial
- * para logging e debug avançado.
- */
-const getBusinessHoursStatus = (): { isOpen: boolean; message: string; nextChange?: string } => {
   const now = new Date();
   const currentDay = now.getDay();
   const currentHour = now.getHours();
@@ -84,68 +32,16 @@ const getBusinessHoursStatus = (): { isOpen: boolean; message: string; nextChang
   const currentTime = currentHour + (currentMinutes / 60);
 
   const todayConfig = BUSINESS_HOURS_CONFIG.days[currentDay];
-  
-  if (!todayConfig || !todayConfig.enabled) {
-    return {
-      isOpen: false,
-      message: `🔒 ${todayConfig?.name || 'Hoje'} - FECHADO`
-    };
-  }
-
-  const isOpen = currentTime >= todayConfig.open && currentTime < todayConfig.close;
-  
-  if (isOpen) {
-    const closeTime = new Date();
-    closeTime.setHours(Math.floor(todayConfig.close), (todayConfig.close % 1) * 60, 0, 0);
-    
-    return {
-      isOpen: true,
-      message: `🟢 ${todayConfig.name} - ABERTO (${formatTime(todayConfig.open)}h - ${formatTime(todayConfig.close)}h)`,
-      nextChange: `Fecha às ${formatTime(todayConfig.close)}h`
-    };
-  } else {
-    if (currentTime < todayConfig.open) {
-      return {
-        isOpen: false,
-        message: `🔴 ${todayConfig.name} - FECHADO (abre às ${formatTime(todayConfig.open)}h)`,
-        nextChange: `Abre às ${formatTime(todayConfig.open)}h`
-      };
-    } else {
-      // Encontrar próximo dia aberto
-      let nextDay = (currentDay + 1) % 7;
-      while (BUSINESS_HOURS_CONFIG.days[nextDay] && !BUSINESS_HOURS_CONFIG.days[nextDay].enabled) {
-        nextDay = (nextDay + 1) % 7;
-      }
-      
-      const nextDayConfig = BUSINESS_HOURS_CONFIG.days[nextDay];
-      return {
-        isOpen: false,
-        message: `🔴 ${todayConfig.name} - FECHADO (abre ${nextDayConfig.name} às ${formatTime(nextDayConfig.open)}h)`,
-        nextChange: `Próxima abertura: ${nextDayConfig.name} às ${formatTime(nextDayConfig.open)}h`
-      };
-    }
-  }
-};
-
-// Função auxiliar para formatar horas
-const formatTime = (decimalHours: number): string => {
-  const hours = Math.floor(decimalHours);
-  const minutes = Math.round((decimalHours - hours) * 60);
-  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+  return !!(todayConfig?.enabled && currentTime >= todayConfig.open && currentTime < todayConfig.close);
 };
 
 // =============================================================================
-// ⚙️ CONFIGURAÇÕES DE PERFORMANCE E RESILIÊNCIA
+// ⚙️ CONFIGURAÇÕES OTIMIZADAS
 // =============================================================================
-
-const HEALTH_CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutos
-const TOKEN_REFRESH_MARGIN = 15 * 60 * 1000; // 15 minutos
-const MAX_RECONNECT_ATTEMPTS = 5;
-const INITIAL_RECONNECT_DELAY = 1000;
-
-// =============================================================================
-// 🏗️ COMPONENTE PRINCIPAL
-// =============================================================================
+const HEALTH_CHECK_INTERVAL = 2 * 60 * 1000; // 2 minutos (reduzido para detecção mais rápida)
+const TOKEN_REFRESH_MARGIN = 10 * 60 * 1000; // 10 minutos (reduzido)
+const TOKEN_EXPIRY_CHECK = 30 * 1000; // 30 segundos (NOVO: verificação rápida de expiração)
+const MAX_RECONNECT_ATTEMPTS = 3;
 
 export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   const { getToken, isLoaded, isSignedIn } = useAuth();
@@ -158,46 +54,79 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   const isRefreshingRef = useRef<boolean>(false);
   const reconnectAttemptsRef = useRef<number>(0);
   const lastEventTimeRef = useRef<number>(Date.now());
+  const lastTokenRefreshRef = useRef<number>(Date.now());
   const isActiveRef = useRef<boolean>(true);
+  const currentTokenExpiryRef = useRef<number>(0); // ✅ NOVO: Controla expiração do token
 
-  // Log inicial do status de horários
-  useEffect(() => {
-    const businessStatus = getBusinessHoursStatus();
-    console.log(`🏪 ${businessStatus.message}`);
-    if (businessStatus.nextChange) {
-      console.log(`   ⏰ ${businessStatus.nextChange}`);
+  // ✅ FUNÇÃO CRÍTICA: Verificar se o token está prestes a expirar
+  const isTokenExpiredOrClose = useCallback((): boolean => {
+    if (currentTokenExpiryRef.current === 0) return false;
+    
+    const now = Date.now();
+    const timeUntilExpiry = currentTokenExpiryRef.current - now;
+    const isExpired = timeUntilExpiry <= 0;
+    const isCloseToExpiry = timeUntilExpiry < 2 * 60 * 1000; // 2 minutos
+    
+    if (isExpired) {
+      console.warn('[TOKEN-EXPIRY] 🔴 TOKEN EXPIRADO! Deveria ter reconectado');
+      return true;
     }
+    
+    if (isCloseToExpiry) {
+      console.log(`[TOKEN-EXPIRY] 🟡 Token expira em ${Math.round(timeUntilExpiry / 1000 / 60)} minutos`);
+    }
+    
+    return isExpired;
   }, []);
 
-  // ✅ Função otimizada para obter token com validação
-  const getTokenWithValidation = useCallback(async () => {
+  // ✅ NOVA FUNÇÃO: Reconexão forçada por expiração de token
+  const forceReconnectForTokenExpiry = useCallback(async () => {
+    if (!isActiveRef.current || !supabaseClient || !isSignedIn) return;
+    
+    console.log('[TOKEN-RECONNECT] 🔄 Reconexão forçada por expiração de token');
+    
+    if (realtimeChannel) {
+      realtimeChannel.unsubscribe();
+      setRealtimeChannel(null);
+    }
+    
+    // Pequena pausa para garantir cleanup
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Recriar canal com novo token
+    const newChannel = supabaseClient.channel('public:orders');
+    await initializeChannel(newChannel);
+    setRealtimeChannel(newChannel);
+    
+    reconnectAttemptsRef.current = 0;
+  }, [supabaseClient, isSignedIn, realtimeChannel]);
+
+  const getTokenWithValidation = useCallback(async (): Promise<{ token: string | null; expiry: number }> => {
     try {
       const token = await getToken({ template: 'supabase' });
       if (!token) {
         console.warn('[AUTH] Token não disponível');
-        return null;
+        return { token: null, expiry: 0 };
       }
 
       try {
         const payload = JSON.parse(atob(token.split('.')[1]));
-        const exp = payload.exp * 1000;
+        const exp = payload.exp * 1000; // Converter para milliseconds
         const remainingMs = exp - Date.now();
-        const remainingMinutes = Math.round(remainingMs / 1000 / 60);
         
-        console.log(`[AUTH] Token expira em: ${remainingMinutes} minutos`);
+        console.log(`[AUTH] Token expira em: ${Math.round(remainingMs / 1000 / 60)} minutos`);
         
-        if (remainingMs < 2 * 60 * 1000) {
-          console.warn('[AUTH] Token prestes a expirar');
-        }
+        // ✅ ATUALIZAR referência de expiração
+        currentTokenExpiryRef.current = exp;
         
-        return token;
+        return { token, expiry: exp };
       } catch (parseError) {
         console.error('[AUTH] Erro ao parsear token:', parseError);
-        return token;
+        return { token, expiry: 0 };
       }
     } catch (error) {
       console.error('[AUTH] Erro ao obter token:', error);
-      return null;
+      return { token: null, expiry: 0 };
     }
   }, [getToken]);
 
@@ -217,7 +146,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      const token = await getTokenWithValidation();
+      const { token, expiry } = await getTokenWithValidation();
       if (!token) {
         await client.realtime.setAuth(null);
         setConnectionHealthy(false);
@@ -228,6 +157,8 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       console.log('[AUTH] ✅ Token aplicado com sucesso');
       setConnectionHealthy(true);
       setRealtimeAuthCounter(prev => prev + 1);
+      lastTokenRefreshRef.current = Date.now();
+      
     } catch (error) {
       console.error('[AUTH] ‼️ Erro na autenticação:', error);
       setConnectionHealthy(false);
@@ -236,28 +167,48 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isSignedIn, getTokenWithValidation]);
 
-  // ✅ Backoff exponencial otimizado
-  const handleReconnect = useCallback((channel: RealtimeChannel) => {
-    if (!isActiveRef.current) return;
-    
-    if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
-      console.warn('[RECONNECT] 🛑 Máximo de tentativas atingido');
-      return;
-    }
+  // ✅ INICIALIZAÇÃO DO CANAL (extraída para reuso)
+  const initializeChannel = useCallback(async (channel: RealtimeChannel) => {
+    const handleRealtimeEvent = (payload: any) => {
+      if (!isActiveRef.current) return;
+      console.log('[REALTIME-EVENT] ✅ Evento recebido');
+      lastEventTimeRef.current = Date.now();
+      setConnectionHealthy(true);
+      reconnectAttemptsRef.current = 0;
+    };
 
-    const delay = INITIAL_RECONNECT_DELAY * Math.pow(2, reconnectAttemptsRef.current);
-    reconnectAttemptsRef.current++;
-    
-    console.log(`[RECONNECT] 🔄 Tentativa ${reconnectAttemptsRef.current} em ${delay}ms`);
-    
-    setTimeout(() => {
-      if (isActiveRef.current && supabaseClient && isSignedIn) {
-        setRealtimeAuth(supabaseClient).then(() => {
-          channel.subscribe();
-        });
-      }
-    }, delay);
-  }, [supabaseClient, isSignedIn, setRealtimeAuth]);
+    return new Promise<void>((resolve) => {
+      channel.on('SUBSCRIBED', () => {
+        if (!isActiveRef.current) return;
+        console.log('[LIFECYCLE] ✅ Canal inscrito com sucesso');
+        setConnectionHealthy(true);
+        lastEventTimeRef.current = Date.now();
+        reconnectAttemptsRef.current = 0;
+        resolve();
+      });
+
+      channel.on('CLOSED', () => {
+        if (!isActiveRef.current) return;
+        console.warn('[LIFECYCLE] ❌ Canal fechado');
+        setConnectionHealthy(false);
+      });
+
+      channel.on('error', (error) => {
+        if (!isActiveRef.current) return;
+        console.error('[LIFECYCLE] 💥 Erro no canal:', error);
+        setConnectionHealthy(false);
+      });
+
+      // Listener para eventos do banco
+      channel.on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'orders' },
+        handleRealtimeEvent
+      );
+
+      channel.subscribe();
+    });
+  }, []);
 
   // Effect 1: Create Client
   useEffect(() => {
@@ -277,7 +228,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isLoaded, getToken, supabaseClient]);
 
-  // Effect 2: Canal RealTime com Gestão Inteligente de Health Check
+  // Effect 2: Canal RealTime com Detecção Ativa de Expiração
   useEffect(() => {
     if (!supabaseClient || !isLoaded) {
       return;
@@ -287,128 +238,93 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     console.log('[LIFECYCLE] 🚀 Iniciando canal realtime');
     const channel = supabaseClient.channel('public:orders');
 
-    const handleRealtimeEvent = (payload: any) => {
-      if (!isActiveRef.current) return;
-      console.log('[REALTIME-EVENT] ✅ Evento recebido');
-      lastEventTimeRef.current = Date.now();
-      setConnectionHealthy(true);
-      reconnectAttemptsRef.current = 0;
-    };
+    initializeChannel(channel);
+    setRealtimeChannel(channel);
 
-    channel.on('SUBSCRIBED', () => {
-      if (!isActiveRef.current) return;
-      console.log('[LIFECYCLE] ✅ Canal inscrito com sucesso');
-      setConnectionHealthy(true);
-      lastEventTimeRef.current = Date.now();
-      reconnectAttemptsRef.current = 0;
-    });
-
-    channel.on('CLOSED', () => {
-      if (!isActiveRef.current) return;
-      console.warn('[LIFECYCLE] ❌ Canal fechado');
-      setConnectionHealthy(false);
-      handleReconnect(channel);
-    });
-
-    channel.on('error', (error) => {
-      if (!isActiveRef.current) return;
-      console.error('[LIFECYCLE] 💥 Erro no canal:', error);
-      setConnectionHealthy(false);
-      handleReconnect(channel);
-    });
-
-    // Listener para eventos do banco
-    channel.on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'orders' },
-      handleRealtimeEvent
-    );
-
-    // =========================================================================
-    // 🧠 HEALTH CHECK INTELIGENTE COM GESTÃO DE HORÁRIOS
-    // =========================================================================
+    // ✅ HEALTH CHECK INTELIGENTE COM VERIFICAÇÃO DE TOKEN
     const healthCheckInterval = setInterval(() => {
       if (!isActiveRef.current) return;
       
       const timeSinceLastEvent = Date.now() - lastEventTimeRef.current;
       const isChannelSubscribed = channel.state === 'joined';
-      const businessStatus = getBusinessHoursStatus();
       
-      // 🎯 LÓGICA PRINCIPAL: Só considera problema se:
-      // 1. Canal está conectado E
-      // 2. Não recebe eventos há 5+ minutos E  
-      // 3. Estamos em horário comercial (restaurante deveria estar recebendo pedidos)
-      if (isChannelSubscribed && timeSinceLastEvent > 5 * 60 * 1000) {
-        if (businessStatus.isOpen) {
-          // ⚠️ HORÁRIO COMERCIAL: Possível problema real
-          console.warn('[HEALTH-CHECK] ⚠️ Sem eventos há 5+ minutos durante horário comercial');
-          console.log(`   🏪 ${businessStatus.message}`);
+      // 🎯 VERIFICAÇÃO CRÍTICA: Token expirado?
+      if (isTokenExpiredOrClose()) {
+        console.warn('[HEALTH-CHECK] 🔴 Token expirado detectado - forçando reconexão');
+        forceReconnectForTokenExpiry();
+        return;
+      }
+      
+      // Verificação normal de health check
+      if (isChannelSubscribed && timeSinceLastEvent > 2 * 60 * 1000) {
+        if (isBusinessHours()) {
+          console.warn('[HEALTH-CHECK] ⚠️ Sem eventos há 2+ minutos em horário comercial');
           setConnectionHealthy(false);
-          
-          // Recuperação proativa
           channel.unsubscribe().then(() => {
             setTimeout(() => {
               if (isActiveRef.current) channel.subscribe();
             }, 5000);
           });
         } else {
-          // 💤 FORA DO HORÁRIO COMERCIAL: Comportamento normal
           console.log('[HEALTH-CHECK] 💤 Sem eventos - Comportamento normal (fora do horário comercial)');
-          console.log(`   🏪 ${businessStatus.message}`);
-          if (businessStatus.nextChange) {
-            console.log(`   ⏰ ${businessStatus.nextChange}`);
-          }
-          // ✅ Conexão permanece saudável - não há problema técnico
         }
       }
     }, HEALTH_CHECK_INTERVAL);
+
+    // ✅ VERIFICAÇÃO RÁPIDA DE EXPIRAÇÃO (NOVO)
+    const tokenExpiryCheckInterval = setInterval(() => {
+      if (!isActiveRef.current || !isSignedIn) return;
+      
+      if (isTokenExpiredOrClose()) {
+        console.warn('[TOKEN-EXPIRY-CHECK] 🔴 Token expirado - reconectando...');
+        forceReconnectForTokenExpiry();
+      }
+    }, TOKEN_EXPIRY_CHECK);
 
     // ✅ Token Refresh Otimizado
     const tokenRefreshInterval = setInterval(() => {
       if (!isActiveRef.current || !isSignedIn || !supabaseClient) return;
       
-      console.log('[TOKEN-REFRESH] 🔄 Refresh proativo (15min)');
+      console.log('[TOKEN-REFRESH] 🔄 Refresh proativo (10min)');
       setRealtimeAuth(supabaseClient);
     }, TOKEN_REFRESH_MARGIN);
-
-    setRealtimeChannel(channel);
-    setRealtimeAuth(supabaseClient);
 
     return () => {
       console.log('[LIFECYCLE] 🧹 Limpando recursos');
       isActiveRef.current = false;
       clearInterval(healthCheckInterval);
+      clearInterval(tokenExpiryCheckInterval);
       clearInterval(tokenRefreshInterval);
       channel.unsubscribe();
       setRealtimeChannel(null);
       setConnectionHealthy(false);
     };
-  }, [supabaseClient, isLoaded, isSignedIn, setRealtimeAuth, handleReconnect]);
+  }, [supabaseClient, isLoaded, isSignedIn, setRealtimeAuth, initializeChannel, isTokenExpiredOrClose, forceReconnectForTokenExpiry]);
 
   // Effect 3: Wake-Up Call
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && supabaseClient && isSignedIn) {
-        console.log('👁️ Aba visível - verificando conexão');
-        setRealtimeAuth(supabaseClient);
+        console.log('👁️ Aba visível - verificando conexão e token');
+        // ✅ Verificar token ao voltar à aba
+        if (isTokenExpiredOrClose()) {
+          forceReconnectForTokenExpiry();
+        } else {
+          setRealtimeAuth(supabaseClient);
+        }
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [supabaseClient, isSignedIn, setRealtimeAuth]);
+  }, [supabaseClient, isSignedIn, setRealtimeAuth, isTokenExpiredOrClose, forceReconnectForTokenExpiry]);
 
   // ✅ Funções de reconexão
   const refreshConnection = useCallback(async () => {
     console.log('[RECONNECT] 🔄 Reconexão manual solicitada');
-    if (realtimeChannel) {
-      realtimeChannel.unsubscribe();
-    }
-    if (supabaseClient) {
-      await setRealtimeAuth(supabaseClient);
-    }
-  }, [supabaseClient, realtimeChannel, setRealtimeAuth]);
+    await forceReconnectForTokenExpiry();
+  }, [forceReconnectForTokenExpiry]);
 
   const requestReconnect = useCallback(async (maxAttempts?: number) => {
     console.log('[RECONNECT] 🔄 Reconexão via requestReconnect');
@@ -436,11 +352,11 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     }}>
       {children}
       
-      {/* Indicador visual com status de horário comercial */}
+      {/* Indicador visual com status de token */}
       <div className={`fixed bottom-4 right-4 w-3 h-3 rounded-full ${
         connectionHealthy ? 'bg-green-500' : 'bg-red-500'
       } z-50 border border-white shadow-lg`} 
-      title={`${connectionHealthy ? 'Conexão saudável' : 'Conexão com problemas'} | ${getBusinessHoursStatus().message}`} />
+      title={`${connectionHealthy ? 'Conexão saudável' : 'Conexão com problemas'} | Token expira em: ${Math.round((currentTokenExpiryRef.current - Date.now()) / 1000 / 60)}min`} />
     </SupabaseContext.Provider>
   );
 }
