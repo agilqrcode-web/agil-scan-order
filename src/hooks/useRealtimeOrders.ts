@@ -4,51 +4,43 @@ import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 export function useRealtimeOrders() {
-    const { realtimeChannel } = useSupabase();
-    const queryClient = useQueryClient();
+  const { realtimeChannel } = useSupabase();
+  const queryClient = useQueryClient();
 
-    const handleNewNotification = useCallback((payload: any) => {
-        console.log('[RT-NOTIFICATIONS] New postgres_changes event received:', payload);
-        toast.info("Novo pedido recebido!", {
-            description: "Um novo pedido foi registrado e a lista será atualizada.",
-            action: {
-                label: "Ver",
-                onClick: () => { /* Ação de clique */ },
-            },
-        });
-        queryClient.invalidateQueries({ queryKey: ['notifications'] });
-        queryClient.invalidateQueries({ queryKey: ['orders'] });
-    }, [queryClient]);
+  const handleNewNotification = useCallback((payload: any) => {
+    console.log('[RT-NOTIFICATIONS] New postgres_changes event received:', payload);
+    toast.info("Novo pedido recebido!", {
+      description: "Um novo pedido foi registrado e a lista será atualizada.",
+      action: {
+        label: "Ver",
+        onClick: () => {},
+      },
+    });
+    queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    queryClient.invalidateQueries({ queryKey: ['orders'] });
+  }, [queryClient]);
 
-    useEffect(() => {
-        if (!realtimeChannel) {
-            return;
-        }
+  useEffect(() => {
+    if (!realtimeChannel) {
+      return;
+    }
 
-        console.log('[RT-HOOK] ⚓️ Anexando listeners de postgres_changes e iniciando inscrição.');
+    console.log('[RT-HOOK] ⚓️ Anexando listeners de postgres_changes e iniciando inscrição.');
 
-        const handler = (payload: any) => handleNewNotification(payload);
+    const handler = (payload: any) => handleNewNotification(payload);
 
-        // Anexa o listener e chama subscribe (para a inscrição inicial).
-        // A lógica de recuperação e re-subscrição é tratada no Provider.
-        realtimeChannel
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, handler)
-            .subscribe((status, err) => {
-                if (status === 'SUBSCRIBED') {
-                    console.log(`[RT-HOOK] ✅ Inscrição para notificações de pedidos confirmada!`);
-                }
-                if (status === 'CHANNEL_ERROR') {
-                    console.error('[RT-HOOK] ‼️ Erro no canal de notificações:', err);
-                }
-            });
+    // A inscrição só é chamada AQUI, depois que o listener .on() foi registrado.
+    realtimeChannel
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, handler)
+      .subscribe();
 
-        // Cleanup: remove o listener e a desinscrição quando o componente desmontar.
-        return () => {
-            if (realtimeChannel) {
-                console.log('[RT-HOOK] 🧹 Limpando... Desinscrevendo e removendo listeners de notificações.');
-                // O unsubscribe remove todos os listeners do canal automaticamente
-                realtimeChannel.unsubscribe();
-            }
-        };
-    }, [realtimeChannel, handleNewNotification]);
+    // Cleanup: remove o listener e a inscrição quando o componente desmontar.
+    return () => {
+      if (realtimeChannel) {
+        console.log('[RT-HOOK] 🧹 Limpando... Desinscrevendo e removendo listeners de notificações.');
+        // O unsubscribe remove todos os listeners do canal automaticamente
+        realtimeChannel.unsubscribe();
+      }
+    };
+  }, [realtimeChannel, handleNewNotification]);
 }
