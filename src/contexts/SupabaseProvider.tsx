@@ -1,4 +1,4 @@
-// SupabaseProvider.tsx - VERSÃO COMPATÍVEL COM SEU CONTEXTO
+// SupabaseProvider.tsx - VERSÃO CORRIGIDA
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { createClient, SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 import { useAuth } from '@clerk/clerk-react';
@@ -9,8 +9,8 @@ import type { Database } from '../integrations/supabase/types';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL!;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY!;
 
-// Health check interval (5 minutes)
-const HEALTH_CHECK_INTERVAL = 5 * 60 * 1000;
+// Health check interval (2 minutes)
+const HEALTH_CHECK_INTERVAL = 2 * 60 * 1000;
 // Token refresh margin (10 minutes before expiry)
 const TOKEN_REFRESH_MARGIN = 10 * 60 * 1000;
 
@@ -27,6 +27,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   const reconnectAttemptsRef = useRef<number>(0);
   const healthCheckIntervalRef = useRef<number | null>(null);
   const tokenRefreshIntervalRef = useRef<number | null>(null);
+  const lastEventTimeRef = useRef<number>(Date.now());
 
   const setRealtimeAuth = useCallback(async (client: SupabaseClient) => {
     if (isRefreshingRef.current) {
@@ -95,6 +96,13 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     console.log('[LIFECYCLE] 🚀 2. Cliente Supabase pronto. Iniciando ciclo de vida do canal...');
     const channel = supabaseClient.channel('public:orders');
 
+    // ✅ NOVO: Handler para eventos reais - ATUALIZA lastEventTimeRef
+    const handleRealtimeEvent = (payload: any) => {
+      console.log('[REALTIME-EVENT] ✅ Evento recebido no Provider:', payload);
+      lastEventTimeRef.current = Date.now();
+      setConnectionHealthy(true); // Confirma que a conexão está funcionando
+    };
+
     const handleRecovery = () => {
       if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
       
@@ -117,6 +125,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
       reconnectAttemptsRef.current = 0;
       setConnectionHealthy(true);
+      lastEventTimeRef.current = Date.now(); // Reset do timer
     });
 
     channel.on('CLOSED', () => {
@@ -132,13 +141,33 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       handleRecovery();
     });
 
-    // ✅ NOVO: Health Check Proativo
+    // ✅ NOVO: Listener para eventos de banco de dados - CRÍTICO
+    channel.on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'orders' },
+      handleRealtimeEvent
+    );
+
+    // ✅ CORREÇÃO: Health Check baseado em eventos reais
     healthCheckIntervalRef.current = window.setInterval(() => {
-      if (channel && channel.state === 'joined') {
-        console.log('[HEALTH-CHECK] ✅ Conexão realtime saudável');
+      const timeSinceLastEvent = Date.now() - lastEventTimeRef.current;
+      const isChannelSubscribed = channel.state === 'joined';
+      
+      if (isChannelSubscribed && timeSinceLastEvent > 120000) {
+        // Canal está inscrito mas não recebe eventos há 2 minutos
+        console.warn('[HEALTH-CHECK] ⚠️ Canal conectado mas sem eventos há 2 minutos. Possível problema.');
+        setConnectionHealthy(false);
+        
+        // Tentar recuperação proativa
+        console.log('[HEALTH-CHECK] 🔄 Tentando recuperação proativa...');
+        channel.unsubscribe().then(() => {
+          setTimeout(() => channel.subscribe(), 2000);
+        });
+      } else if (isChannelSubscribed && timeSinceLastEvent <= 120000) {
+        // Tudo normal - canal conectado e recebendo eventos
         setConnectionHealthy(true);
       } else {
-        console.warn('[HEALTH-CHECK] ⚠️ Conexão realtime com problemas');
+        // Canal não está conectado
         setConnectionHealthy(false);
       }
     }, HEALTH_CHECK_INTERVAL);
@@ -202,11 +231,10 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     }
   }, [supabaseClient, realtimeChannel, setRealtimeAuth]);
 
-  // ✅ Função requestReconnect mantida para compatibilidade
   const requestReconnect = useCallback(async (maxAttempts?: number) => {
-    console.log('[RECONNECT] 🔄 Reconexão via requestReconnect solicitada');
+    console.warn("requestReconnect is deprecated - use refreshConnection");
     await refreshConnection();
-    return true;
+    return false;
   }, [refreshConnection]);
 
   if (!supabaseClient || !realtimeChannel) {
@@ -221,19 +249,13 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     <SupabaseContext.Provider value={{
       supabaseClient,
       realtimeChannel,
-      connectionHealthy, // ✅ NOVO: Status da conexão
+      connectionHealthy, // ✅ Status real da conexão
       realtimeAuthCounter,
-      requestReconnect, // ✅ Mantido para compatibilidade
+      requestReconnect,
       setRealtimeAuth: () => supabaseClient && setRealtimeAuth(supabaseClient),
-      refreshConnection, // ✅ NOVO: Função de reconexão manual
+      refreshConnection, // ✅ Nova função
     }}>
       {children}
-      
-      {/* ✅ NOVO: Indicador visual opcional da saúde da conexão */}
-      <div className={`fixed bottom-4 right-4 w-4 h-4 rounded-full border-2 border-white ${
-        connectionHealthy ? 'bg-green-500' : 'bg-red-500'
-      } z-50`} 
-      title={connectionHealthy ? 'Conexão realtime saudável' : 'Conexão realtime com problemas'} />
     </SupabaseContext.Provider>
   );
 }

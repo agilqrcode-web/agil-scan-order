@@ -1,4 +1,4 @@
-// useRealtimeOrders.ts - VERSÃO COMPLETA COM FALLBACK
+// useRealtimeOrders.ts - VERSÃO CORRIGIDA
 import { useCallback, useEffect, useRef } from 'react';
 import { useSupabase } from '@/contexts/SupabaseContext';
 import { useQueryClient } from '@tanstack/react-query';
@@ -11,7 +11,7 @@ export function useRealtimeOrders() {
   const lastNotificationRef = useRef<number>(Date.now());
 
   const handleNewNotification = useCallback((payload: any) => {
-    console.log('[RT-NOTIFICATIONS] New postgres_changes event received:', payload);
+    console.log('[RT-NOTIFICATIONS] ✅ New postgres_changes event received:', payload);
     lastNotificationRef.current = Date.now();
     
     toast.info("Novo pedido recebido!", {
@@ -41,14 +41,17 @@ export function useRealtimeOrders() {
 
     // A inscrição só é chamada AQUI, depois que o listener .on() foi registrado.
     realtimeChannel
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, handler)
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'orders' 
+      }, handler)
       .subscribe();
 
     // Cleanup: remove o listener e a inscrição quando o componente desmontar.
     return () => {
       if (realtimeChannel) {
         console.log('[RT-HOOK] 🧹 Limpando... Desinscrevendo e removendo listeners de notificações.');
-        // O unsubscribe remove todos os listeners do canal automaticamente
         realtimeChannel.unsubscribe();
       }
     };
@@ -92,24 +95,8 @@ export function useRealtimeOrders() {
     }
   }, [connectionHealthy, queryClient]);
 
-  // Efeito 3: Health check adicional - verifica se estamos recebendo notificações
-  useEffect(() => {
-    const healthCheckInterval = window.setInterval(() => {
-      const timeSinceLastNotification = Date.now() - lastNotificationRef.current;
-      
-      // Se não recebemos notificações por mais de 2 minutos e a conexão está "saudável"
-      // pode indicar um falso positivo na saúde da conexão
-      if (connectionHealthy && timeSinceLastNotification > 120000) {
-        console.warn('[HEALTH-CHECK] ⚠️  Conexão marcada como saudável mas sem notificações há 2 minutos');
-        // Poderia forçar uma revalidação aqui se necessário
-        queryClient.invalidateQueries({ queryKey: ['orders'] });
-      }
-    }, 60000); // Verificar a cada 1 minuto
-
-    return () => {
-      clearInterval(healthCheckInterval);
-    };
-  }, [connectionHealthy, queryClient]);
+  // Efeito 3: Health check - REMOVIDO (agora está no Provider)
+  // O health check de notificações deve ser feito no Provider onde temos o canal
 
   return {
     connectionHealthy,
