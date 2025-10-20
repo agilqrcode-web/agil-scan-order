@@ -8,11 +8,14 @@ import { Spinner } from '@/components/ui/spinner';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL!;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY!;
 
+// Configuráveis
+const CHANNEL_NAME = 'public:orders';
+const CHANNEL_PRIVATE = true; // default: private channels for postgres_changes (mude para false se seu projeto permitir public)
 const HEALTH_CHECK_INTERVAL = 60 * 1000; // 60s
 const TOKEN_REFRESH_MARGIN = 2 * 60 * 1000; // 2 minutes before exp
 const INITIAL_RECONNECT_DELAY = 1000;
 const MAX_RECONNECT_ATTEMPTS = 8;
-const TOKEN_MIN_SAFE_MS = 90 * 1000; // consider token still valid if > 90s left
+const TOKEN_MIN_SAFE_MS = 90 * 1000;
 
 export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   const { getToken, isLoaded, isSignedIn } = useAuth();
@@ -30,11 +33,8 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   const lastAppliedTokenRef = useRef<string | null>(null);
   const clientRef = useRef<SupabaseClient | null>(null);
 
-  // token refresh scheduling & backoff
   const tokenRefreshTimerRef = useRef<number | null>(null);
   const backoffAttemptRef = useRef<number>(0);
-
-  const channelName = 'public:orders';
 
   const parseTokenExp = (token: string | null) => {
     if (!token) return null;
@@ -67,24 +67,20 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   };
 
   const scheduleTokenRefresh = (expMs: number | null) => {
-    // limpa timer anterior
     clearScheduledTokenRefresh();
     if (!expMs) return;
     const now = Date.now();
-    // refreshAt: exp - margin, mas pelo menos 5s no futuro
     const refreshAt = Math.max(now + 5000, expMs - TOKEN_REFRESH_MARGIN);
     const delay = Math.max(1000, refreshAt - now);
-    console.log('[AUTH] agendando refresh do token em (ms):', delay);
+    console.log('[AUTH] scheduling token refresh in (ms):', delay);
     tokenRefreshTimerRef.current = window.setTimeout(async () => {
-      console.log('[AUTH] timer de refresh disparou — tentando renovar token');
       try {
         await setRealtimeAuthSafe(clientRef.current!);
         backoffAttemptRef.current = 0;
       } catch (e) {
-        console.error('[AUTH] falha no refresh agendado', e);
+        console.error('[AUTH] scheduled refresh failed', e);
         const backoff = Math.min(60_000, 1000 * Math.pow(2, backoffAttemptRef.current));
         backoffAttemptRef.current++;
-        console.log(`[AUTH] agendando retry com backoff ${backoff}ms`);
         tokenRefreshTimerRef.current = window.setTimeout(() => {
           scheduleTokenRefresh(Date.now() + backoff);
         }, backoff);
@@ -92,18 +88,13 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     }, delay);
   };
 
-  // setRealtimeAuthSafe (nova versão com agendamento)
   const setRealtimeAuthSafe = useCallback(async (client: SupabaseClient | null) => {
-    if (isRefreshingRef.current) {
-      console.log('[AUTH] ⏳ setRealtimeAuth called but already refreshing - skip');
-      return;
-    }
+    if (isRefreshingRef.current) return;
     if (!client) return;
     isRefreshingRef.current = true;
     try {
       if (!isSignedIn) {
-        console.log('[AUTH] usuário não autenticado — limpando auth do realtime');
-        try { await client.realtime.setAuth(null); } catch {}
+        try { await (client as any).realtime.setAuth(null); } catch {}
         clearScheduledTokenRefresh();
         lastAppliedTokenRef.current = null;
         setConnectionHealthy(false);
@@ -112,8 +103,8 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
       const token = await getToken({ template: 'supabase' });
       if (!token) {
-        console.warn('[AUTH] Token inválido ao tentar setAuth');
-        try { await client.realtime.setAuth(null); } catch {}
+        console.warn('[AUTH] no token available for setAuth');
+        try { await (client as any).realtime.setAuth(null); } catch {}
         setConnectionHealthy(false);
         return;
       }
@@ -121,38 +112,54 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       const expMs = parseTokenExp(token);
       if (expMs) currentTokenExpRef.current = expMs;
 
-      // If same token and not near expiry -> skip
       if (lastAppliedTokenRef.current === token) {
         const remainingMs = (currentTokenExpRef.current || 0) - Date.now();
         if (remainingMs > TOKEN_MIN_SAFE_MS) {
-          console.log('[AUTH] Token já aplicado e com folga -> skip');
           scheduleTokenRefresh(expMs);
           setConnectionHealthy(true);
           return;
         }
       }
 
-      // Best-effort: unsubscribe existing subs to avoid stale state
+      // Prefer realtime.setAuth
       try {
-        const subs = (client as any).getSubscriptions?.() || [];
-        subs.forEach((s: any) => {
-          try { s.unsubscribe(); } catch {}
-        });
-      } catch (e) {
-        // non-fatal
+        if (typeof (client as any).realtime.setAuth === 'function') {
+          await (client as any).realtime.setAuth(token);
+          lastAppliedTokenRef.current = token;
+          setRealtimeAuthCounter((p) => p + 1);
+          setConnectionHealthy(true);
+          scheduleTokenRefresh(expMs);
+          backoffAttemptRef.current = 0;
+          console.log('[AUTH] realtime.setAuth applied successfully');
+          return;
+        }
+      } catch (err) {
+        console.warn('[AUTH] realtime.setAuth failed, falling back to re-instantiation', err);
       }
 
-      await client.realtime.setAuth(token);
+      // Fallback: re-instantiate client with token-injecting fetch wrapper
+      console.log('[AUTH] fallback re-instantiating client with token');
+      const newClient = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+        global: {
+          fetch: async (input: RequestInfo, init?: RequestInit) => {
+            const headers = new Headers(init?.headers);
+            headers.set('Authorization', `Bearer ${token}`);
+            return fetch(input, { ...init, headers });
+          },
+        },
+      });
+
+      // swap client
+      clientRef.current = newClient;
+      setSupabaseClient(newClient);
       lastAppliedTokenRef.current = token;
       setRealtimeAuthCounter((p) => p + 1);
-      setConnectionHealthy(true);
       scheduleTokenRefresh(expMs);
-      backoffAttemptRef.current = 0;
-      console.log('[AUTH] ✅ Token aplicado com sucesso no realtime');
+      setConnectionHealthy(true);
+      console.log('[AUTH] fallback re-instantiation complete');
     } catch (error) {
-      console.error('[AUTH] erro ao aplicar token', error);
+      console.error('[AUTH] error applying token', error);
       setConnectionHealthy(false);
-      // schedule retry with backoff
       const backoff = Math.min(60_000, 1000 * Math.pow(2, backoffAttemptRef.current));
       backoffAttemptRef.current++;
       tokenRefreshTimerRef.current = window.setTimeout(() => {
@@ -165,20 +172,19 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
   const handleReconnect = useCallback(async (channel?: RealtimeChannel) => {
     if (!isActiveRef.current) return;
-    if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
-      console.warn('[RECONNECT] atingiu tentativas máximas');
-      return;
-    }
+    if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) return;
     const delay = INITIAL_RECONNECT_DELAY * Math.pow(2, reconnectAttemptsRef.current);
     reconnectAttemptsRef.current++;
-    console.log(`[RECONNECT] tentativa ${reconnectAttemptsRef.current}, delay ${delay}ms`);
+    console.log(`[RECONNECT] attempt ${reconnectAttemptsRef.current}, delay ${delay}ms`);
     setTimeout(async () => {
       if (!isActiveRef.current || !supabaseClient) return;
       try {
         await setRealtimeAuthSafe(supabaseClient);
-        if (channel) channel.subscribe();
+        if (channel) {
+          try { channel.subscribe(); } catch {}
+        }
       } catch (e) {
-        console.error('[RECONNECT] erro ao reconectar', e);
+        console.error('[RECONNECT] error reconnecting', e);
       }
     }, delay);
   }, [supabaseClient, setRealtimeAuthSafe]);
@@ -187,7 +193,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!isLoaded) return;
     if (!clientRef.current) {
-      console.log('[PROVIDER-INIT] Criando cliente Supabase (one-time)');
+      console.log('[PROVIDER-INIT] Creating Supabase client (one-time)');
       clientRef.current = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
         global: {
           fetch: async (input, init) => {
@@ -202,26 +208,20 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isLoaded, getToken]);
 
-  // mount channel (guarded)
+  // mount channel (await setAuth before subscribe)
   useEffect(() => {
     if (!supabaseClient || !isLoaded) return;
     isActiveRef.current = true;
     reconnectAttemptsRef.current = 0;
-    console.log('[LIFECYCLE] Iniciando canal realtime (guarded)');
+    console.log('[LIFECYCLE] Starting realtime channel (guarded)');
 
-    // create channel (public for testing)
-    const channel = supabaseClient.channel(channelName, { config: { private: false } });
-
-    // debug immediate states
-    console.log('[CHANNEL] created', { name: channelName, state: channel.state });
-    setTimeout(() => console.log('[CHANNEL] state after 1s', channel.state), 1000);
-    setTimeout(() => console.log('[CHANNEL] state after 5s', channel.state), 5000);
+    const channel = supabaseClient.channel(CHANNEL_NAME, { config: { private: CHANNEL_PRIVATE } });
+    setRealtimeChannel(channel);
 
     const handleRealtimeEvent = (payload: any) => {
       if (!isActiveRef.current) return;
       lastEventTimeRef.current = Date.now();
       setConnectionHealthy(true);
-      console.log('[EVENT] realtime payload', payload);
       try {
         window.dispatchEvent(new CustomEvent('order:notification:received', { detail: payload }));
       } catch {}
@@ -246,48 +246,83 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       if (!isActiveRef.current) return;
       console.error('[LIFECYCLE] Channel ERROR', err);
       setConnectionHealthy(false);
-
-      const msg = err?.message?.toString?.() || '';
-      if (msg.toLowerCase().includes('token') || msg.toLowerCase().includes('jwt')) {
-        console.warn('[AUTH] erro relacionado a token detectado, limpando e renovando imediatamente');
+      const msg = (err?.message || '').toString().toLowerCase();
+      if (msg.includes('token') || msg.includes('jwt') || msg.includes('expired')) {
         lastAppliedTokenRef.current = null;
         clearScheduledTokenRefresh();
         (async () => {
           try {
             await setRealtimeAuthSafe(supabaseClient);
-            setTimeout(() => {
-              try { channel.subscribe(); } catch {}
-            }, 300);
+            setTimeout(() => { try { channel.subscribe(); } catch {} }, 300);
           } catch (e) {
-            console.error('[AUTH] falha ao renovar token após erro', e);
+            console.error('[AUTH] failed to renew after error', e);
             handleReconnect(channel);
           }
         })();
         return;
       }
-
-      // outros erros -> reconnect
-      handleReconnect(channel);
+      // If bindings mismatch, log and try more-specific subscription
+      if (err?.message && err.message.includes('mismatch between server and client bindings')) {
+        console.warn('[LIFECYCLE] mismatch bindings detected — trying specific INSERT subscription as fallback');
+        try {
+          // remove any existing postgres_changes listeners then re-subscribe specifically for INSERT
+          channel.removeAllListeners?.('postgres_changes');
+        } catch {}
+        try {
+          channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, handleRealtimeEvent);
+          // we'll attempt subscribe below (subscribe is awaited after setAuth)
+        } catch (e) {
+          console.error('[LIFECYCLE] fallback specific subscription failed', e);
+        }
+      } else {
+        handleReconnect(channel);
+      }
     });
 
-    // Listen for DB changes on orders table
+    // attach postgres_changes handler (general)
     channel.on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, handleRealtimeEvent);
 
-    // Immediately subscribe (should trigger SUBSCRIBED if succeeds)
-    try {
-      channel.subscribe((status, err) => {
-        console.log('[SUBSCRIBE-CALLBACK] status:', status, 'error:', err);
-      });
-    } catch (e) {
-      console.error('[SUBSCRIBE] falhou ao chamar subscribe()', e);
-    }
+    (async () => {
+      try {
+        // Ensure auth applied before subscribing
+        await setRealtimeAuthSafe(supabaseClient);
+        // Wait a small tick to ensure server processed auth
+        await new Promise((r) => setTimeout(r, 250));
+        // Subscribe and capture callback result
+        channel.subscribe((status, err) => {
+          console.log('[SUBSCRIBE-CALLBACK] status:', status, 'error:', err);
+          if (status === 'CLOSED' && err) {
+            if (err.message && err.message.includes('mismatch between server and client bindings')) {
+              // try specific subscription: unsubscribe and set specific handler + subscribe
+              console.warn('[SUBSCRIBE] closed with bindings mismatch -> trying specific INSERT subscription');
+              try {
+                channel.removeAllListeners?.('postgres_changes');
+              } catch {}
+              channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, handleRealtimeEvent);
+              try {
+                channel.subscribe();
+              } catch (e) {
+                console.error('[SUBSCRIBE] retry specific subscription failed', e);
+                handleReconnect(channel);
+              }
+              return;
+            }
+          }
+          if (status === 'ERRORED' || status === 'CLOSED') {
+            handleReconnect(channel);
+          }
+        });
+      } catch (e) {
+        console.error('[LIFECYCLE] error during subscribe flow', e);
+        handleReconnect(channel);
+      }
+    })();
 
     const healthCheckInterval = setInterval(() => {
       if (!isActiveRef.current) return;
       const timeSinceLastEvent = Date.now() - lastEventTimeRef.current;
-      // if no events for 5 minutes, mark unhealthy (only if channel joined)
       if ((channel.state === 'joined' || channel.state === 'SUBSCRIBED') && timeSinceLastEvent > 5 * 60 * 1000) {
-        console.warn('[HEALTH-CHECK] sem eventos há 5+ minutos, forçando refresh');
+        console.warn('[HEALTH-CHECK] no events for 5+ minutes, forcing refresh');
         setConnectionHealthy(false);
         (async () => {
           try { if (channel && channel.state !== 'closed') await channel.unsubscribe(); } catch {}
@@ -295,24 +330,16 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
           setTimeout(() => { if (isActiveRef.current) channel.subscribe(); }, 500);
         })();
       }
-
-      // Token pre-refresh if close to expiry
       const expMs = currentTokenExpRef.current;
       if (expMs && expMs - Date.now() < TOKEN_REFRESH_MARGIN) {
-        console.log('[HEALTH-CHECK] token próximo do fim - renovando');
         setRealtimeAuthSafe(supabaseClient);
       }
     }, HEALTH_CHECK_INTERVAL);
 
-    // periodic defensive refresh (in addition to scheduled)
     const tokenRefreshTicker = setInterval(() => {
       if (!isActiveRef.current || !isSignedIn || !supabaseClient) return;
       setRealtimeAuthSafe(supabaseClient);
     }, Math.max(30 * 1000, TOKEN_REFRESH_MARGIN / 2));
-
-    setRealtimeChannel(channel);
-    // apply auth once
-    setRealtimeAuthSafe(supabaseClient);
 
     return () => {
       isActiveRef.current = false;
@@ -322,7 +349,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       try {
         if (channel && channel.state !== 'closed') channel.unsubscribe();
       } catch (e) {
-        console.warn('[LIFECYCLE] erro ao unsubscribe:', e);
+        console.warn('[LIFECYCLE] unsubscribe error:', e);
       }
       setRealtimeChannel(null);
       setConnectionHealthy(false);
@@ -332,7 +359,6 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const handleVisibility = () => {
       if (document.visibilityState === 'visible' && supabaseClient && isSignedIn) {
-        console.log('[VISIBILITY] visible -> ensure auth');
         setRealtimeAuthSafe(supabaseClient);
       }
     };

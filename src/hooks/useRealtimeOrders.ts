@@ -1,6 +1,6 @@
 // useRealtimeOrders.ts
 import { useEffect, useRef, useCallback } from 'react';
-import { useSupabase } from '@/contexts/SupabaseContext'; 
+import { useSupabase } from '@/contexts/SupabaseContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type { RealtimeSubscription } from '@supabase/supabase-js';
@@ -15,15 +15,9 @@ export function useRealtimeOrders() {
   const lastNotificationRef = useRef<number>(0);
 
   const handlePayload = useCallback((payload: any) => {
-    console.log('[useRealtimeOrders] payload received', payload);
     lastNotificationRef.current = Date.now();
-
-    try {
-      window.dispatchEvent(new CustomEvent('order:notification:received', { detail: payload }));
-    } catch {}
-
+    try { window.dispatchEvent(new CustomEvent('order:notification:received', { detail: payload })); } catch {}
     try { toast.success('Novo pedido recebido'); } catch {}
-
     queryClient.invalidateQueries({ queryKey: ['orders'] });
     queryClient.invalidateQueries({ queryKey: ['notifications'] });
     queryClient.invalidateQueries({ queryKey: ['orders-stats'] });
@@ -36,12 +30,12 @@ export function useRealtimeOrders() {
     }
 
     if (!realtimeChannel) {
-      console.log('[useRealtimeOrders] realtimeChannel not available');
       return;
     }
 
+    // Subscribe specifically for postgres_changes INSERT (safer)
     const sub = realtimeChannel
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload: any) => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, (payload: any) => {
         handlePayload(payload);
       })
       .subscribe();
@@ -53,7 +47,7 @@ export function useRealtimeOrders() {
         if (!localSubRef.current || localSubRef.current.state !== 'SUBSCRIBED') {
           if (realtimeChannel && (realtimeChannel.state === 'joined' || realtimeChannel.state === 'SUBSCRIBED')) {
             try { localSubRef.current?.unsubscribe(); } catch {}
-            const newSub = realtimeChannel.on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload: any) => handlePayload(payload)).subscribe();
+            const newSub = realtimeChannel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, (payload: any) => handlePayload(payload)).subscribe();
             localSubRef.current = newSub;
           }
         }

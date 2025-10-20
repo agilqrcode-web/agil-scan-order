@@ -1,4 +1,4 @@
-// SupabaseContext.tsx
+// SupabaseContext.ts
 import React, { createContext, useContext } from 'react';
 import type { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 
