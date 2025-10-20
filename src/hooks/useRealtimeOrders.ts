@@ -1,92 +1,104 @@
-// useRealtimeOrders.ts
-import { useEffect, useRef, useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useSupabase } from '@/contexts/SupabaseContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import type { RealtimeSubscription } from '@supabase/supabase-js';
 
-const POLLING_INTERVAL = 2 * 60 * 1000;
+// ✅ CONFIGURAÇÕES OTIMIZADAS
+const POLLING_INTERVAL = 2 * 60 * 1000; // 2 minutos (reduzido de 30s)
 
 export function useRealtimeOrders() {
   const { realtimeChannel, connectionHealthy } = useSupabase();
   const queryClient = useQueryClient();
-  const localSubRef = useRef<RealtimeSubscription | null>(null);
-  const pollingRef = useRef<number | null>(null);
-  const lastNotificationRef = useRef<number>(0);
+  const pollingIntervalRef = useRef<number>();
+  const lastNotificationRef = useRef<number>(Date.now());
 
-  const handlePayload = useCallback((payload: any) => {
+  const handleNewNotification = useCallback((payload: any) => {
+    console.log('[RT-NOTIFICATIONS] ✅ Evento recebido:', payload);
     lastNotificationRef.current = Date.now();
-    try { window.dispatchEvent(new CustomEvent('order:notification:received', { detail: payload })); } catch {}
-    try { toast.success('Novo pedido recebido'); } catch {}
-    queryClient.invalidateQueries({ queryKey: ['orders'] });
-    queryClient.invalidateQueries({ queryKey: ['notifications'] });
-    queryClient.invalidateQueries({ queryKey: ['orders-stats'] });
+    
+    toast.info("Novo pedido recebido!", {
+      description: "Um novo pedido foi registrado e a lista será atualizada.",
+      action: {
+        label: "Ver",
+        onClick: () => {},
+      },
+    });
+
+    // Invalidar queries em lote para reduzir requests
+    queryClient.invalidateQueries({ 
+      queryKey: ['notifications'] 
+    });
+    queryClient.invalidateQueries({ 
+      queryKey: ['orders'] 
+    });
+    queryClient.invalidateQueries({ 
+      queryKey: ['orders-stats'] 
+    });
   }, [queryClient]);
 
+  // Efeito 1: Configurar listeners do realtime
   useEffect(() => {
-    if (localSubRef.current) {
-      try { localSubRef.current.unsubscribe(); } catch {}
-      localSubRef.current = null;
-    }
-
     if (!realtimeChannel) {
+      console.log('[RT-HOOK] Canal realtime não disponível');
       return;
     }
 
-    // Subscribe specifically for postgres_changes INSERT (safer)
-    const sub = realtimeChannel
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, (payload: any) => {
-        handlePayload(payload);
-      })
+    console.log('[RT-HOOK] ⚓️ Configurando listeners realtime');
+
+    const handler = (payload: any) => handleNewNotification(payload);
+
+    realtimeChannel
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'orders' 
+      }, handler)
       .subscribe();
 
-    localSubRef.current = sub;
-
-    const statePoll = window.setInterval(() => {
-      try {
-        if (!localSubRef.current || localSubRef.current.state !== 'SUBSCRIBED') {
-          if (realtimeChannel && (realtimeChannel.state === 'joined' || realtimeChannel.state === 'SUBSCRIBED')) {
-            try { localSubRef.current?.unsubscribe(); } catch {}
-            const newSub = realtimeChannel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, (payload: any) => handlePayload(payload)).subscribe();
-            localSubRef.current = newSub;
-          }
-        }
-      } catch (e) {
-        console.warn('[useRealtimeOrders] statePoll error', e);
-      }
-    }, 2000);
-
     return () => {
-      if (localSubRef.current) {
-        try { localSubRef.current.unsubscribe(); } catch {}
-        localSubRef.current = null;
+      if (realtimeChannel) {
+        console.log('[RT-HOOK] 🧹 Limpando listeners');
+        realtimeChannel.unsubscribe();
       }
-      clearInterval(statePoll);
     };
-  }, [realtimeChannel, handlePayload]);
+  }, [realtimeChannel, handleNewNotification]);
 
+  // ✅ Efeito 2: Polling Otimizado
   useEffect(() => {
     if (!connectionHealthy) {
+      console.log('[FALLBACK] 🔄 Ativando polling (2min)');
+      
+      // Polling imediato
       queryClient.invalidateQueries({ queryKey: ['orders', 'notifications'] });
-      pollingRef.current = window.setInterval(() => {
+      
+      // ✅ Polling reduzido para 2 minutos
+      pollingIntervalRef.current = window.setInterval(() => {
+        console.log('[FALLBACK] 📡 Polling para atualizações (2min)');
         queryClient.invalidateQueries({ queryKey: ['orders', 'notifications', 'orders-stats'] });
-      }, POLLING_INTERVAL) as unknown as number;
+      }, POLLING_INTERVAL);
+
       return () => {
-        if (pollingRef.current) {
-          clearInterval(pollingRef.current);
-          pollingRef.current = null;
+        if (pollingIntervalRef.current) {
+          console.log('[FALLBACK] 🧹 Desativando polling');
+          clearInterval(pollingIntervalRef.current);
+          pollingIntervalRef.current = undefined;
         }
       };
     } else {
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current);
-        pollingRef.current = null;
+      // Conexão saudável - desativar polling
+      if (pollingIntervalRef.current) {
+        console.log('[FALLBACK] ✅ Realtime recuperado - desativando polling');
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = undefined;
+        
+        // Forçar atualização ao voltar para realtime
+        queryClient.invalidateQueries({ queryKey: ['orders', 'notifications'] });
       }
     }
   }, [connectionHealthy, queryClient]);
 
   return {
     connectionHealthy,
-    lastNotificationAt: lastNotificationRef.current,
+    isUsingFallback: !!pollingIntervalRef.current
   };
 }
