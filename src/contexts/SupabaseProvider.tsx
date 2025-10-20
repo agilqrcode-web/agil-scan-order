@@ -204,7 +204,9 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
           },
         },
       });
-      setSupabaseClient(clientRef.current);
+      setSupabaseClient(client);
+      // Expor cliente na janela para fins de depuração
+      (window as any).supabaseClient = client;
     }
   }, [isLoaded, getToken]);
 
