@@ -1,4 +1,4 @@
-// SupabaseProvider.tsx
+// SupabaseProvider.tsx ok
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { createClient, type SupabaseClient, type RealtimeChannel } from '@supabase/supabase-js';
 import { useAuth } from '@clerk/clerk-react';
