@@ -8,8 +8,8 @@ import { Spinner } from '@/components/ui/spinner';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL!;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY!;
 
-const HEALTH_CHECK_INTERVAL = 60 * 1000; // check every 60s
-const TOKEN_REFRESH_MARGIN = 2 * 60 * 1000; // refresh 2 minutes before exp
+const HEALTH_CHECK_INTERVAL = 60 * 1000; // 60s
+const TOKEN_REFRESH_MARGIN = 2 * 60 * 1000; // 2 minutes before exp
 const INITIAL_RECONNECT_DELAY = 1000;
 const MAX_RECONNECT_ATTEMPTS = 8;
 const TOKEN_MIN_SAFE_MS = 90 * 1000; // consider token still valid if > 90s left
@@ -29,7 +29,12 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   const currentTokenExpRef = useRef<number | null>(null);
   const lastAppliedTokenRef = useRef<string | null>(null);
   const clientRef = useRef<SupabaseClient | null>(null);
-  const channelName = 'public:orders'; // public channel as requested
+
+  // token refresh scheduling & backoff
+  const tokenRefreshTimerRef = useRef<number | null>(null);
+  const backoffAttemptRef = useRef<number>(0);
+
+  const channelName = 'public:orders';
 
   const parseTokenExp = (token: string | null) => {
     if (!token) return null;
@@ -54,38 +59,80 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     }
   }, [getToken]);
 
-  const setRealtimeAuthSafe = useCallback(async (client: SupabaseClient) => {
+  const clearScheduledTokenRefresh = () => {
+    if (tokenRefreshTimerRef.current) {
+      clearTimeout(tokenRefreshTimerRef.current);
+      tokenRefreshTimerRef.current = null;
+    }
+  };
+
+  const scheduleTokenRefresh = (expMs: number | null) => {
+    // limpa timer anterior
+    clearScheduledTokenRefresh();
+    if (!expMs) return;
+    const now = Date.now();
+    // refreshAt: exp - margin, mas pelo menos 5s no futuro
+    const refreshAt = Math.max(now + 5000, expMs - TOKEN_REFRESH_MARGIN);
+    const delay = Math.max(1000, refreshAt - now);
+    console.log('[AUTH] agendando refresh do token em (ms):', delay);
+    tokenRefreshTimerRef.current = window.setTimeout(async () => {
+      console.log('[AUTH] timer de refresh disparou — tentando renovar token');
+      try {
+        await setRealtimeAuthSafe(clientRef.current!);
+        backoffAttemptRef.current = 0;
+      } catch (e) {
+        console.error('[AUTH] falha no refresh agendado', e);
+        const backoff = Math.min(60_000, 1000 * Math.pow(2, backoffAttemptRef.current));
+        backoffAttemptRef.current++;
+        console.log(`[AUTH] agendando retry com backoff ${backoff}ms`);
+        tokenRefreshTimerRef.current = window.setTimeout(() => {
+          scheduleTokenRefresh(Date.now() + backoff);
+        }, backoff);
+      }
+    }, delay);
+  };
+
+  // setRealtimeAuthSafe (nova versão com agendamento)
+  const setRealtimeAuthSafe = useCallback(async (client: SupabaseClient | null) => {
     if (isRefreshingRef.current) {
       console.log('[AUTH] ⏳ setRealtimeAuth called but already refreshing - skip');
       return;
     }
+    if (!client) return;
     isRefreshingRef.current = true;
     try {
-      if (!client || !isSignedIn) {
-        try { await client?.realtime.setAuth(null); } catch {}
+      if (!isSignedIn) {
+        console.log('[AUTH] usuário não autenticado — limpando auth do realtime');
+        try { await client.realtime.setAuth(null); } catch {}
+        clearScheduledTokenRefresh();
+        lastAppliedTokenRef.current = null;
         setConnectionHealthy(false);
         return;
       }
 
-      const token = await getTokenWithValidation();
+      const token = await getToken({ template: 'supabase' });
       if (!token) {
         console.warn('[AUTH] Token inválido ao tentar setAuth');
-        await client.realtime.setAuth(null);
+        try { await client.realtime.setAuth(null); } catch {}
         setConnectionHealthy(false);
         return;
       }
+
+      const expMs = parseTokenExp(token);
+      if (expMs) currentTokenExpRef.current = expMs;
 
       // If same token and not near expiry -> skip
       if (lastAppliedTokenRef.current === token) {
         const remainingMs = (currentTokenExpRef.current || 0) - Date.now();
         if (remainingMs > TOKEN_MIN_SAFE_MS) {
           console.log('[AUTH] Token já aplicado e com folga -> skip');
+          scheduleTokenRefresh(expMs);
           setConnectionHealthy(true);
           return;
         }
       }
 
-      // Best-effort: unsubscribe existing subscriptions to avoid stale auth state
+      // Best-effort: unsubscribe existing subs to avoid stale state
       try {
         const subs = (client as any).getSubscriptions?.() || [];
         subs.forEach((s: any) => {
@@ -99,14 +146,22 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       lastAppliedTokenRef.current = token;
       setRealtimeAuthCounter((p) => p + 1);
       setConnectionHealthy(true);
+      scheduleTokenRefresh(expMs);
+      backoffAttemptRef.current = 0;
       console.log('[AUTH] ✅ Token aplicado com sucesso no realtime');
     } catch (error) {
       console.error('[AUTH] erro ao aplicar token', error);
       setConnectionHealthy(false);
+      // schedule retry with backoff
+      const backoff = Math.min(60_000, 1000 * Math.pow(2, backoffAttemptRef.current));
+      backoffAttemptRef.current++;
+      tokenRefreshTimerRef.current = window.setTimeout(() => {
+        setRealtimeAuthSafe(client);
+      }, backoff);
     } finally {
       isRefreshingRef.current = false;
     }
-  }, [getTokenWithValidation, isSignedIn]);
+  }, [getToken, isSignedIn]);
 
   const handleReconnect = useCallback(async (channel?: RealtimeChannel) => {
     if (!isActiveRef.current) return;
@@ -154,7 +209,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     reconnectAttemptsRef.current = 0;
     console.log('[LIFECYCLE] Iniciando canal realtime (guarded)');
 
-    // create channel (public) - you requested public for testing
+    // create channel (public for testing)
     const channel = supabaseClient.channel(channelName, { config: { private: false } });
 
     // debug immediate states
@@ -191,13 +246,28 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       if (!isActiveRef.current) return;
       console.error('[LIFECYCLE] Channel ERROR', err);
       setConnectionHealthy(false);
-      const msg = err?.message || '';
-      if (typeof msg === 'string' && msg.toLowerCase().includes('token')) {
+
+      const msg = err?.message?.toString?.() || '';
+      if (msg.toLowerCase().includes('token') || msg.toLowerCase().includes('jwt')) {
+        console.warn('[AUTH] erro relacionado a token detectado, limpando e renovando imediatamente');
         lastAppliedTokenRef.current = null;
-        setRealtimeAuthSafe(supabaseClient);
-      } else {
-        handleReconnect(channel);
+        clearScheduledTokenRefresh();
+        (async () => {
+          try {
+            await setRealtimeAuthSafe(supabaseClient);
+            setTimeout(() => {
+              try { channel.subscribe(); } catch {}
+            }, 300);
+          } catch (e) {
+            console.error('[AUTH] falha ao renovar token após erro', e);
+            handleReconnect(channel);
+          }
+        })();
+        return;
       }
+
+      // outros erros -> reconnect
+      handleReconnect(channel);
     });
 
     // Listen for DB changes on orders table
@@ -215,7 +285,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     const healthCheckInterval = setInterval(() => {
       if (!isActiveRef.current) return;
       const timeSinceLastEvent = Date.now() - lastEventTimeRef.current;
-      // if no events for 5 minutes, mark unhealthy (only if channel thinks it's joined)
+      // if no events for 5 minutes, mark unhealthy (only if channel joined)
       if ((channel.state === 'joined' || channel.state === 'SUBSCRIBED') && timeSinceLastEvent > 5 * 60 * 1000) {
         console.warn('[HEALTH-CHECK] sem eventos há 5+ minutos, forçando refresh');
         setConnectionHealthy(false);
@@ -234,8 +304,8 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       }
     }, HEALTH_CHECK_INTERVAL);
 
-    // periodic token refresh (defensive)
-    const tokenRefreshTimer = setInterval(() => {
+    // periodic defensive refresh (in addition to scheduled)
+    const tokenRefreshTicker = setInterval(() => {
       if (!isActiveRef.current || !isSignedIn || !supabaseClient) return;
       setRealtimeAuthSafe(supabaseClient);
     }, Math.max(30 * 1000, TOKEN_REFRESH_MARGIN / 2));
@@ -247,7 +317,8 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     return () => {
       isActiveRef.current = false;
       clearInterval(healthCheckInterval);
-      clearInterval(tokenRefreshTimer);
+      clearInterval(tokenRefreshTicker);
+      clearScheduledTokenRefresh();
       try {
         if (channel && channel.state !== 'closed') channel.unsubscribe();
       } catch (e) {
