@@ -131,7 +131,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         }
     }, [getToken]);
 
-    // Função 2: Apenas define o token de autenticação no cliente (pura)
+    // Função 2: Define o token de autenticação no cliente
     const setRealtimeAuth = useCallback(async (client: SupabaseClient<Database>): Promise<boolean> => {
         if (isRefreshingRef.current) {
             console.log('[AUTH] ⏳ Autenticação já em progresso');
@@ -141,14 +141,23 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         console.log('[AUTH] 3. Processo de autenticação do cliente iniciado.');
 
         try {
-            if (!client || !isSignedIn) {
-                try { 
-                    await client?.realtime.setAuth(null); 
-                    setConnectionHealthy(false);
-                } catch {}
-                return false;
-            }
+            if (!client) return false;
 
+            // 🟢 CORREÇÃO CRÍTICA: Lógica para usuários anônimos (rotas públicas/cardápio)
+            if (!isSignedIn) { 
+                console.log('[AUTH] ⚠️ Usuário não logado. Tentando Realtime anônimo.');
+                try { 
+                    await client.realtime.setAuth(null); // Limpa qualquer token residual
+                    setConnectionHealthy(true); 
+                    setRealtimeAuthCounter(prev => prev + 1);
+                } catch (e) {
+                    console.error('[AUTH] Falha ao limpar auth para anônimo', e);
+                    return false;
+                }
+                return true; // Sucesso na configuração anônima
+            }
+            
+            // CASO AUTENTICADO
             const token = await getTokenWithValidation();
             if (!token) {
                 await client.realtime.setAuth(null);
@@ -173,10 +182,10 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     // Atualiza a ref da função de autenticação
     useEffect(() => {
         setRealtimeAuthRef.current = setRealtimeAuth;
-    });
+    }, [setRealtimeAuth]);
 
 
-    // Função 4: Backoff exponencial otimizado (LÓGICA REATIVA: após a queda)
+    // Função 4: Backoff exponencial otimizado
     const handleReconnect = useCallback((channel: RealtimeChannel) => {
         if (!isActiveRef.current || !supabaseClientRef.current) return;
         
@@ -193,32 +202,25 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         
         setTimeout(() => {
             if (isActiveRef.current && client) {
-                // Chama forceChannelReconnect, que ainda não foi definida, mas será abaixo
-                setRealtimeAuth(client).then(success => {
-                    if (success) {
-                        // Se o auth funcionou, tenta re-inscrever
-                        forceChannelReconnectRef.current?.(client, channel, 'REACTIVE');
-                    } else {
-                        // Se falhou, tenta novamente o reconnect (aumentando o backoff)
-                        handleReconnect(channel);
-                    }
-                });
+                // Chama forceChannelReconnect via Ref
+                forceChannelReconnectRef.current?.(client, channel, 'REACTIVE');
             }
         }, delayTime);
-    }, [setRealtimeAuth]);
+    }, []); // Não depende de forceChannelReconnect diretamente, mas sim da sua Ref
 
     const forceChannelReconnectRef = useRef<((client: SupabaseClient<Database>, channel: RealtimeChannel, reason: 'PROACTIVE' | 'REACTIVE') => Promise<void>) | null>(null);
 
-    // Função 3: Re-inscrição forçada (A CHAVE PARA RENOVAÇÃO)
+    // Função 3: Re-inscrição forçada
     const forceChannelReconnect = useCallback(async (client: SupabaseClient<Database>, channel: RealtimeChannel, reason: 'PROACTIVE' | 'REACTIVE') => {
         console.log(`[RECONNECT] 🧠 ${reason} - Forçando re-inscrição do canal...`);
         setConnectionHealthy(false); 
 
-        // 1. Define o NOVO token no cliente
+        // 1. Define o NOVO token no cliente (ou limpa para anônimo)
         const authSuccess = await setRealtimeAuth(client);
         
         if (!authSuccess) {
             console.warn('[RECONNECT] Falha ao obter/aplicar novo token. Abortando re-inscrição.');
+            // O isChannelReady permanece false, mantendo o spinner.
             return;
         }
 
@@ -235,13 +237,12 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
                 reconnectAttemptsRef.current = 0;
                 setConnectionHealthy(true);
 
-                // 🚨 CORREÇÃO DE CARREGAMENTO: Seta o estado de prontidão após a primeira inscrição!
+                // ✅ CORREÇÃO DE CARREGAMENTO: Seta o estado de prontidão após a inscrição!
                 if (!isChannelReady) { 
                     setIsChannelReady(true); 
                 }
             } else if (status === 'CHANNEL_ERROR') {
-                 console.error('[RECONNECT] ‼️ Erro ao re-inscrever após setAuth. Acionando recuperação reativa.');
-                 // Apenas aciona o handleReconnect se não estivermos em um loop reativo
+                 console.error('[RECONNECT] ‼️ Erro ao re-inscrever. Acionando recuperação reativa.');
                  if (reason !== 'REACTIVE') handleReconnect(channel); 
             }
         });
@@ -281,14 +282,13 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         const channel = client.channel('public:orders');
         realtimeChannelRef.current = channel;
 
-        // 3. Configura Handlers (Usamos o handleReconnect estável)
+        // 3. Configura Handlers
         channel.on('SUBSCRIBED', () => {
             if (!isActiveRef.current) return;
             console.log('[LIFECYCLE] ✅ Canal inscrito com sucesso');
             setConnectionHealthy(true);
             lastEventTimeRef.current = Date.now();
             reconnectAttemptsRef.current = 0;
-            // O setIsChannelReady(true) é feito dentro de forceChannelReconnect para não duplicar aqui
         });
 
         channel.on('CLOSED', (error) => {
@@ -312,7 +312,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
             () => lastEventTimeRef.current = Date.now() 
         );
         
-        // 4. Inscrição Inicial
+        // 4. Inscrição Inicial - Chama via Ref (já atualizada)
         forceChannelReconnectRef.current?.(client, channel, 'PROACTIVE');
 
         // 5. Cleanup
@@ -323,10 +323,10 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
             realtimeChannelRef.current = null;
             supabaseClientRef.current = null;
         };
-    }, [isLoaded, getToken, handleReconnect]); // forceChannelReconnect é referenciado por Ref
+    }, [isLoaded, getToken, handleReconnect]);
 
 
-    // Effect 2: Timers (Token Refresh e Health Check) - Roda quando o canal estiver pronto
+    // Effect 2: Timers (Token Refresh e Health Check)
     useEffect(() => {
         const client = supabaseClientRef.current;
         const channel = realtimeChannelRef.current;
