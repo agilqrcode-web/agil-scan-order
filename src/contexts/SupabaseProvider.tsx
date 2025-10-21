@@ -8,19 +8,75 @@ import type { Database } from '../integrations/supabase/types';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL!;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY!;
 
-// ... (Funções utilitárias isBusinessHours, formatTime, getBusinessHoursStatus - OMITIDAS PARA BREVIDADE, MANTENHA O CÓDIGO ANTERIOR AQUI) ...
+// =============================================================================
+// 🕒 GESTÃO INTELIGENTE DE HORÁRIOS DE FUNCIONAMENTO (MANTIDA)
+// =============================================================================
+
+const BUSINESS_HOURS_CONFIG = {
+  days: {
+    1: { name: 'Segunda', open: 8, close: 18, enabled: true },
+    2: { name: 'Terça', open: 8, close: 18, enabled: true },
+    3: { name: 'Quarta', open: 8, close: 18, enabled: true },
+    4: { name: 'Quinta', open: 8, close: 18, enabled: true },
+    5: { name: 'Sexta', open: 8, close: 18, enabled: true },
+    6: { name: 'Sábado', open: 8, close: 13, enabled: true },
+    0: { name: 'Domingo', open: 0, close: 0, enabled: false }
+  }
+};
+
+const formatTime = (decimalHours: number): string => {
+  const hours = Math.floor(decimalHours);
+  const minutes = Math.round((decimalHours - hours) * 60);
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+};
+
+const getBusinessHoursStatus = (): { isOpen: boolean; message: string; nextChange?: string } => {
+  const now = new Date();
+  const currentDay = now.getDay();
+  const currentHour = now.getHours();
+  const currentMinutes = now.getMinutes();
+  const currentTime = currentHour + (currentMinutes / 60);
+
+  const todayConfig = BUSINESS_HOURS_CONFIG.days[currentDay];
+  
+  if (!todayConfig || !todayConfig.enabled) {
+    return { isOpen: false, message: `🔒 ${todayConfig?.name || 'Hoje'} - FECHADO` };
+  }
+
+  const isOpen = currentTime >= todayConfig.open && currentTime < todayConfig.close;
+  
+  if (isOpen) {
+    return { isOpen: true, message: `🟢 ${todayConfig.name} - ABERTO (${formatTime(todayConfig.open)}h - ${formatTime(todayConfig.close)}h)`, nextChange: `Fecha às ${formatTime(todayConfig.close)}h` };
+  } else {
+    // Lógica para encontrar o próximo dia aberto
+    let nextDay = (currentDay + 1) % 7;
+    while (BUSINESS_HOURS_CONFIG.days[nextDay] && !BUSINESS_HOURS_CONFIG.days[nextDay].enabled && nextDay !== currentDay) {
+      nextDay = (nextDay + 1) % 7;
+    }
+    const nextDayConfig = BUSINESS_HOURS_CONFIG.days[nextDay];
+    
+    if (currentTime < todayConfig.open) {
+        return { isOpen: false, message: `🔴 ${todayConfig.name} - FECHADO (abre às ${formatTime(todayConfig.open)}h)`, nextChange: `Abre às ${formatTime(todayConfig.open)}h` };
+    }
+    
+    return { isOpen: false, message: `🔴 ${todayConfig.name} - FECHADO (abre ${nextDayConfig.name} às ${formatTime(nextDayConfig.open)}h)`, nextChange: `Próxima abertura: ${nextDayConfig.name} às ${formatTime(nextDayConfig.open)}h` };
+  }
+};
+
+
+// =============================================================================
+// ⚙️ CONFIGURAÇÕES DE PERFORMANCE E RESILIÊNCIA
+// =============================================================================
 
 const HEALTH_CHECK_INTERVAL = 5 * 60 * 1000;
-const TOKEN_REFRESH_MARGIN = 15 * 60 * 1000; // 15 minutos
+const TOKEN_REFRESH_MARGIN = 15 * 60 * 1000; // 15 minutos (Renovação proativa)
 const MAX_RECONNECT_ATTEMPTS = 5;
 const INITIAL_RECONNECT_DELAY = 1000;
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 // =============================================================================
 // 🏗️ COMPONENTE PRINCIPAL
 // =============================================================================
-
-// Função utilitária para introduzir um pequeno delay
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     const { getToken, isLoaded, isSignedIn } = useAuth();
@@ -34,13 +90,20 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     const reconnectAttemptsRef = useRef<number>(0);
     const lastEventTimeRef = useRef<number>(Date.now());
     const isActiveRef = useRef<boolean>(true);
-    const setRealtimeAuthRef = useRef<((client: SupabaseClient<Database>) => Promise<boolean>) | null>(null); // Retorna boolean para sucesso
+    // Ref para a função setRealtimeAuth (pura)
+    const setRealtimeAuthRef = useRef<((client: SupabaseClient<Database>) => Promise<boolean>) | null>(null); 
 
-    // ... (Log inicial de status de horários - MANTENHA O CÓDIGO ANTERIOR AQUI) ...
+    // Log inicial do status de horários
+    useEffect(() => {
+        const businessStatus = getBusinessHoursStatus();
+        console.log(`🏪 ${businessStatus.message}`);
+        if (businessStatus.nextChange) {
+            console.log(`   ⏰ ${businessStatus.nextChange}`);
+        }
+    }, []);
 
     // ✅ Função otimizada para obter token com validação
     const getTokenWithValidation = useCallback(async () => {
-        // ... (Implementação anterior - MANTENHA O CÓDIGO ANTERIOR AQUI) ...
         try {
             const token = await getToken({ template: 'supabase' });
             if (!token) return null;
@@ -51,7 +114,6 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
                 const remainingMinutes = Math.round((exp - Date.now()) / 1000 / 60);
                 
                 console.log(`[AUTH] Token expira em: ${remainingMinutes} minutos`);
-                
                 if (remainingMinutes < 5) console.warn('[AUTH] Token prestes a expirar');
                 
                 return token;
@@ -65,13 +127,14 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         }
     }, [getToken]);
 
-    // Função central: APENAS define o token de autenticação no cliente
+    // Função 1: Apenas define o token de autenticação no cliente (pura)
     const setRealtimeAuth = useCallback(async (client: SupabaseClient<Database>): Promise<boolean> => {
         if (isRefreshingRef.current) {
             console.log('[AUTH] ⏳ Autenticação já em progresso');
             return false;
         }
         isRefreshingRef.current = true;
+        console.log('[AUTH] 3. Processo de autenticação do cliente iniciado.');
 
         try {
             if (!client || !isSignedIn) {
@@ -89,7 +152,6 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
                 return false;
             }
             
-            // A ÚNICA AÇÃO AQUI É AUTENTICAR O CLIENTE
             await client.realtime.setAuth(token); 
             console.log('[AUTH] ✅ Token aplicado com sucesso no cliente.');
             setConnectionHealthy(true);
@@ -104,49 +166,49 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         }
     }, [isSignedIn, getTokenWithValidation]);
     
-    // NOVO: Função para forçar a re-inscrição do canal
-    const forceChannelReconnect = useCallback(async (client: SupabaseClient<Database>, channel: RealtimeChannel, reason: 'PROACTIVE' | 'REACTIVE') => {
-        console.log(`[RECONNECT] 🧠 ${reason} - Forçando re-inscrição do canal...`);
-
-        // 1. Define o NOVO token no cliente (setAuth)
-        const authSuccess = await setRealtimeAuth(client);
-        
-        if (!authSuccess) {
-            console.warn('[RECONNECT] Falha ao obter ou aplicar novo token. Pulando re-inscrição.');
-            return;
-        }
-
-        // 2. Garante que o canal está limpo antes de re-inscrever
-        if (channel.state === 'joined' || channel.state === 'joining' || channel.state === 'subscribed') {
-            console.log('[RECONNECT] Desinscrevendo do canal...');
-            channel.unsubscribe(); 
-            await delay(100); // Pequeno delay para garantir o estado 'closed'
-        }
-
-        // 3. Força a RE-INSCRIÇÃO. Isso obriga o servidor a revalidar o token.
-        channel.subscribe((status) => {
-            if (status === 'SUBSCRIBED') {
-                console.log('[RECONNECT] ✅ Sucesso: Canal re-inscrito com novo token.');
-                reconnectAttemptsRef.current = 0;
-            } else if (status === 'CHANNEL_ERROR') {
-                 console.error('[RECONNECT] ‼️ Erro ao re-inscrever após setAuth. Tentando novamente...');
-                 // Aciona a lógica de recuperação reativa
-                 if (reason === 'PROACTIVE') handleReconnect(channel); 
-            }
-        });
-    }, [setRealtimeAuth]); // setRealtimeAuth é uma dependência crucial
-
     // Atualiza a ref da função de autenticação
     useEffect(() => {
         setRealtimeAuthRef.current = setRealtimeAuth;
     });
 
-    // ✅ Backoff exponencial otimizado (LÓGICA REATIVA: após a queda)
+    // Função 2: Re-inscrição forçada (A CHAVE PARA RENOVAÇÃO)
+    const forceChannelReconnect = useCallback(async (client: SupabaseClient<Database>, channel: RealtimeChannel, reason: 'PROACTIVE' | 'REACTIVE') => {
+        console.log(`[RECONNECT] 🧠 ${reason} - Forçando re-inscrição do canal...`);
+        setConnectionHealthy(false); // Assume unhealthy até SUBSCRIBED
+
+        // 1. Define o NOVO token no cliente
+        const authSuccess = await setRealtimeAuth(client);
+        
+        if (!authSuccess) {
+            console.warn('[RECONNECT] Falha ao obter/aplicar novo token. Abortando re-inscrição.');
+            return;
+        }
+
+        // 2. Limpa o canal
+        if (channel.state !== 'closed' && channel.state !== 'errored') {
+            console.log('[RECONNECT] Desinscrevendo do canal...');
+            channel.unsubscribe(); 
+            // Pequeno delay para garantir que o estado seja 'closed' antes de re-inscrever
+            await delay(100); 
+        }
+
+        // 3. Força a RE-INSCRIÇÃO.
+        channel.subscribe((status) => {
+            if (status === 'SUBSCRIBED') {
+                console.log('[RECONNECT] ✅ Sucesso: Canal re-inscrito com novo token.');
+                reconnectAttemptsRef.current = 0;
+            } else if (status === 'CHANNEL_ERROR') {
+                 console.error('[RECONNECT] ‼️ Erro ao re-inscrever após setAuth.');
+            }
+        });
+    }, [setRealtimeAuth]);
+
+    // Função 3: Backoff exponencial otimizado (LÓGICA REATIVA: após a queda)
     const handleReconnect = useCallback((channel: RealtimeChannel) => {
         if (!isActiveRef.current || !supabaseClient) return;
         
         if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
-            console.warn('[RECONNECT] 🛑 Máximo de tentativas atingido');
+            console.warn('[RECONNECT] 🛑 Máximo de tentativas atingido. Parando.');
             return;
         }
 
@@ -155,19 +217,18 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         
         console.log(`[RECONNECT] 🔄 Tentativa ${reconnectAttemptsRef.current} em ${delayTime}ms (REATIVA)`);
         
-        // Chamamos o forceChannelReconnect após o delay de backoff
         setTimeout(() => {
             if (isActiveRef.current && supabaseClient) {
+                // Chama a função forçada de reconexão
                 forceChannelReconnect(supabaseClient, channel, 'REACTIVE');
             }
         }, delayTime);
     }, [supabaseClient, forceChannelReconnect]);
 
-
-    // Effect 1: Create Client (SEM ALTERAÇÃO)
+    // Effect 1: Create Client
     useEffect(() => {
-        // ... (Implementação anterior - MANTENHA O CÓDIGO ANTERIOR AQUI) ...
         if (isLoaded && !supabaseClient) {
+            console.log('[PROVIDER-INIT] ⚙️ Criando cliente Supabase');
             const client = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
                 global: {
                     fetch: async (input, init) => {
@@ -182,7 +243,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         }
     }, [isLoaded, getToken, supabaseClient]);
 
-    // Effect 2: Canal RealTime (LÓGICA REATIVA)
+    // Effect 2: Canal RealTime e Ciclo de Vida
     useEffect(() => {
         if (!supabaseClient || !isLoaded || realtimeChannel) {
             return;
@@ -191,9 +252,6 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         isActiveRef.current = true;
         console.log('[LIFECYCLE] 🚀 Iniciando canal realtime');
         const channel = supabaseClient.channel('public:orders');
-
-        // ... (Handlers SUBSCRIBED, CLOSED, ERROR e postgres_changes - MANTENHA O CÓDIGO ANTERIOR AQUI) ...
-        // CLOSED E ERROR DEVEM CHAMAR handleReconnect(channel);
 
         channel.on('SUBSCRIBED', () => {
             if (!isActiveRef.current) return;
@@ -205,7 +263,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
         channel.on('CLOSED', (error) => {
             if (!isActiveRef.current) return;
-            console.warn(`[LIFECYCLE] ❌ Canal fechado. Motivo: ${error?.reason || 'Desconhecido'}. Acionando reconexão reativa.`);
+            console.warn(`[LIFECYCLE] ❌ Canal fechado. ${error?.reason ? `Motivo: ${error.reason}` : ''}. Acionando reconexão reativa.`);
             setConnectionHealthy(false);
             handleReconnect(channel);
         });
@@ -217,29 +275,28 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
             handleReconnect(channel);
         });
         
-        // Listener para eventos do banco (MANTENHA O CÓDIGO ANTERIOR AQUI)
+        // O Listener de eventos do banco DEVE ser anexado aqui
+        channel.on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'orders' },
+            () => lastEventTimeRef.current = Date.now() // Apenas atualiza o health check
+        );
 
         // =========================================================================
-        // 🧠 HEALTH CHECK INTELIGENTE COM GESTÃO DE HORÁRIOS
+        // 🧠 HEALTH CHECK INTELIGENTE
         // =========================================================================
         const healthCheckInterval = setInterval(() => {
-             // ... (Lógica de Health Check - MANTENHA O CÓDIGO ANTERIOR AQUI) ...
-             if (!isActiveRef.current) return;
+            if (!isActiveRef.current || !supabaseClient) return;
             
-             const timeSinceLastEvent = Date.now() - lastEventTimeRef.current;
-             const isChannelSubscribed = channel.state === 'joined';
-             const businessStatus = getBusinessHoursStatus();
-             
-             if (isChannelSubscribed && timeSinceLastEvent > 5 * 60 * 1000) {
-                 if (businessStatus.isOpen) {
-                     console.warn('[HEALTH-CHECK] ⚠️ Sem eventos há 5+ minutos durante horário comercial');
-                     setConnectionHealthy(false);
-                     // Recuperação proativa via forceChannelReconnect
-                     forceChannelReconnect(supabaseClient, channel, 'PROACTIVE');
-                 } else {
-                     console.log('[HEALTH-CHECK] 💤 Sem eventos - Comportamento normal (fora do horário comercial)');
-                 }
-             }
+            const timeSinceLastEvent = Date.now() - lastEventTimeRef.current;
+            const isChannelSubscribed = channel.state === 'joined';
+            const businessStatus = getBusinessHoursStatus();
+            
+            if (isChannelSubscribed && timeSinceLastEvent > 5 * 60 * 1000 && businessStatus.isOpen) {
+                console.warn('[HEALTH-CHECK] ⚠️ Sem eventos há 5+ minutos durante horário comercial. Recuperação proativa.');
+                setConnectionHealthy(false);
+                forceChannelReconnect(supabaseClient, channel, 'PROACTIVE');
+            }
         }, HEALTH_CHECK_INTERVAL);
 
 
@@ -247,7 +304,6 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         const tokenRefreshInterval = setInterval(() => {
             if (!isActiveRef.current || !isSignedIn || !supabaseClient) return;
             
-            // CHAMA A FUNÇÃO QUE FORÇA setAuth + unsubscribe + subscribe
             console.log('[TOKEN-REFRESH] 🔄 Refresh PROATIVO (15min). Forçando re-inscrição.');
             forceChannelReconnect(supabaseClient, channel, 'PROACTIVE');
         }, TOKEN_REFRESH_MARGIN);
@@ -267,12 +323,11 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         };
     }, [supabaseClient, isLoaded, isSignedIn, handleReconnect, realtimeChannel, forceChannelReconnect]);
 
-    // Effect 3: Wake-Up Call (APENAS setAuth para economizar)
+    // Effect 3: Wake-Up Call
     useEffect(() => {
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'visible' && supabaseClient && isSignedIn) {
                 console.log('👁️ Aba visível - verificando conexão (apenas setAuth)');
-                // Apenas setAuth aqui deve ser suficiente, pois a visibilidade geralmente não significa que o token expirou.
                 setRealtimeAuthRef.current?.(supabaseClient); 
             }
         };
@@ -282,11 +337,11 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         };
     }, [supabaseClient, isSignedIn]);
 
-    // Funções de Contexto
+    // Funções de Contexto para chamadas externas
     const refreshConnection = useCallback(async () => {
         if (supabaseClient && realtimeChannel) {
             console.log('[RECONNECT] 🔄 Reconexão manual solicitada');
-            forceChannelReconnect(supabaseClient, realtimeChannel, 'PROACTIVE');
+            await forceChannelReconnect(supabaseClient, realtimeChannel, 'PROACTIVE');
         }
     }, [supabaseClient, realtimeChannel, forceChannelReconnect]);
 
@@ -296,7 +351,11 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     }, [refreshConnection]);
 
     if (!supabaseClient || !realtimeChannel) {
-        // ... (Renderização do Spinner)
+        return (
+            <div className="flex justify-center items-center h-screen">
+                <Spinner size="large" />
+            </div>
+        );
     }
 
     return (
@@ -306,10 +365,16 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
             connectionHealthy,
             realtimeAuthCounter,
             requestReconnect,
-            setRealtimeAuth: () => supabaseClient && setRealtimeAuthRef.current?.(supabaseClient).then(() => {}), // Adaptação para Promise<void>
+            // Adaptação: setRealtimeAuth pura retorna Promise<boolean>, a interface pede Promise<void>
+            setRealtimeAuth: () => supabaseClient && setRealtimeAuthRef.current?.(supabaseClient).then(() => {}), 
             refreshConnection,
         }}>
-           {/* ... (children e indicador visual) ... */}
+            {children}
+            
+            <div className={`fixed bottom-4 right-4 w-3 h-3 rounded-full ${
+                connectionHealthy ? 'bg-green-500' : 'bg-red-500'
+            } z-50 border border-white shadow-lg`} 
+            title={`${connectionHealthy ? 'Conexão saudável' : 'Conexão com problemas'} | ${getBusinessHoursStatus().message}`} />
         </SupabaseContext.Provider>
     );
 }
