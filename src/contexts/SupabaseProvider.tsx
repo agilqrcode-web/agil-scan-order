@@ -349,7 +349,6 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
             isActiveRef.current = false;
             client.removeChannel(channel); 
             realtimeChannelRef.current = null;
-            supabaseClientRef.current = null;
         };
     }, [isLoaded, getToken, handleReconnect]);
 
@@ -394,9 +393,8 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'visible' && supabaseClientRef.current && isSignedIn) {
-                console.log('👁️ Aba visível - verificando conexão (apenas setAuth)');
+                console.log('👁️ Aba visível - verificando conexão (Forçando reconexão completa)');
                 // CORREÇÃO: Força a reconexão completa ao voltar para a aba.
-                // Isso garante que o canal seja re-subscrito e limpe notificações acumuladas.
                 const client = supabaseClientRef.current;
                 const channel = realtimeChannelRef.current;
                 if (client && channel) {
