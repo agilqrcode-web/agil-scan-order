@@ -109,6 +109,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     const isActiveRef = useRef<boolean>(true);
     const tokenRefreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+    // Refs para quebrar dependências cíclicas
     const setRealtimeAuthAndChannelSwapRef = useRef<AuthSwapFn | null>(null);
     const handleReconnectRef = useRef<ReconnectFn | null>(null);
     
@@ -354,11 +355,17 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         }
     }, [isLoaded, getToken, supabaseClient]);
 
-    // Effect 2: Inicialização e Health Check (CORRIGIDO PARA RODAR APENAS NA MONTAGEM)
+    // Effect 2: Inicialização e Health Check (Corrigido o loop de dependência)
     useEffect(() => {
-        // ⭐️ CORREÇÃO: Removemos a dependência 'realtimeChannel'
-        // A condição de saída 'realtimeChannel' garante que a inicialização só ocorra uma vez.
+        // Sai se: 1. Cliente/Clerk não prontos. 2. O canal JÁ EXISTE.
+        // A ausência de realtimeChannel só é um problema se o usuário estiver logado (tratado abaixo).
         if (!supabaseClient || !isLoaded || realtimeChannel) {
+            return;
+        }
+        
+        // A inicialização do Realtime só deve ocorrer se o usuário estiver logado.
+        if (!isSignedIn) {
+            // Se não estiver logado, não há Realtime, e não tentamos iniciá-lo.
             return;
         }
 
@@ -396,7 +403,6 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
             if (tokenRefreshTimeoutRef.current) {
                 clearTimeout(tokenRefreshTimeoutRef.current);
             }
-            // Zera o canal para permitir a remontagem se o componente for *realmente* desmontado (ex: troca de rota principal)
             if (realtimeChannel) {
                 realtimeChannel.unsubscribe();
             }
@@ -404,7 +410,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
             setConnectionHealthy(false);
         };
         
-    }, [supabaseClient, isLoaded]); // Apenas dependências que causam a primeira inicialização.
+    }, [supabaseClient, isLoaded, isSignedIn]); // Adicionamos 'isSignedIn' para re-tentar após login/logout
 
     // Effect 3: Wake-Up Call
     useEffect(() => {
@@ -434,13 +440,32 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         return true;
     }, [refreshConnection]);
 
-    if (!supabaseClient || !realtimeChannel || (!connectionHealthy && isSignedIn && isLoaded)) {
+    // =============================================================================
+    // 🛑 LÓGICA DE SPINNER (CORREÇÃO DE PÁGINA PÚBLICA) 🛑
+    // =============================================================================
+
+    if (!supabaseClient || !isLoaded) {
+        // 1. Sempre espere o cliente Supabase e o Clerk estarem carregados.
         return (
             <div className="flex justify-center items-center h-screen">
                 <Spinner size="large" />
             </div>
         );
     }
+    
+    // 2. Se o usuário estiver logado, precisamos que o canal exista E esteja saudável.
+    // A ausência de qualquer um deles significa que o Realtime está carregando/falhou.
+    if (isSignedIn && (!realtimeChannel || !connectionHealthy)) {
+         return (
+            <div className="flex justify-center items-center h-screen">
+                <Spinner size="large" />
+            </div>
+        );
+    }
+
+    // 3. Em todos os outros casos, a renderização prossegue:
+    //    - Não logado: (supabaseClient/Clerk prontos, Realtime não é necessário, então prossegue)
+    //    - Logado: (todos os serviços estão prontos)
 
     return (
         <SupabaseContext.Provider value={{
