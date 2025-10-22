@@ -88,7 +88,6 @@ const REFRESH_MARGIN_MS = 30 * 1000; // 30 segundos antes da expiração real
 const MAX_RECONNECT_ATTEMPTS = 5;
 const INITIAL_RECONNECT_DELAY = 1000;
 
-// Tipos para as funções que serão armazenadas em Refs
 type AuthSwapFn = (client: SupabaseClient, isProactiveRefresh: boolean) => Promise<boolean>;
 type ReconnectFn = (channel: RealtimeChannel) => void;
 
@@ -110,7 +109,6 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     const isActiveRef = useRef<boolean>(true);
     const tokenRefreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-    // ⭐️ CORREÇÃO CRÍTICA: Refs para quebrar a dependência cíclica no useCallback
     const setRealtimeAuthAndChannelSwapRef = useRef<AuthSwapFn | null>(null);
     const handleReconnectRef = useRef<ReconnectFn | null>(null);
     
@@ -124,7 +122,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     // -------------------------------------------------------------------------
-    // Funções Auxiliares (Quebramos a lógica das refs aqui)
+    // Funções Auxiliares (Refs e Callbacks)
     // -------------------------------------------------------------------------
 
     const getTokenWithValidation = useCallback(async () => {
@@ -158,14 +156,13 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         }
     }, [getToken]);
 
-    // Função auxiliar para anexar listeners ao novo canal (usada pelo AuthSwap)
     const attachChannelListeners = (
         channel: RealtimeChannel,
         client: SupabaseClient,
         setHealthy: React.Dispatch<React.SetStateAction<boolean>>,
-        setAuthSwap: AuthSwapFn, // Tipagem corrigida
+        setAuthSwap: AuthSwapFn,
         lastEventRef: React.MutableRefObject<number>,
-        reconnectHandler: ReconnectFn, // Tipagem corrigida
+        reconnectHandler: ReconnectFn,
         activeRef: React.MutableRefObject<boolean>
     ) => {
         const handleRealtimeEvent = (payload: any) => {
@@ -205,7 +202,6 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         );
     };
 
-    // ✅ Backoff exponencial otimizado (usado para falha de rede/erro)
     const handleReconnect = useCallback((channel: RealtimeChannel) => {
         if (!isActiveRef.current) return;
 
@@ -222,17 +218,11 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
         setTimeout(() => {
             if (isActiveRef.current && supabaseClient && isSignedIn) {
-                // ⭐️ CORREÇÃO: Chama a função principal através do Ref
                 setRealtimeAuthAndChannelSwapRef.current?.(supabaseClient, false); 
             }
         }, delay);
     }, [supabaseClient, isSignedIn]); 
-    // Atribui a função ao Ref
     handleReconnectRef.current = handleReconnect;
-
-    // -------------------------------------------------------------------------
-    // 🎯 FUNÇÃO CRÍTICA: setRealtimeAuth com Agendamento e Channel Swap
-    // -------------------------------------------------------------------------
 
     const setRealtimeAuthAndChannelSwap = useCallback(async (client: SupabaseClient, isProactiveRefresh: boolean) => {
         if (isRefreshingRef.current) {
@@ -245,7 +235,6 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         let oldChannel: RealtimeChannel | null = null;
         let expirationTime: number | null = null;
         
-        // 1. Limpar timeout anterior para evitar corrida
         if (tokenRefreshTimeoutRef.current) {
             clearTimeout(tokenRefreshTimeoutRef.current);
             tokenRefreshTimeoutRef.current = null;
@@ -260,7 +249,6 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
                 return false;
             }
 
-            // A. Obter novo token
             newToken = await getTokenWithValidation();
             if (!newToken) {
                 await client.realtime.setAuth(null);
@@ -273,19 +261,14 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
                 expirationTime = payload.exp * 1000;
             } catch (error) {
                 console.error('[AUTH-SWAP] Erro ao parsear EXP do token:', error);
-                // Continua, mas sem agendamento
             }
             
-            // B. Aplicar token ao Realtime Client (parte atômica 1)
             await client.realtime.setAuth(newToken);
             console.log('[AUTH-SWAP] ✅ Token aplicado ao Realtime Client.');
 
-            // C. Preparar Swap (parte atômica 2)
             oldChannel = realtimeChannel;
             const newChannel = client.channel('public:orders');
             
-            // D. Anexar Listeners ao novo canal
-            // ⭐️ CORREÇÃO: Passa as funções através dos Refs
             const authSwapFn = setRealtimeAuthAndChannelSwapRef.current!;
             const reconnectFn = handleReconnectRef.current!;
 
@@ -296,13 +279,11 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
                 isActiveRef
             );
             
-            // E. Tentar Inscrição e Swap
             const swapSuccess = await new Promise<boolean>(resolve => {
                 newChannel.subscribe(status => {
                     if (status === 'SUBSCRIBED') {
                         console.log('[AUTH-SWAP] ✅ Novo canal inscrito. Realizando swap...');
                         
-                        // ⭐️ SWAP ATÔMICO ⭐️
                         if (oldChannel) {
                             oldChannel.unsubscribe();
                             console.log('[AUTH-SWAP] 🧹 Canal antigo desinscrito.');
@@ -327,20 +308,17 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
             if (!swapSuccess) throw new Error("Falha na inscrição do novo canal.");
             
-            // F. Agendamento (parte atômica 3)
             if (expirationTime) {
                 const refreshDelay = expirationTime - Date.now() - REFRESH_MARGIN_MS;
                 
                 if (refreshDelay > 0) {
                     tokenRefreshTimeoutRef.current = setTimeout(() => {
                         console.log('[SCHEDULER] ⏳ Disparando refresh proativo...');
-                        // ⭐️ CORREÇÃO: Chama a si mesma via Ref
                         setRealtimeAuthAndChannelSwapRef.current?.(client, true);
                     }, refreshDelay);
                     console.log(`[SCHEDULER] 📅 Próximo refresh agendado em ${Math.round(refreshDelay / 1000 / 60)} minutos.`);
                 } else if (refreshDelay > -1 * REFRESH_MARGIN_MS) { 
                     console.warn('[SCHEDULER] ⚠️ Token prestes a expirar! Refresh imediato acionado.');
-                    // ⭐️ CORREÇÃO: Chama a si mesma via Ref
                     setRealtimeAuthAndChannelSwapRef.current?.(client, true);
                 }
             }
@@ -348,7 +326,6 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
             success = true;
         } catch (error) {
             console.error('[AUTH-SWAP] ‼️ Erro fatal na autenticação/swap:', error);
-            // Reverte (tenta) para o estado anterior
             if (oldChannel) setRealtimeChannel(oldChannel); 
             setConnectionHealthy(false);
             success = false;
@@ -357,7 +334,6 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         }
         return success;
     }, [getTokenWithValidation, realtimeChannel, isSignedIn]); 
-    // Atribui a função ao Ref
     setRealtimeAuthAndChannelSwapRef.current = setRealtimeAuthAndChannelSwap;
 
     // Effect 1: Create Client
@@ -378,8 +354,10 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         }
     }, [isLoaded, getToken, supabaseClient]);
 
-    // Effect 2: Inicialização e Health Check (Chamada ao Ref)
+    // Effect 2: Inicialização e Health Check (CORRIGIDO PARA RODAR APENAS NA MONTAGEM)
     useEffect(() => {
+        // ⭐️ CORREÇÃO: Removemos a dependência 'realtimeChannel'
+        // A condição de saída 'realtimeChannel' garante que a inicialização só ocorra uma vez.
         if (!supabaseClient || !isLoaded || realtimeChannel) {
             return;
         }
@@ -388,7 +366,6 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         
         // --- ORQUESTRAÇÃO INICIAL ---
         console.log('[LIFECYCLE] 🚀 Iniciando primeiro canal realtime');
-        // ⭐️ CORREÇÃO: Inicialização usando a função via Ref
         setRealtimeAuthAndChannelSwapRef.current?.(supabaseClient, false);
 
 
@@ -404,7 +381,6 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
                 if (businessStatus.isOpen) {
                     console.warn('[HEALTH-CHECK] ⚠️ Sem eventos há 5+ minutos durante horário comercial. Tentando re-autenticação/swap suave.');
                     setConnectionHealthy(false);
-                    // ⭐️ CORREÇÃO: Chama a função via Ref
                     setRealtimeAuthAndChannelSwapRef.current?.(supabaseClient, false);
                 } else {
                     console.log('[HEALTH-CHECK] 💤 Sem eventos - Comportamento normal (fora do horário comercial)');
@@ -420,6 +396,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
             if (tokenRefreshTimeoutRef.current) {
                 clearTimeout(tokenRefreshTimeoutRef.current);
             }
+            // Zera o canal para permitir a remontagem se o componente for *realmente* desmontado (ex: troca de rota principal)
             if (realtimeChannel) {
                 realtimeChannel.unsubscribe();
             }
@@ -427,14 +404,13 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
             setConnectionHealthy(false);
         };
         
-    }, [supabaseClient, isLoaded, realtimeChannel]); // setRealtimeAuthAndChannelSwap foi removida das dependências, confiando no Ref.
+    }, [supabaseClient, isLoaded]); // Apenas dependências que causam a primeira inicialização.
 
-    // Effect 3: Wake-Up Call (Chamada ao Ref)
+    // Effect 3: Wake-Up Call
     useEffect(() => {
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'visible' && supabaseClient && isSignedIn) {
                 console.log('👁️ Aba visível - verificando conexão e autenticação');
-                // ⭐️ CORREÇÃO: Chama a função via Ref
                 setRealtimeAuthAndChannelSwapRef.current?.(supabaseClient, false);
             }
         };
@@ -444,11 +420,10 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         };
     }, [supabaseClient, isSignedIn]);
 
-    // Funções de reconexão (Chamada ao Ref)
+    // Funções de reconexão
     const refreshConnection = useCallback(async () => {
         console.log('[RECONNECT] 🔄 Reconexão manual solicitada (via Swap)');
         if (supabaseClient) {
-            // ⭐️ CORREÇÃO: Chama a função via Ref
             await setRealtimeAuthAndChannelSwapRef.current?.(supabaseClient, false);
         }
     }, [supabaseClient]);
@@ -474,7 +449,6 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
             connectionHealthy,
             realtimeAuthCounter,
             requestReconnect,
-            // ⭐️ CORREÇÃO: O setRealtimeAuth do contexto usa a função principal via Ref
             setRealtimeAuth: () => supabaseClient && setRealtimeAuthAndChannelSwapRef.current?.(supabaseClient, false),
             refreshConnection,
         }}>
