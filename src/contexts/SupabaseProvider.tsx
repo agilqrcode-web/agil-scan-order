@@ -371,7 +371,6 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     // Effect 2: Inicialização e Health Check (Corrigido o loop de dependência)
     useEffect(() => {
         // Sai se: 1. Cliente/Clerk não prontos. 2. O canal JÁ EXISTE.
-        // A ausência de realtimeChannel só é um problema se o usuário estiver logado (tratado abaixo).
         if (!supabaseClient || !isLoaded || realtimeChannel) {
             return;
         }
@@ -423,7 +422,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
             setConnectionHealthy(false);
         };
         
-    }, [supabaseClient, isLoaded, isSignedIn]); // Adicionamos 'isSignedIn' para re-tentar após login/logout
+    }, [supabaseClient, isLoaded, isSignedIn, realtimeChannel]); // Adicionamos 'realtimeChannel' para garantir que não inicialize se já estiver lá
 
     // Effect 3: Wake-Up Call
     useEffect(() => {
