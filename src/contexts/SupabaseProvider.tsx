@@ -226,115 +226,128 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     handleReconnectRef.current = handleReconnect;
 
     const setRealtimeAuthAndChannelSwap = useCallback(async (client: SupabaseClient, isProactiveRefresh: boolean) => {
-        if (isRefreshingRef.current) {
-            console.log('[AUTH-SWAP] ⏳ Autenticação/Swap já em progresso');
+    if (isRefreshingRef.current) {
+        console.log('[AUTH-SWAP] ⏳ Autenticação/Swap já em progresso');
+        return false;
+    }
+    isRefreshingRef.current = true;
+    let success = false;
+    let newToken: string | null = null;
+    let oldChannel: RealtimeChannel | null = null;
+    let expirationTime: number | null = null;
+    
+    if (tokenRefreshTimeoutRef.current) {
+        clearTimeout(tokenRefreshTimeoutRef.current);
+        tokenRefreshTimeoutRef.current = null;
+    }
+
+    try {
+        if (!client || !isSignedIn) {
+            try {
+                await client?.realtime.setAuth(null);
+                setConnectionHealthy(false);
+            } catch { }
             return false;
         }
-        isRefreshingRef.current = true;
-        let success = false;
-        let newToken: string | null = null;
-        let oldChannel: RealtimeChannel | null = null;
-        let expirationTime: number | null = null;
-        
-        if (tokenRefreshTimeoutRef.current) {
-            clearTimeout(tokenRefreshTimeoutRef.current);
-            tokenRefreshTimeoutRef.current = null;
+
+        newToken = await getTokenWithValidation();
+        if (!newToken) {
+            await client.realtime.setAuth(null);
+            setConnectionHealthy(false);
+            return false;
         }
 
         try {
-            if (!client || !isSignedIn) {
-                try {
-                    await client?.realtime.setAuth(null);
-                    setConnectionHealthy(false);
-                } catch { }
-                return false;
-            }
+            const payload = JSON.parse(atob(newToken.split('.')[1]));
+            expirationTime = payload.exp * 1000;
+        } catch (error) {
+            console.error('[AUTH-SWAP] Erro ao parsear EXP do token:', error);
+        }
+        
+        await client.realtime.setAuth(newToken);
+        console.log('[AUTH-SWAP] ✅ Token aplicado ao Realtime Client.');
 
-            newToken = await getTokenWithValidation();
-            if (!newToken) {
-                await client.realtime.setAuth(null);
-                setConnectionHealthy(false);
-                return false;
-            }
+        oldChannel = realtimeChannel;
+        // 🛑 Usando o nome do canal privado/autenticado
+        const newChannel = client.channel('private:orders_auth'); 
+        
+        const authSwapFn = setRealtimeAuthAndChannelSwapRef.current!;
+        const reconnectFn = handleReconnectRef.current!;
 
-            try {
-                const payload = JSON.parse(atob(newToken.split('.')[1]));
-                expirationTime = payload.exp * 1000;
-            } catch (error) {
-                console.error('[AUTH-SWAP] Erro ao parsear EXP do token:', error);
-            }
-            
-            await client.realtime.setAuth(newToken);
-            console.log('[AUTH-SWAP] ✅ Token aplicado ao Realtime Client.');
-
-            oldChannel = realtimeChannel;
-            const newChannel = client.channel('public:orders');
-            
-            const authSwapFn = setRealtimeAuthAndChannelSwapRef.current!;
-            const reconnectFn = handleReconnectRef.current!;
-
-            attachChannelListeners(
-                newChannel, client, setConnectionHealthy, 
-                authSwapFn, 
-                lastEventTimeRef, reconnectFn, 
-                isActiveRef
-            );
-            
-            const swapSuccess = await new Promise<boolean>(resolve => {
-                newChannel.subscribe(status => {
-                    if (status === 'SUBSCRIBED') {
-                        console.log('[AUTH-SWAP] ✅ Novo canal inscrito. Realizando swap...');
-                        
-                        if (oldChannel) {
-                            oldChannel.unsubscribe();
-                            console.log('[AUTH-SWAP] 🧹 Canal antigo desinscrito.');
-                        }
-                        
-                        setRealtimeChannel(newChannel);
-                        setConnectionHealthy(true);
-                        setRealtimeAuthCounter(prev => prev + 1);
-                        reconnectAttemptsRef.current = 0;
-                        resolve(true);
-                    } else if (status === 'CHANNEL_ERROR') {
-                        console.error('[AUTH-SWAP] ❌ Erro na inscrição do novo canal.');
-                        resolve(false); 
+        attachChannelListeners(
+            newChannel, client, setConnectionHealthy, 
+            authSwapFn, 
+            lastEventTimeRef, reconnectFn, 
+            isActiveRef
+        );
+        
+        const swapSuccess = await new Promise<boolean>(resolve => {
+            newChannel.subscribe(status => {
+                if (status === 'SUBSCRIBED') {
+                    console.log('[AUTH-SWAP] ✅ Novo canal inscrito. Realizando swap...');
+                    
+                    if (oldChannel) {
+                        oldChannel.unsubscribe();
+                        console.log('[AUTH-SWAP] 🧹 Canal antigo desinscrito.');
                     }
                     
-                    if (newChannel.state === 'joining' || newChannel.state === 'joined') {
-                        console.log(`[TIMING-FIX] 🧠 Status inicial: ${newChannel.state}. Forçando reatividade.`);
-                        setConnectionHealthy(true);
-                    }
-                });
-            });
-
-            if (!swapSuccess) throw new Error("Falha na inscrição do novo canal.");
-            
-            if (expirationTime) {
-                const refreshDelay = expirationTime - Date.now() - REFRESH_MARGIN_MS;
-                
-                if (refreshDelay > 0) {
-                    tokenRefreshTimeoutRef.current = setTimeout(() => {
-                        console.log('[SCHEDULER] ⏳ Disparando refresh proativo...');
-                        setRealtimeAuthAndChannelSwapRef.current?.(client, true);
-                    }, refreshDelay);
-                    console.log(`[SCHEDULER] 📅 Próximo refresh agendado em ${Math.round(refreshDelay / 1000 / 60)} minutos.`);
-                } else if (refreshDelay > -1 * REFRESH_MARGIN_MS) { 
-                    console.warn('[SCHEDULER] ⚠️ Token prestes a expirar! Refresh imediato acionado.');
-                    setRealtimeAuthAndChannelSwapRef.current?.(client, true);
+                    setRealtimeChannel(newChannel);
+                    setConnectionHealthy(true);
+                    setRealtimeAuthCounter(prev => prev + 1);
+                    reconnectAttemptsRef.current = 0; // Sucesso reseta as tentativas
+                    resolve(true);
+                } else if (status === 'CHANNEL_ERROR') {
+                    console.error('[AUTH-SWAP] ❌ Erro na inscrição do novo canal.');
+                    resolve(false); 
                 }
-            }
+                
+                if (newChannel.state === 'joining' || newChannel.state === 'joined') {
+                    console.log(`[TIMING-FIX] 🧠 Status inicial: ${newChannel.state}. Forçando reatividade.`);
+                    setConnectionHealthy(true);
+                }
+            });
+        });
 
-            success = true;
-        } catch (error) {
-            console.error('[AUTH-SWAP] ‼️ Erro fatal na autenticação/swap:', error);
-            if (oldChannel) setRealtimeChannel(oldChannel); 
-            setConnectionHealthy(false);
-            success = false;
-        } finally {
-            isRefreshingRef.current = false;
+        if (!swapSuccess) {
+             // Lança um erro para forçar o bloco catch a ser executado
+             throw new Error("Falha na inscrição do novo canal."); 
         }
-        return success;
-    }, [getTokenWithValidation, realtimeChannel, isSignedIn]); 
+        
+        if (expirationTime) {
+            const refreshDelay = expirationTime - Date.now() - REFRESH_MARGIN_MS;
+            
+            if (refreshDelay > 0) {
+                tokenRefreshTimeoutRef.current = setTimeout(() => {
+                    console.log('[SCHEDULER] ⏳ Disparando refresh proativo...');
+                    setRealtimeAuthAndChannelSwapRef.current?.(client, true);
+                }, refreshDelay);
+                console.log(`[SCHEDULER] 📅 Próximo refresh agendado em ${Math.round(refreshDelay / 1000 / 60)} minutos.`);
+            } else if (refreshDelay > -1 * REFRESH_MARGIN_MS) { 
+                console.warn('[SCHEDULER] ⚠️ Token prestes a expirar! Refresh imediato acionado.');
+                setRealtimeAuthAndChannelSwapRef.current?.(client, true);
+            }
+        }
+
+        success = true;
+    } catch (error) {
+        console.error('[AUTH-SWAP] ‼️ Erro fatal na autenticação/swap:', error);
+        
+        // 1. Reverte (tenta) para o estado anterior
+        if (oldChannel) setRealtimeChannel(oldChannel); 
+        setConnectionHealthy(false);
+        success = false;
+        
+        // 2. 🛑 Disparar a tentativa de Reconexão com Backoff (a que tem o limite de 5 tentativas)
+        // Usamos o oldChannel porque ele é o objeto do canal que falhou.
+        if (client && oldChannel) {
+             handleReconnectRef.current?.(oldChannel);
+        }
+
+    } finally {
+        isRefreshingRef.current = false;
+    }
+    return success;
+}, [getTokenWithValidation, realtimeChannel, isSignedIn]);
     setRealtimeAuthAndChannelSwapRef.current = setRealtimeAuthAndChannelSwap;
 
     // Effect 1: Create Client
