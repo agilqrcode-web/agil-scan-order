@@ -88,7 +88,6 @@ const REFRESH_MARGIN_MS = 5 * 60 * 1000; // 5 minutos (300.000 ms) antes da expi
 const MAX_RECONNECT_ATTEMPTS = 5;
 const INITIAL_RECONNECT_DELAY = 1000;
 const CHANNEL_SUBSCRIBE_TIMEOUT = 10000; // 10 segundos
-// ^ NOVA CONSTANTE PARA TIMEOUT DE INSCRIÇÃO
 
 type AuthSwapFn = (client: SupabaseClient, isProactiveRefresh: boolean, isRetryAfterFailure?: boolean) => Promise<boolean>;
 type ReconnectFn = (channel: RealtimeChannel) => void;
@@ -226,6 +225,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
         channel.on('CLOSED', ({ reason, code }) => {
             if (!activeRef.current) return;
+            // IMPORTANTE: Este log dirá se a falha é por "jwt expired" ou "invalid token"
             console.warn(`[LIFECYCLE] ❌ Canal fechado. Motivo: ${reason || 'N/A'}. Código: ${code || 'N/A'}`);
             setHealthy(false);
             reconnectHandler(channel);
@@ -238,6 +238,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
             reconnectHandler(channel);
         });
 
+        // Este listener é interno ao provedor para marcar a conexão como saudável
         channel.on(
             'postgres_changes',
             { event: '*', schema: 'public', table: 'orders' },
@@ -310,7 +311,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
             await client.realtime.setAuth(newToken);
             console.log('[AUTH-SWAP] ✅ Token aplicado ao Realtime Client.');
 
-            // Usando o nome do canal privado/autenticado.
+            // 🛑 AQUI está o nome do canal que precisa ser verificado no Supabase
             const newChannel = client.channel('private:orders_auth'); 
             
             const authSwapFn = setRealtimeAuthAndChannelSwapRef.current!;
@@ -327,7 +328,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
                 const timeout = setTimeout(() => {
                     console.warn('[AUTH-SWAP] ⚠️ Timeout na inscrição do novo canal.');
                     resolve(false);
-                }, CHANNEL_SUBSCRIBE_TIMEOUT); // <== USO DA CONSTANTE DE 10 SEGUNDOS
+                }, CHANNEL_SUBSCRIBE_TIMEOUT); 
 
                 newChannel.subscribe(status => {
                     if (status === 'SUBSCRIBED') {
@@ -431,11 +432,14 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
     // Effect 2: Inicialização e Health Check
     useEffect(() => {
-        if (!supabaseClient || !isLoaded || realtimeChannel) {
+        // CORREÇÃO DE LOOP: Não dependemos mais de realtimeChannel para evitar a auto-limpeza/reinit desnecessária
+        if (!supabaseClient || !isLoaded || !isSignedIn) {
             return;
         }
         
-        if (!isSignedIn) {
+        // Se já temos um canal E ele não está sendo forçado a ser trocado, não faça nada.
+        // A contagem realtimeAuthCounter garante que só iniciamos DEPOIS que o swap foi feito
+        if (realtimeChannel) {
             return;
         }
 
@@ -450,7 +454,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         const healthCheckInterval = setInterval(() => {
             if (!isActiveRef.current || !realtimeChannel) return;
 
-            const timeSinceLastEvent = Date.now() - lastEventTimeRef.current;
+            const timeSinceLastEvent = Date.now() - lastEventEventRef.current;
             const isChannelSubscribed = realtimeChannel.state === 'joined';
             const businessStatus = getBusinessHoursStatus();
 
@@ -480,7 +484,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
             setConnectionHealthy(false);
         };
         
-    }, [supabaseClient, isLoaded, isSignedIn, realtimeChannel]); 
+    }, [supabaseClient, isLoaded, isSignedIn, realtimeAuthCounter]); // Adicionamos realtimeAuthCounter
 
     // Effect 3: Wake-Up Call
     useEffect(() => {

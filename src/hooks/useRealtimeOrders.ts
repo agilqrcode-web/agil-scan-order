@@ -1,108 +1,75 @@
-import { useCallback, useEffect, useRef } from 'react';
-import { useSupabase } from '@/contexts/SupabaseContext';
-import { useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
+// useRealtimeOrders.ts
 
-// ✅ CONFIGURAÇÕES OTIMIZADAS
-const POLLING_INTERVAL = 2 * 60 * 1000; // 2 minutos
+import { useEffect, useState } from 'react';
+import { useSupabase } from './SupabaseContext'; // Ajuste o caminho conforme necessário
+import { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
-// Parâmetros do listener que devem ser removidos na limpeza
-const LISTENER_PARAMS = {
-    event: '*',
-    schema: 'public',
-    table: 'orders'
-} as const;
+// Define o tipo para os dados de mudança (adapte conforme sua tabela)
+type OrderPayload = RealtimePostgresChangesPayload<{
+    [key: string]: any; // Adapte para o tipo de dado de uma linha da tabela 'orders'
+}>;
 
-export function useRealtimeOrders() {
-    const { realtimeChannel, connectionHealthy } = useSupabase();
-    const queryClient = useQueryClient();
-    const pollingIntervalRef = useRef<number>();
+export const useRealtimeOrders = () => {
+    const { realtimeChannel, realtimeAuthCounter, connectionHealthy } = useSupabase();
+    const [lastOrderEvent, setLastOrderEvent] = useState<OrderPayload | null>(null);
+    const [isLoading, setIsLoading] = useState<boolean>(true);
 
-    const handleNewNotification = useCallback((payload: any) => {
-        console.log('[RT-NOTIFICATIONS] ✅ Evento recebido:', payload);
-
-        toast.info("Novo pedido recebido!", {
-            description: "Um novo pedido foi registrado e a lista será atualizada.",
-            action: {
-                label: "Ver",
-                onClick: () => { },
-            },
-        });
-
-        // Invalidar queries em lote
-        queryClient.invalidateQueries({
-            queryKey: ['notifications']
-        });
-        queryClient.invalidateQueries({
-            queryKey: ['orders']
-        });
-        queryClient.invalidateQueries({
-            queryKey: ['orders-stats']
-        });
-    }, [queryClient]);
-
-    // Efeito 1: Configurar listeners do realtime
     useEffect(() => {
-        if (!realtimeChannel) {
-            console.log('[RT-HOOK] Canal realtime não disponível ou em inicialização');
+        // Se o canal ou a conexão não estiver saudável, não tentamos adicionar listeners
+        if (!realtimeChannel || !connectionHealthy) {
+            setIsLoading(true);
             return;
         }
 
-        console.log('[RT-HOOK] ⚓️ Adicionando listeners realtime');
+        // --- HANDLER DE EVENTOS ---
+        const handleOrderChanges = (payload: OrderPayload) => {
+            console.log(`[RT-ORDERS] 🔔 Evento de Pedido Recebido: ${payload.eventType}`);
+            setLastOrderEvent(payload);
+        };
+        
+        console.log('[RT-HOOK] ⚓️ Adicionando listeners específicos para orders');
+        
+        // Adiciona o listener para a tabela orders
+        // O SupabaseProvider já inscreveu o canal; aqui só adicionamos o listener.
+        realtimeChannel.on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'orders' },
+            handleOrderChanges
+        );
 
-        const handler = (payload: any) => handleNewNotification(payload);
+        setIsLoading(false);
 
-        // Apenas adiciona o listener. O Provider faz o subscribe.
-        realtimeChannel
-            .on('postgres_changes', LISTENER_PARAMS, handler);
-            
+        // --- FUNÇÃO DE LIMPEZA ---
         return () => {
-            if (realtimeChannel) {
-                console.log('[RT-HOOK] 🧹 Removendo listeners específicos');
-                
-                // Mantenha a sintaxe padrão. A nova lógica do Provider impede que o canal
-                // seja desalocado prematuramente, o que era a causa do TypeError.
+            console.log('[RT-HOOK] 🧹 Removendo listeners específicos para orders');
+            
+            // 🛑 CORREÇÃO CRÍTICA PARA 'TypeError: e.off is not a function'
+            // O objeto RealtimeChannel precisa estar presente E suportar o método 'off'
+            // O 'e.off' falha quando o canal está sendo limpo/remontado de forma abrupta.
+            
+            if (realtimeChannel && typeof realtimeChannel.off === 'function') {
                 try {
-                    realtimeChannel.off('postgres_changes', LISTENER_PARAMS, handler);
-                } catch(e) {
-                    console.error('[RT-HOOK-CLEANUP] Falha ao remover listener (pode ser minificação):', e);
+                    realtimeChannel.off(
+                        'postgres_changes',
+                        { event: '*', schema: 'public', table: 'orders' },
+                        handleOrderChanges
+                    );
+                    console.log('[RT-HOOK] ✅ Listeners de orders removidos com segurança.');
+                } catch (error) {
+                    // Logamos se houver falha, mas evitamos quebrar o componente
+                    console.error('[RT-HOOK-CLEANUP] Falha ao remover listener de orders:', error);
                 }
+            } else {
+                 console.warn('[RT-HOOK-CLEANUP] ⚠️ Não foi possível remover listener: canal ou função .off ausente.');
             }
         };
-    }, [realtimeChannel, handleNewNotification]);
+    // Adicionamos realtimeAuthCounter para re-rodar o hook APÓS um swap de canal bem-sucedido
+    }, [realtimeChannel, connectionHealthy, realtimeAuthCounter]); 
 
-    // Efeito 2: Polling Otimizado
-    useEffect(() => {
-        if (!connectionHealthy) {
-            console.log('[FALLBACK] 🔄 Ativando polling (2min)');
-
-            queryClient.invalidateQueries({ queryKey: ['orders', 'notifications'] });
-
-            pollingIntervalRef.current = window.setInterval(() => {
-                console.log('[FALLBACK] 📡 Polling para atualizações (2min)');
-                queryClient.invalidateQueries({ queryKey: ['orders', 'notifications', 'orders-stats'] });
-            }, POLLING_INTERVAL);
-
-            return () => {
-                if (pollingIntervalRef.current) {
-                    console.log('[FALLBACK] 🧹 Desativando polling');
-                    clearInterval(pollingIntervalRef.current);
-                    pollingIntervalRef.current = undefined;
-                }
-            };
-        } else {
-            if (pollingIntervalRef.current) {
-                console.log('[FALLBACK] ✅ Realtime recuperado - desativando polling');
-                clearInterval(pollingIntervalRef.current);
-                pollingIntervalRef.current = undefined;
-
-                queryClient.invalidateQueries({ queryKey: ['orders', 'notifications'] });
-            }
-        }
-    }, [connectionHealthy, queryClient]);
-
-    return {
-        connectionHealthy,
-        isUsingFallback: !!pollingIntervalRef.current
+    return { 
+        lastOrderEvent,
+        isLoading,
+        realtimeAuthCounter, // Retorna para debug
+        connectionHealthy // Retorna o status para o componente
     };
-}
+};
