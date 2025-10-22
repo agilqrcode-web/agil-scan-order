@@ -84,7 +84,7 @@ const getBusinessHoursStatus = (): { isOpen: boolean; message: string; nextChang
 // =============================================================================
 
 const HEALTH_CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutos
-const REFRESH_MARGIN_MS = 30 * 1000; // 30 segundos antes da expiração real
+const REFRESH_MARGIN_MS = 5 * 60 * 1000; // 5 minutos (300.000 ms) antes da expiração real
 const MAX_RECONNECT_ATTEMPTS = 5;
 const INITIAL_RECONNECT_DELAY = 1000;
 
@@ -422,7 +422,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
             setConnectionHealthy(false);
         };
         
-    }, [supabaseClient, isLoaded, isSignedIn]); // ✅ CORRIGIDO: Removido 'realtimeChannel' para quebrar o loop.
+    }, [supabaseClient, isLoaded, isSignedIn]); 
 
     // Effect 3: Wake-Up Call
     useEffect(() => {
@@ -453,7 +453,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     }, [refreshConnection]);
 
     // =============================================================================
-    // 🛑 LÓGICA DE SPINNER (CORREÇÃO DE PÁGINA PÚBLICA) 🛑
+    // 🛑 LÓGICA DE SPINNER 🛑
     // =============================================================================
 
     if (!supabaseClient || !isLoaded) {
