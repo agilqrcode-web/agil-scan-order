@@ -17,11 +17,9 @@ export function useRealtimeOrders() {
     const { realtimeChannel, connectionHealthy } = useSupabase();
     const queryClient = useQueryClient();
     const pollingIntervalRef = useRef<number>();
-    const lastNotificationRef = useRef<number>(Date.now());
 
     const handleNewNotification = useCallback((payload: any) => {
         console.log('[RT-NOTIFICATIONS] ✅ Evento recebido:', payload);
-        lastNotificationRef.current = Date.now();
 
         toast.info("Novo pedido recebido!", {
             description: "Um novo pedido foi registrado e a lista será atualizada.",
@@ -31,7 +29,7 @@ export function useRealtimeOrders() {
             },
         });
 
-        // Invalidar queries em lote para reduzir requests
+        // Invalidar queries em lote
         queryClient.invalidateQueries({
             queryKey: ['notifications']
         });
@@ -54,28 +52,32 @@ export function useRealtimeOrders() {
 
         const handler = (payload: any) => handleNewNotification(payload);
 
-        // Apenas adiciona o listener. A inscrição (subscribe) é feita no Provider.
+        // Apenas adiciona o listener. O Provider faz o subscribe.
         realtimeChannel
             .on('postgres_changes', LISTENER_PARAMS, handler);
             
         return () => {
             if (realtimeChannel) {
                 console.log('[RT-HOOK] 🧹 Removendo listeners específicos');
-                // Remove APENAS o listener, não o canal (unsubscribe)
-                realtimeChannel.off('postgres_changes', LISTENER_PARAMS, handler);
+                
+                // Mantenha a sintaxe padrão. A nova lógica do Provider impede que o canal
+                // seja desalocado prematuramente, o que era a causa do TypeError.
+                try {
+                    realtimeChannel.off('postgres_changes', LISTENER_PARAMS, handler);
+                } catch(e) {
+                    console.error('[RT-HOOK-CLEANUP] Falha ao remover listener (pode ser minificação):', e);
+                }
             }
         };
     }, [realtimeChannel, handleNewNotification]);
 
-    // ✅ Efeito 2: Polling Otimizado (Lógica inalterada, pois já estava boa)
+    // Efeito 2: Polling Otimizado
     useEffect(() => {
         if (!connectionHealthy) {
             console.log('[FALLBACK] 🔄 Ativando polling (2min)');
 
-            // Polling imediato
             queryClient.invalidateQueries({ queryKey: ['orders', 'notifications'] });
 
-            // ✅ Polling reduzido para 2 minutos
             pollingIntervalRef.current = window.setInterval(() => {
                 console.log('[FALLBACK] 📡 Polling para atualizações (2min)');
                 queryClient.invalidateQueries({ queryKey: ['orders', 'notifications', 'orders-stats'] });
@@ -89,13 +91,11 @@ export function useRealtimeOrders() {
                 }
             };
         } else {
-            // Conexão saudável - desativar polling
             if (pollingIntervalRef.current) {
                 console.log('[FALLBACK] ✅ Realtime recuperado - desativando polling');
                 clearInterval(pollingIntervalRef.current);
                 pollingIntervalRef.current = undefined;
 
-                // Forçar atualização ao voltar para realtime
                 queryClient.invalidateQueries({ queryKey: ['orders', 'notifications'] });
             }
         }
