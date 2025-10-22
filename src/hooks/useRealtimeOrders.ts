@@ -1,7 +1,7 @@
 // useRealtimeOrders.ts
 
 import { useEffect, useState } from 'react';
-import { useSupabase } from './SupabaseContext'; // Ajuste o caminho conforme necessário
+import { useSupabase } from '@/contexts/SupabaseContext';
 import { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 // Define o tipo para os dados de mudança (adapte conforme sua tabela)
