@@ -110,6 +110,8 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     const lastEventTimeRef = useRef<number>(Date.now());
     const isActiveRef = useRef<boolean>(true);
     const tokenRefreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    // 🛑 NOVO RECURSO: Ref para garantir que a inicialização principal só rode uma vez
+    const hasInitializedRef = useRef<boolean>(false); 
 
     // Refs para quebrar dependências cíclicas
     const setRealtimeAuthAndChannelSwapRef = useRef<AuthSwapFn | null>(null);
@@ -311,7 +313,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
             await client.realtime.setAuth(newToken);
             console.log('[AUTH-SWAP] ✅ Token aplicado ao Realtime Client.');
 
-            // 🛑 AQUI está o nome do canal que precisa ser verificado no Supabase
+            // 🛑 Mantenha o nome do canal que estava funcionando no log: 'private:orders_auth'
             const newChannel = client.channel('private:orders_auth'); 
             
             const authSwapFn = setRealtimeAuthAndChannelSwapRef.current!;
@@ -432,17 +434,13 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
     // Effect 2: Inicialização e Health Check
     useEffect(() => {
-        // CORREÇÃO DE LOOP: Não dependemos mais de realtimeChannel para evitar a auto-limpeza/reinit desnecessária
-        if (!supabaseClient || !isLoaded || !isSignedIn) {
+        if (!supabaseClient || !isLoaded || !isSignedIn || hasInitializedRef.current) {
             return;
         }
         
-        // Se já temos um canal E ele não está sendo forçado a ser trocado, não faça nada.
-        // A contagem realtimeAuthCounter garante que só iniciamos DEPOIS que o swap foi feito
-        if (realtimeChannel) {
-            return;
-        }
-
+        // 🛑 NOVO CHECK: A inicialização deve ocorrer APENAS uma vez
+        hasInitializedRef.current = true;
+        
         isActiveRef.current = true;
         
         // --- ORQUESTRAÇÃO INICIAL ---
@@ -452,13 +450,13 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
         // --- HEALTH CHECK INTELIGENTE COM RECUPERAÇÃO SUAVE ---
         const healthCheckInterval = setInterval(() => {
-            if (!isActiveRef.current || !realtimeChannel) return;
+            // Se o canal não está setado no estado, ou a aba não está ativa, saia.
+            if (!isActiveRef.current || !realtimeChannel || !realtimeChannel.state || realtimeChannel.state !== 'joined') return;
 
-            const timeSinceLastEvent = Date.now() - lastEventEventRef.current;
-            const isChannelSubscribed = realtimeChannel.state === 'joined';
+            const timeSinceLastEvent = Date.now() - lastEventTimeRef.current;
             const businessStatus = getBusinessHoursStatus();
 
-            if (isChannelSubscribed && timeSinceLastEvent > 5 * 60 * 1000) {
+            if (timeSinceLastEvent > 5 * 60 * 1000) {
                 if (businessStatus.isOpen) {
                     console.warn('[HEALTH-CHECK] ⚠️ Sem eventos há 5+ minutos durante horário comercial. Tentando re-autenticação/swap suave.');
                     setConnectionHealthy(false);
@@ -473,6 +471,8 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         return () => {
             console.log('[LIFECYCLE] 🧹 Limpando recursos');
             isActiveRef.current = false;
+            // Redefinimos o ref para permitir uma nova inicialização se o Provider for realmente remontado (raro)
+            hasInitializedRef.current = false; 
             clearInterval(healthCheckInterval);
             if (tokenRefreshTimeoutRef.current) {
                 clearTimeout(tokenRefreshTimeoutRef.current);
@@ -484,7 +484,8 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
             setConnectionHealthy(false);
         };
         
-    }, [supabaseClient, isLoaded, isSignedIn, realtimeAuthCounter]); // Adicionamos realtimeAuthCounter
+    }, [supabaseClient, isLoaded, isSignedIn]); 
+    // Removido realtimeAuthCounter das deps para evitar o cleanup/reinit desnecessário após o swap de sucesso.
 
     // Effect 3: Wake-Up Call
     useEffect(() => {
@@ -527,6 +528,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     }
     
     // O spinner agora prende APENAS se o usuário estiver logado E a conexão falhar.
+    // Ele será desativado após o swap de canal bem-sucedido.
     if (isSignedIn && (!realtimeChannel || !connectionHealthy)) {
          return (
             <div className="flex justify-center items-center h-screen">
