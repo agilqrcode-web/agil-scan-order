@@ -422,7 +422,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
             setConnectionHealthy(false);
         };
         
-    }, [supabaseClient, isLoaded, isSignedIn, realtimeChannel]); // Adicionamos 'realtimeChannel' para garantir que não inicialize se já estiver lá
+    }, [supabaseClient, isLoaded, isSignedIn]); // ✅ CORRIGIDO: Removido 'realtimeChannel' para quebrar o loop.
 
     // Effect 3: Wake-Up Call
     useEffect(() => {
