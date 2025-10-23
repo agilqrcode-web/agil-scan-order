@@ -92,7 +92,7 @@ const getBusinessHoursStatus = (): { isOpen: boolean; message: string; nextChang
 
 const HEALTH_CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutos
 // 🛑 VALOR DE DEBUG: Força o refresh em ~1 minuto (60 min - 59 min)
-const REFRESH_MARGIN_MS = 3540 * 1000; 
+const REFRESH_MARGIN_MS = 5 * 60 * 1000; 
 // 📝 Lembrete: Reverter para 5 * 60 * 1000 (5 minutos) após o teste ser validado.
 const MAX_RECONNECT_ATTEMPTS = 5;
 const INITIAL_RECONNECT_DELAY = 1000;
