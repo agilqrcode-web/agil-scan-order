@@ -476,4 +476,63 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
             const now = Date.now();
             // Se não houve eventos há 6 minutos (maior que o intervalo de 5 min)
-            if (now - lastEventTimeRef.current > HEALTH_CHECK_INTERVAL +
+            if (now - lastEventTimeRef.current > HEALTH_CHECK_INTERVAL + (60 * 1000)) { 
+                console.warn('[HEALTH-CHECK] 💔 Falha no Health Check. Nenhum evento há muito tempo. Forçando reconexão.');
+                setConnectionHealthy(false);
+                handleReconnectRef.current?.(realtimeChannel);
+            }
+
+        }, HEALTH_CHECK_INTERVAL);
+
+
+        return () => {
+            console.log('[LIFECYCLE] 🧹 Limpando recursos');
+            isActiveRef.current = false;
+            hasInitializedRef.current = false; 
+            clearInterval(healthCheckInterval);
+            if (tokenRefreshTimeoutRef.current) {
+                clearTimeout(tokenRefreshTimeoutRef.current);
+            }
+            if (realtimeChannel) {
+                realtimeChannel.unsubscribe();
+            }
+            // Não zeramos supabaseClient aqui para evitar loop infinito
+            setRealtimeChannel(null);
+            setConnectionHealthy(false);
+        };
+        
+    }, [supabaseClient, isLoaded, isSignedIn]); // 🎯 Agora depende de supabaseClient para rodar na recriação
+
+    // Effect 3: Logs de Status (Apenas para visualização)
+    useEffect(() => {
+        if (supabaseClient && realtimeChannel) {
+             console.log(`[STATUS] Conexão: ${connectionHealthy ? '✅ Saudável' : '❌ Instável'}. Auth Counter: ${realtimeAuthCounter}`);
+        }
+    }, [connectionHealthy, realtimeAuthCounter, supabaseClient, realtimeChannel]);
+
+    // -------------------------------------------------------------------------
+    // Renderização
+    // -------------------------------------------------------------------------
+
+    const providerValue = {
+        supabaseClient,
+        realtimeChannel,
+        connectionHealthy,
+        realtimeAuthCounter,
+        recreateSupabaseClient: recreateSupabaseClientRef.current!,
+    };
+
+    if (!isLoaded || !supabaseClient || !isSignedIn) {
+        return (
+            <div className="flex items-center justify-center min-h-screen">
+                <Spinner />
+            </div>
+        );
+    }
+
+    return (
+        <SupabaseContext.Provider value={providerValue as any}>
+            {children}
+        </SupabaseContext.Provider>
+    );
+}
