@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { createClient, SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 import { useAuth } from '@clerk/clerk-react';
-import { SupabaseContext } from "@/contexts/SupabaseContext";
+import { SupabaseContext, SupabaseContextType, RealtimeLog } from "@/contexts/SupabaseContext"; // Importação Corrigida
 import { Spinner } from '@/components/ui/spinner';
 import type { Database } from '../integrations/supabase/types';
 
@@ -99,7 +99,7 @@ const CHANNEL_SUBSCRIBE_TIMEOUT = 10000; // 10 segundos (para detectar o erro r�
 
 type AuthSwapFn = (client: SupabaseClient, isProactiveRefresh: boolean, isRetryAfterFailure?: boolean) => Promise<boolean>;
 type ReconnectFn = (channel: RealtimeChannel) => void;
-type RecreateClientFn = (isHardReset?: boolean) => SupabaseClient;
+type RecreateClientFn = (isHardReset?: boolean) => SupabaseClient<Database>;
 
 // =============================================================================
 // 🏗️ COMPONENTE PRINCIPAL
@@ -108,10 +108,12 @@ type RecreateClientFn = (isHardReset?: boolean) => SupabaseClient;
 export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     const { getToken, isLoaded, isSignedIn } = useAuth();
 
-    const [supabaseClient, setSupabaseClient] = useState<SupabaseClient | null>(null);
+    // Note que SupabaseClient deve ser tipado com Database
+    const [supabaseClient, setSupabaseClient] = useState<SupabaseClient<Database> | null>(null);
     const [realtimeChannel, setRealtimeChannel] = useState<RealtimeChannel | null>(null);
     const [connectionHealthy, setConnectionHealthy] = useState<boolean>(false);
     const [realtimeAuthCounter, setRealtimeAuthCounter] = useState<number>(0);
+    const [realtimeEventLogs, setRealtimeEventLogs] = useState<RealtimeLog[]>([]);
 
     const isRefreshingRef = useRef<boolean>(false);
     const reconnectAttemptsRef = useRef<number>(0);
@@ -137,7 +139,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     // Funções Auxiliares (Refs e Callbacks)
     // -------------------------------------------------------------------------
 
-    const recreateSupabaseClient = useCallback((isHardReset: boolean = true) => {
+    const recreateSupabaseClient: RecreateClientFn = useCallback((isHardReset: boolean = true) => {
         if (isHardReset) {
              console.log('[PROVIDER-INIT] ♻️ Forçando recriação COMPLETA do cliente Supabase e do Socket Realtime');
         } else {
@@ -213,7 +215,6 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         }
     }, [getToken]);
 
-    // 🛑 ARGS CORRIGIDOS AQUI!
     const attachChannelListeners = (
         channel: RealtimeChannel,
         client: SupabaseClient,
@@ -223,9 +224,21 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         reconnectHandler: ReconnectFn,
         activeRef: React.MutableRefObject<boolean>
     ) => {
+        // 🛑 MUDANÇA PRINCIPAL: Captura o evento em vez de logar
         const handleRealtimeEvent = (payload: any) => {
             if (!activeRef.current) return;
-            console.log('[REALTIME-EVENT] ✅ Evento recebido');
+            
+            // 🆕 Armazena o log do evento (em vez de logar no console)
+            setRealtimeEventLogs(prevLogs => {
+                const newLog: RealtimeLog = {
+                    timestamp: Date.now(),
+                    payload: payload
+                };
+                const MAX_LOGS = 500; 
+                const updatedLogs = [newLog, ...prevLogs].slice(0, MAX_LOGS);
+                return updatedLogs;
+            });
+
             lastEventRef.current = Date.now();
             setHealthy(true);
             reconnectAttemptsRef.current = 0;
@@ -253,7 +266,6 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
             reconnectHandler(channel);
         });
 
-        // Este listener é interno ao provedor para marcar a conexão como saudável
         channel.on(
             'postgres_changes',
             { event: '*', schema: 'public', table: 'orders' },
@@ -264,7 +276,6 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     const handleReconnect = useCallback((channel: RealtimeChannel) => {
         if (!isActiveRef.current) return;
         
-        // 🛑 MUDANÇA: Se o usuário NÃO estiver logado, não faz sentido tentar reconexão JWT.
         if (!isSignedIn) {
             console.log('[RECONNECT-PUBLIC] 🔄 Tentando reinscrever canal público...');
             channel.subscribe(status => {
@@ -273,14 +284,12 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
                      setConnectionHealthy(true);
                      reconnectAttemptsRef.current = 0;
                 } else if (status === 'CHANNEL_ERROR') {
-                     // Caso o canal público falhe, tentamos recriar o cliente de forma simples.
                      recreateSupabaseClientRef.current!(false); 
                 }
             });
             return;
         }
 
-        // Lógica de reconexão de USUÁRIO AUTENTICADO
         if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
             console.warn('[RECONNECT-AUTH] 🛑 Máximo de tentativas atingido. Parando e forçando recriação.');
             setConnectionHealthy(false);
@@ -301,7 +310,6 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     }, [supabaseClient, isSignedIn, recreateSupabaseClient]); 
     handleReconnectRef.current = handleReconnect;
 
-    // 🛑 AUTH & SWAP: Onde a mágica da robustez acontece
     const setRealtimeAuthAndChannelSwap = useCallback(async (client: SupabaseClient, isProactiveRefresh: boolean, isRetryAfterFailure = false) => {
         if (isRefreshingRef.current && !isRetryAfterFailure) {
             console.log('[AUTH-SWAP] ⏳ Autenticação/Swap já em progresso');
@@ -311,21 +319,13 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         
         let oldChannel: RealtimeChannel | null = realtimeChannel;
         
-        // =====================================================================
-        // 🎯 LÓGICA DE RECRIACÃO FORÇADA (ADMIN LOGADO)
-        // =====================================================================
-        // HARD RESET: Recriação COMPLETA só deve ocorrer após falha real (isRetryAfterFailure)
         if (isSignedIn && isRetryAfterFailure) {
             console.log('[AUTH-SWAP] 🔨 Retry de Falha: Forçando recriação de cliente para estado limpo.');
             recreateSupabaseClientRef.current!(true);
             isRefreshingRef.current = false;
             return false;
         }
-        // 🛑 REMOVIDO: A recriação forçada para isProactiveRefresh (que causava o loop)
 
-        // =====================================================================
-        // 🎯 LÓGICA DE CONEXÃO/SWAP
-        // =====================================================================
         let success = false;
         let expirationTime: number | null = null;
         
@@ -344,7 +344,6 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
                     throw new Error("Token não pôde ser obtido/validado.");
                 }
                 
-                // 💥 LÓGICA DO REFRESH SUAVE: Se for proativo e o canal existir, apenas setAuth
                 if (isProactiveRefresh && oldChannel) {
                     await client.realtime.setAuth(newToken);
                     console.log('[AUTH-SWAP] 🔄 Refresh Suave: Token aplicado no socket existente. Não é necessário swap.');
@@ -356,7 +355,6 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
                         console.error('[AUTH-SWAP] Erro ao parsear EXP do token:', error);
                     }
                     
-                    // Agenda o próximo refresh e sai da função
                     if (expirationTime) {
                         const refreshDelay = expirationTime - Date.now() - REFRESH_MARGIN_MS;
                         if (refreshDelay > 0) {
@@ -372,13 +370,11 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
                     }
                     
                     isRefreshingRef.current = false;
-                    return true; // Sucesso no refresh suave e retorna
+                    return true; 
                 }
 
-                // Lógica de Conexão Inicial ou Re-subscrição (que exige o swap)
                 channelName = 'private:orders_auth';
                 
-                // Aplica o token antes de se inscrever no novo canal/swap
                 await client.realtime.setAuth(newToken);
                 
                 try {
@@ -390,10 +386,8 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
                 console.log(`[AUTH-SWAP] ✅ Token aplicado. Usando canal: ${channelName}`);
 
             } else {
-                // Cliente não logado (página de pedidos)
                 channelName = 'public:orders';
                 console.log(`[AUTH-SWAP] 🅿️ Cliente não logado. Usando canal: ${channelName}`);
-                // Garante que o socket não utilize nenhum JWT obsoleto
                 await client.realtime.setAuth(null);
                 console.log('[AUTH-SWAP] 🧹 Limpeza de Auth: setAuth(null) executado para canal público.');
             }
@@ -404,7 +398,6 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
             const authSwapFn = setRealtimeAuthAndChannelSwapRef.current!;
             const reconnectFn = handleReconnectRef.current!;
 
-            // Chamada de attachChannelListeners COMPLETA
             attachChannelListeners(
                 newChannel, client, setConnectionHealthy, 
                 authSwapFn, 
@@ -412,7 +405,6 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
                 isActiveRef
             );
             
-            // Tenta se inscrever (aguarda o SUBSCRIBED)
             const swapSuccess = await new Promise<boolean>(resolve => {
                 const timeout = setTimeout(() => {
                     console.warn('[AUTH-SWAP] ⚠️ Timeout na inscrição do novo canal.');
@@ -436,7 +428,6 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
                         resolve(true);
                     } else if (status === 'CHANNEL_ERROR') {
                         clearTimeout(timeout);
-                        // 🛑 MUDANÇA: Log mais útil para erro de canal
                         console.error(`[AUTH-SWAP] ❌ Erro na inscrição do novo canal '${channelName}'.`); 
                         setConnectionHealthy(false); 
                         resolve(false); 
@@ -446,15 +437,13 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
             if (!swapSuccess) {
                  setConnectionHealthy(false);
-                 // 🛑 MUDANÇA: Lógica de falha de autenticação/inscrição
                  if (isSignedIn) {
-                    throw new Error("Falha na inscrição do novo canal (timeout/erro).");
+                     throw new Error("Falha na inscrição do novo canal (timeout/erro).");
                  } else {
-                    console.error('[AUTH-SWAP-PUBLIC] Falha na inscrição do canal público. Verifique a RLS.');
+                     console.error('[AUTH-SWAP-PUBLIC] Falha na inscrição do canal público. Verifique a RLS.');
                  }
             }
             
-            // 4. Agenda o próximo refresh (APENAS se for o caso de conexão inicial/retry)
             if (isSignedIn && expirationTime && !isProactiveRefresh) {
                 const refreshDelay = expirationTime - Date.now() - REFRESH_MARGIN_MS;
                 
@@ -474,7 +463,6 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         } catch (error) {
             console.error('[AUTH-SWAP] ‼️ Erro fatal na autenticação/swap:', error);
             
-            // A lógica de retry (recreate) só deve rodar para usuários autenticados (admin)
             if (isSignedIn && reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
                 console.log('[AUTH-SWAP-RETRY] 🔨 Falha crítica de AUTH. Recriando cliente e tentando novamente...');
                 recreateSupabaseClientRef.current!(true); 
@@ -495,17 +483,44 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     }, [getTokenWithValidation, realtimeChannel, isSignedIn, recreateSupabaseClient]);
     setRealtimeAuthAndChannelSwapRef.current = setRealtimeAuthAndChannelSwap;
 
-    // Effect 1: Create Client (Executa na primeira montagem OU quando isSignedIn muda)
+    const downloadRealtimeLogs = useCallback(() => {
+        if (realtimeEventLogs.length === 0) {
+            console.log('[DOWNLOAD] Sem logs de Realtime para baixar.');
+            return;
+        }
+
+        const logData = {
+            metadata: {
+                timestamp: new Date().toISOString(),
+                count: realtimeEventLogs.length,
+                env: import.meta.env.MODE,
+            },
+            logs: realtimeEventLogs,
+        };
+
+        const json = JSON.stringify(logData, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `realtime_logs_${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        console.log(`[DOWNLOAD] ✅ ${realtimeEventLogs.length} logs de Realtime baixados.`);
+    }, [realtimeEventLogs]);
+
+    // Effect 1: Create Client
     useEffect(() => {
-        if (isLoaded && !supabaseClient) {
-            // Usa o flag de isSignedIn para decidir se precisa de um fetcher JWT
+        if (isLoaded && !supabaseClient) { 
             recreateSupabaseClient(false); 
         }
     }, [isLoaded, supabaseClient, recreateSupabaseClient]);
 
-    // Effect 2: Inicialização e Health Check (Dispara quando o cliente muda)
+    // Effect 2: Inicialização e Health Check
     useEffect(() => {
-        if (!supabaseClient || !isLoaded) { // Não precisa mais checar isSignedIn aqui
+        if (!supabaseClient || !isLoaded) { 
             return;
         }
 
@@ -513,18 +528,14 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
             return;
         }
         
-        // --- ORQUESTRAÇÃO INICIAL ---
         hasInitializedRef.current = true;
         isActiveRef.current = true;
 
         console.log('[LIFECYCLE] 🚀 Iniciando primeiro canal realtime');
-        // A função setRealtimeAuthAndChannelSwap agora lida com a diferença isSignedIn/!isSignedIn
         setRealtimeAuthAndChannelSwapRef.current?.(supabaseClient, false);
 
 
-        // --- HEALTH CHECK INTELIGENTE COM RECUPERAÇÃO SUAVE ---
         const healthCheckInterval = setInterval(() => {
-            // Health check só é relevante se houver um canal ativo
             if (!isActiveRef.current || !realtimeChannel || realtimeChannel.state !== 'joined') return;
 
             const now = Date.now();
@@ -552,29 +563,44 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
             setConnectionHealthy(false);
         };
         
-    }, [supabaseClient, isLoaded]); // Removido isSignedIn da dependência.
+    }, [supabaseClient, isLoaded]);
 
-    // Effect 3: Logs de Status (Apenas para visualização)
+    // Effect 3: Logs de Status
     useEffect(() => {
         if (supabaseClient && realtimeChannel) {
-             console.log(`[STATUS] Conexão: ${connectionHealthy ? '✅ Saudável' : '❌ Instável'}. Auth Counter: ${realtimeAuthCounter}`);
+             console.log(`[STATUS] Conexão: ${connectionHealthy ? '✅ Saudável' : '❌ Instável'}. Auth Counter: ${realtimeAuthCounter}. Logs Realtime Capturados: ${realtimeEventLogs.length}`);
         }
-    }, [connectionHealthy, realtimeAuthCounter, supabaseClient, realtimeChannel]);
+    }, [connectionHealthy, realtimeAuthCounter, supabaseClient, realtimeChannel, realtimeEventLogs.length]);
+
+    // Effect 4: Expor a função de download no console (APENAS em DEV)
+    useEffect(() => {
+        if (import.meta.env.DEV) { 
+            if (typeof window !== 'undefined') {
+                (window as any).supabaseDownloadLogs = downloadRealtimeLogs;
+                console.log('[DEBUG] 🌐 Função de download de logs Realtime está disponível no console via: `supabaseDownloadLogs()`');
+
+                return () => {
+                    delete (window as any).supabaseDownloadLogs;
+                };
+            }
+        }
+    }, [downloadRealtimeLogs]);
 
     // -------------------------------------------------------------------------
     // Renderização
     // -------------------------------------------------------------------------
 
-    const providerValue = {
-        supabaseClient,
+    // O valor do provedor agora usa a interface SupabaseContextType corrigida
+    const providerValue: SupabaseContextType = {
+        supabaseClient: supabaseClient as SupabaseClient<Database>, // Assumindo que a tipagem da DB é correta
         realtimeChannel,
         connectionHealthy,
         realtimeAuthCounter,
         recreateSupabaseClient: recreateSupabaseClientRef.current!,
+        downloadRealtimeLogs,
+        realtimeEventLogs, 
     };
 
-    // 🛑 MUDANÇA: A página de pedidos do cliente (não logado) não deve travar no spinner 
-    // por causa do SupabaseClient, apenas se o Clerk não estiver carregado.
     if (!isLoaded || !supabaseClient) { 
         return (
             <div className="flex items-center justify-center min-h-screen">
@@ -582,10 +608,10 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
             </div>
         );
     }
-    // A página de pedidos agora deve renderizar, mesmo se !isSignedIn.
 
+    // O valor deve ser do tipo SupabaseContextType (não pode ser nulo se passou na checagem)
     return (
-        <SupabaseContext.Provider value={providerValue as any}>
+        <SupabaseContext.Provider value={providerValue}>
             {children}
         </SupabaseContext.Provider>
     );
