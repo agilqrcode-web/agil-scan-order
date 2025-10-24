@@ -1,5 +1,3 @@
-// src/providers/SupabaseProvider.tsx
-
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { createClient, SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 import { useAuth } from '@clerk/clerk-react';
@@ -16,12 +14,15 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY!;
 // ⚙️ CONFIGURAÇÕES DE PERFORMANCE E RESILIÊNCIA
 // =============================================================================
 
-const HEALTH_CHECK_INTERVAL = 5 * 60 * 1000; 
 const REFRESH_MARGIN_MS = 5 * 60 * 1000; // 5 minutos de margem
 const MAX_RECONNECT_ATTEMPTS = 5;
 const INITIAL_RECONNECT_DELAY = 1000;
 const CHANNEL_SUBSCRIBE_TIMEOUT = 10000; 
-const PROTOCOL_STABILITY_DELAY_MS = 100; // 🚨 FIX: Delay para estabilizar setAuth
+const PROTOCOL_STABILITY_DELAY_MS = 100; // FIX: Delay para estabilizar setAuth
+
+// 🚨 NOVO FLAG DE DEBUG: ATIVADO PARA ISOLAR PROBLEMA RLS
+// Com TRUE, todos os usuários (logados ou não) se conectam ao canal 'public:orders'.
+const FORCE_PUBLIC_CHANNEL = true;
 
 // Tipos e Funções Auxiliares
 type AuthSwapFn = (client: SupabaseClient, isProactiveRefresh: boolean, isRetryAfterFailure?: boolean) => Promise<boolean>;
@@ -31,17 +32,17 @@ type HandleMessageFn = (type: RealtimeLog['type'], message: any) => void;
 
 // Função getBusinessHoursStatus (Mantida)
 const getBusinessHoursStatus = (): { isOpen: boolean; message: string; nextChange?: string } => {
-    const now = new Date();
-    const currentDay = now.getDay();
-    const currentHour = now.getHours();
-    
-    const isWeekday = currentDay >= 1 && currentDay <= 5; 
-    const isBusinessHour = currentHour >= 8 && currentHour < 18;
-    
-    if (isWeekday && isBusinessHour) {
-        return { isOpen: true, message: '🟢 ABERTO' };
-    }
-    return { isOpen: false, message: '🔴 FECHADO' };
+    const now = new Date();
+    const currentDay = now.getDay();
+    const currentHour = now.getHours();
+    
+    const isWeekday = currentDay >= 1 && currentDay <= 5; 
+    const isBusinessHour = currentHour >= 8 && currentHour < 18;
+    
+    if (isWeekday && isBusinessHour) {
+        return { isOpen: true, message: '🟢 ABERTO' };
+    }
+    return { isOpen: false, message: '🔴 FECHADO' };
 };
 
 // =============================================================================
@@ -50,63 +51,64 @@ const getBusinessHoursStatus = (): { isOpen: boolean; message: string; nextChang
 const DEBUG_PROTOCOLS = ['phx_join', 'phx_reply', 'heartbeat', 'access_token'];
 
 const createClientWithLogging = (
-    url: string, 
-    key: string, 
-    getToken: () => Promise<string | null>, 
-    isSignedIn: boolean,
-    handleRealtimeMessage: HandleMessageFn 
+    url: string, 
+    key: string, 
+    getToken: () => Promise<string | null>, 
+    isSignedIn: boolean,
+    handleRealtimeMessage: HandleMessageFn 
 ): SupabaseClient<Database> => {
-    
-    const CustomWebSocket = class extends WebSocket {
-        constructor(url: string, protocols?: string | string[]) {
-            super(url, protocols);
-        }
+        
+        const CustomWebSocket = class extends WebSocket {
+            constructor(url: string, protocols?: string | string[]) {
+                super(url, protocols);
+            }
 
-        send(data: string | ArrayBufferLike | Blob | ArrayBuffer) {
-            if (typeof data === 'string') {
-                try {
-                    const message = JSON.parse(data);
-                    handleRealtimeMessage('SENT', message); 
-                    
-                    if (DEBUG_PROTOCOLS.includes(message.event)) {
-                         console.log(`%c[RAW-WS] 📤 SENT Event: ${message.event} | Topic: ${message.topic} | Ref: ${message.ref}`, 'color: #1e88e5', message);
-                    }
-                } catch (e) { /* Ignora */ }
-            }
-            super.send(data);
-        }
+            send(data: string | ArrayBufferLike | Blob | ArrayBuffer) {
+                if (typeof data === 'string') {
+                    try {
+                        const message = JSON.parse(data);
+                        handleRealtimeMessage('SENT', message); 
+                        
+                        if (DEBUG_PROTOCOLS.includes(message.event)) {
+                             console.log(`%c[RAW-WS] 📤 SENT Event: ${message.event} | Topic: ${message.topic} | Ref: ${message.ref}`, 'color: #1e88e5', message);
+                        }
+                    } catch (e) { /* Ignora */ }
+                }
+                super.send(data);
+            }
 
-        set onmessage(listener: (event: MessageEvent) => any) {
-            super.onmessage = (event: MessageEvent) => {
-                try {
-                    const message = JSON.parse(event.data);
-                    handleRealtimeMessage('RECEIVED', message); 
+            set onmessage(listener: (event: MessageEvent) => any) {
+                super.onmessage = (event: MessageEvent) => {
+                    try {
+                        const message = JSON.parse(event.data);
+                        handleRealtimeMessage('RECEIVED', message); 
 
-                    if (DEBUG_PROTOCOLS.includes(message.event) || message.event.endsWith('_error')) {
-                         console.log(`%c[RAW-WS] 📥 RECEIVED Event: ${message.event} | Topic: ${message.topic} | Status: ${message.payload.status}`, 'color: #e53935; font-weight: bold;', message);
-                    } else if (message.event === 'postgres_changes') {
-                         console.log(`%c[RAW-WS] 📥 RECEIVED DATA: ${message.payload.eventType} for table ${message.payload.table}`, 'color: #43a047');
-                    }
-                } catch (e) { /* Ignora */ }
-                listener(event); 
-            };
-        }
-    } as any;
+                        if (DEBUG_PROTOCOLS.includes(message.event) || message.event.endsWith('_error')) {
+                             console.log(`%c[RAW-WS] 📥 RECEIVED Event: ${message.event} | Topic: ${message.topic} | Status: ${message.payload.status}`, 'color: #e53935; font-weight: bold;', message);
+                        } else if (message.event === 'postgres_changes') {
+                             console.log(`%c[RAW-WS] 📥 RECEIVED DATA: ${message.payload.eventType} for table ${message.payload.table}`, 'color: #43a047');
+                        }
+                    } catch (e) { /* Ignora */ }
+                    listener(event); 
+                };
+            }
+        } as any;
 
-    return createClient<Database>(url, key, {
-        global: {
-            fetch: isSignedIn ? async (input, init) => {
-                const token = await getToken();
-                const headers = new Headers(init?.headers);
-                if (token) headers.set('Authorization', `Bearer ${token}`);
-                return fetch(input, { ...init, headers });
-            } : undefined,
-            WebSocket: CustomWebSocket, 
-        },
-        realtime: {
-            timeout: 30000, 
-        }
-    });
+        return createClient<Database>(url, key, {
+            global: {
+                // Se não forçarmos o canal público, usamos o fetch com token para requisições REST/RPC
+                fetch: isSignedIn && !FORCE_PUBLIC_CHANNEL ? async (input, init) => { 
+                    const token = await getToken();
+                    const headers = new Headers(init?.headers);
+                    if (token) headers.set('Authorization', `Bearer ${token}`);
+                    return fetch(input, { ...init, headers });
+                } : undefined,
+                WebSocket: CustomWebSocket, 
+            },
+            realtime: {
+                timeout: 30000, 
+            }
+        });
 };
 
 // =============================================================================
@@ -308,10 +310,9 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         }
         isRefreshingRef.current = true;
         
-        // Se for um Retry após falha e o usuário estiver logado, forçamos a recriação (Hard Reset) para estado limpo
-        if (isSignedIn && isRetryAfterFailure) {
+        // Se for um Retry após falha e o usuário estiver logado E NO MODO PRIVADO, forçamos a recriação.
+        if (isSignedIn && isRetryAfterFailure && !FORCE_PUBLIC_CHANNEL) {
             console.log('[AUTH-SWAP] 🔨 Retry de Falha: Forçando recriação de cliente para estado limpo.');
-            // A recriação do cliente vai chamar este hook novamente, então saímos.
             recreateSupabaseClientRef.current!(true);
             isRefreshingRef.current = false;
             return false; 
@@ -329,17 +330,19 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
         try {
             let channelName: string; 
-
-            if (isSignedIn) {
+            
+            // 🚨 FLUXO PRINCIPAL: Se estiver logado E NÃO for para forçar o público
+            if (isSignedIn && !FORCE_PUBLIC_CHANNEL) {
+                // FLUXO DE CANAL PRIVADO (Original, requer RLS)
                 const newToken = await getTokenWithValidation();
                 if (!newToken) {
                     await client?.realtime.setAuth(null); setConnectionHealthy(false);
                     throw new Error("Token não pôde ser obtido/validado.");
                 }
                 
-                channelName = 'private:orders'; // Canal para Logado
+                channelName = 'private:orders'; 
                 
-                // 🚨 FIX: Chama setAuth e espera para estabilização do protocolo
+                // FIX: Chama setAuth e espera para estabilização do protocolo
                 await client.realtime.setAuth(newToken);
                 console.log(`%c[AUTH-SWAP] 🔑 setAuth() chamado. Aguardando ${PROTOCOL_STABILITY_DELAY_MS}ms para estabilização do token...`, 'color: #9c27b0');
                 await new Promise(resolve => setTimeout(resolve, PROTOCOL_STABILITY_DELAY_MS)); 
@@ -351,16 +354,16 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
                     console.error('[AUTH-SWAP] Erro ao parsear EXP do token:', error);
                 }
                 console.log(`[AUTH-SWAP] ✅ Token aplicado. Usando canal: ${channelName}`);
-
-            } else {
-                // Cliente não logado (Canal Público)
-                channelName = 'public:orders'; // Canal para Deslogado
-                console.log(`[AUTH-SWAP] 🅿️ Cliente não logado. Usando canal: ${channelName}`);
+            
+            } else {
+                // FLUXO DE CANAL PÚBLICO (Forçado ou Deslogado)
+                channelName = 'public:orders'; 
+                console.log(`%c[AUTH-SWAP] 🅿️ Usando canal PÚBLICO: ${channelName}. (FORCE_PUBLIC_CHANNEL: ${FORCE_PUBLIC_CHANNEL} | isSignedIn: ${isSignedIn})`, 'color: #f57f17');
                 await client.realtime.setAuth(null);
                 console.log('[AUTH-SWAP] 🧹 Limpeza de Auth: setAuth(null) executado para canal público.');
             }
 
-            // 🚨 FIX CRÍTICO: Cria novo canal e faz o SWAP COMPLETO na re-inscrição
+            // Cria novo canal e faz o SWAP COMPLETO na re-inscrição
             const newChannel = client.channel(channelName); 
             
             const authSwapFn = setRealtimeAuthAndChannelSwapRef.current!;
@@ -407,8 +410,8 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
                  throw new Error(`Falha na inscrição do novo canal '${channelName}' (timeout/erro).`);
             }
             
-            // Agendamento do próximo refresh
-            if (isSignedIn && expirationTime) {
+            // Agendamento do próximo refresh - APENAS SE ESTIVERMOS NO MODO PRIVADO
+            if (isSignedIn && expirationTime && !FORCE_PUBLIC_CHANNEL) { 
                 const refreshDelay = expirationTime - Date.now() - REFRESH_MARGIN_MS;
                 
                 if (refreshDelay > 0) {
@@ -458,13 +461,10 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         console.log('[PROVIDER-INIT] 🚀 Iniciando o ciclo de vida Supabase (Clerk isLoaded = true)');
         
         // 1. Cria o Cliente Supabase
-        // O client é criado SEMPRE que o estado do Clerk for carregado pela primeira vez.
         const newClient = recreateSupabaseClientRef.current!(false); 
 
         // 2. Inicia a conexão Realtime e Autenticação
         const initConnection = async () => {
-            // setRealtimeAuthAndChannelSwap cuida de autenticar (se logado) E de inscrever
-            // o canal (privado ou público) e de setar os estados `realtimeChannel` e `connectionHealthy`.
             const success = await setRealtimeAuthAndChannelSwapRef.current?.(newClient, false);
             
             if (success) {
@@ -485,7 +485,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
             }
             console.log('[PROVIDER-INIT] 🔴 Cleanup do Provider: Referências desativadas.');
         };
-    }, [isLoaded]); // Dependência apenas em isLoaded para garantir a primeira execução
+    }, [isLoaded]); 
     
 
     // Efeito para sincronizar a função de logs
@@ -493,9 +493,19 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         setRealtimeEventLogsRef.current = setRealtimeEventLogs;
     }, [setRealtimeEventLogs]); 
 
-    // Função de download de logs (mantida)
+    // Função de download de logs (Placeholder)
     const downloadRealtimeLogs = useCallback(() => {
-        // ... (lógica de download mantida)
+        const jsonString = JSON.stringify(realtimeEventLogs, null, 2);
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `supabase-realtime-logs-${new Date().toISOString()}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        console.log('[LOGS] Logs de Realtime baixados.');
     }, [realtimeEventLogs]);
 
 
