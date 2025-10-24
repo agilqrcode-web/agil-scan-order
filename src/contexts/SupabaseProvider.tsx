@@ -358,7 +358,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
                 }
 
                 // Swap Completo
-                channelName = 'private:orders_auth';
+                channelName = 'private:orders';
                 
                 await client.realtime.setAuth(newToken);
                 
