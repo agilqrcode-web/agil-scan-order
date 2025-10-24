@@ -4,7 +4,7 @@ import { createClient, SupabaseClient, RealtimeChannel } from '@supabase/supabas
 import { useAuth } from '@clerk/clerk-react';
 import { SupabaseContext, SupabaseContextType, RealtimeLog } from "@/contexts/SupabaseContext"; 
 import { Spinner } from '@/components/ui/spinner';
-import type { Database } from '../integrations/supabase/types'; // Verifique se o caminho está correto
+import type { Database } from '../integrations/supabase/types'; 
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL!;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY!;
@@ -13,17 +13,36 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY!;
 // ⚙️ CONFIGURAÇÕES DE PERFORMANCE E RESILIÊNCIA
 // =============================================================================
 
-const HEALTH_CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutos
+const HEALTH_CHECK_INTERVAL = 5 * 60 * 1000; 
 const REFRESH_MARGIN_MS = 5 * 60 * 1000;
 const MAX_RECONNECT_ATTEMPTS = 5;
 const INITIAL_RECONNECT_DELAY = 1000;
-const CHANNEL_SUBSCRIBE_TIMEOUT = 10000; // 10 segundos
+const CHANNEL_SUBSCRIBE_TIMEOUT = 10000; 
 
-// Tipos para funções de referência
 type AuthSwapFn = (client: SupabaseClient, isProactiveRefresh: boolean, isRetryAfterFailure?: boolean) => Promise<boolean>;
 type ReconnectFn = (channel: RealtimeChannel) => void;
 type RecreateClientFn = (isHardReset?: boolean) => SupabaseClient<Database>;
 type HandleMessageFn = (type: RealtimeLog['type'], message: any) => void;
+
+// =============================================================================
+// FUNÇÃO DE GESTÃO DE HORÁRIOS (Placeholder)
+// =============================================================================
+
+const getBusinessHoursStatus = (): { isOpen: boolean; message: string; nextChange?: string } => {
+    // Implementação da lógica de horário de funcionamento...
+    const now = new Date();
+    const currentDay = now.getDay();
+    const currentHour = now.getHours();
+    
+    const isWeekday = currentDay >= 1 && currentDay <= 5; 
+    const isBusinessHour = currentHour >= 8 && currentHour < 18;
+    
+    if (isWeekday && isBusinessHour) {
+        return { isOpen: true, message: '🟢 ABERTO' };
+    }
+    return { isOpen: false, message: '🔴 FECHADO' };
+};
+
 
 // =============================================================================
 // FUNÇÃO: Cria um cliente Supabase com um WebSocket personalizado para LOGS
@@ -37,7 +56,6 @@ const createClientWithLogging = (
     handleRealtimeMessage: HandleMessageFn
 ): SupabaseClient<Database> => {
     
-    // Cria um objeto WebSocket personalizado para interceptar todas as mensagens
     const CustomWebSocket = class extends WebSocket {
         constructor(url: string, protocols?: string | string[]) {
             super(url, protocols);
@@ -48,9 +66,7 @@ const createClientWithLogging = (
                 try {
                     const message = JSON.parse(data);
                     handleRealtimeMessage('SENT', message); 
-                } catch (e) {
-                    // Ignora mensagens que não são JSON
-                }
+                } catch (e) { /* silent */ }
             }
             super.send(data);
         }
@@ -60,9 +76,7 @@ const createClientWithLogging = (
                 try {
                     const message = JSON.parse(event.data);
                     handleRealtimeMessage('RECEIVED', message); 
-                } catch (e) {
-                    // Ignora se não for JSON
-                }
+                } catch (e) { /* silent */ }
                 listener(event); 
             };
         }
@@ -105,7 +119,14 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     const handleReconnectRef = useRef<ReconnectFn | null>(null);
     const recreateSupabaseClientRef = useRef<RecreateClientFn | null>(null);
     
-    // Omitida a lógica de BUSINESS_HOURS_CONFIG para brevidade, mas deve ser mantida.
+    // Log inicial do status de horários
+    useEffect(() => {
+        const businessStatus = getBusinessHoursStatus();
+        console.log(`🏪 ${businessStatus.message}`);
+        if (businessStatus.nextChange) {
+            console.log(`   ⏰ ${businessStatus.nextChange}`);
+        }
+    }, []);
 
     // -------------------------------------------------------------------------
     // Funções Auxiliares (Logs e Cliente)
@@ -114,6 +135,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     const handleRealtimeMessage: HandleMessageFn = useCallback((type, message) => {
         if (!isActiveRef.current) return;
         
+        // Use a mensagem de dados para atualizar o health check
         if (message?.event === 'postgres_changes') {
             lastEventTimeRef.current = Date.now();
             setConnectionHealthy(true);
@@ -256,7 +278,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
                 setRealtimeAuthAndChannelSwapRef.current?.(supabaseClient, false, true); 
             }
         }, delay);
-    }, [supabaseClient, isSignedIn]); // Dependência removida
+    }, [supabaseClient, isSignedIn]); 
     handleReconnectRef.current = handleReconnect;
 
     const setRealtimeAuthAndChannelSwap = useCallback(async (client: SupabaseClient, isProactiveRefresh: boolean, isRetryAfterFailure = false) => {
@@ -284,7 +306,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         }
 
         try {
-            // 🛑 CORREÇÃO AQUI: Declarar channelName no escopo do try
+            // 🛑 CORREÇÃO: Declarar channelName no escopo do try
             let channelName: string; 
 
             if (isSignedIn) {
@@ -320,7 +342,6 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
                     return true; 
                 }
 
-                // ATRIBUIÇÃO CORRETA
                 channelName = 'private:orders_auth';
                 
                 await client.realtime.setAuth(newToken);
@@ -334,7 +355,6 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
                 console.log(`[AUTH-SWAP] ✅ Token aplicado. Usando canal: ${channelName}`);
 
             } else {
-                // ATRIBUIÇÃO CORRETA
                 channelName = 'public:orders';
                 console.log(`[AUTH-SWAP] 🅿️ Cliente não logado. Usando canal: ${channelName}`);
                 await client.realtime.setAuth(null);
@@ -342,7 +362,6 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
             }
 
 
-            // Uso de channelName CORRETO
             const newChannel = client.channel(channelName); 
             
             const authSwapFn = setRealtimeAuthAndChannelSwapRef.current!;
@@ -355,7 +374,6 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
                 isActiveRef
             );
             
-            // ... (restante da lógica de inscrição e timeout) ...
             const swapSuccess = await new Promise<boolean>(resolve => {
                 const timeout = setTimeout(() => {
                     console.warn('[AUTH-SWAP] ⚠️ Timeout na inscrição do novo canal.');
@@ -428,17 +446,105 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
             isRefreshingRef.current = false;
         }
         return success;
-    }, [getTokenWithValidation, realtimeChannel, isSignedIn]); // Dependência removida
+    }, [getTokenWithValidation, realtimeChannel, isSignedIn]);
     setRealtimeAuthAndChannelSwapRef.current = setRealtimeAuthAndChannelSwap;
 
-    // ... (Função downloadRealtimeLogs - mantida) ...
-    const downloadRealtimeLogs = useCallback(() => { /* ... */ }, [realtimeEventLogs]);
+    // Função de Download
+    const downloadRealtimeLogs = useCallback(() => {
+        if (realtimeEventLogs.length === 0) {
+            console.log('[DOWNLOAD] Sem logs de Realtime para baixar.');
+            return;
+        }
 
-    // ... (Effects 1, 2, 3, 4 - mantidos) ...
-    useEffect(() => { /* ... Effect 1: Create Client ... */ }, [isLoaded, supabaseClient, recreateSupabaseClient]);
-    useEffect(() => { /* ... Effect 2: Inicialização e Health Check ... */ }, [supabaseClient, isLoaded]);
-    useEffect(() => { /* ... Effect 3: Logs de Status ... */ }, [connectionHealthy, realtimeAuthCounter, supabaseClient, realtimeChannel, realtimeEventLogs.length]);
-    useEffect(() => { /* ... Effect 4: Expor a função de download ... */ }, [downloadRealtimeLogs]);
+        const logData = {
+            metadata: {
+                timestamp: new Date().toISOString(),
+                count: realtimeEventLogs.length,
+                env: import.meta.env.MODE,
+            },
+            logs: realtimeEventLogs,
+        };
+
+        const json = JSON.stringify(logData, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `realtime_socket_logs_${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        console.log(`[DOWNLOAD] ✅ ${realtimeEventLogs.length} logs de Socket (RAW) baixados.`);
+    }, [realtimeEventLogs]);
+
+    // Effects
+    useEffect(() => {
+        if (isLoaded && !supabaseClient) { 
+            recreateSupabaseClient(false); 
+        }
+    }, [isLoaded, supabaseClient, recreateSupabaseClient]);
+
+    useEffect(() => {
+        if (!supabaseClient || !isLoaded || hasInitializedRef.current) { 
+            return;
+        }
+        
+        hasInitializedRef.current = true;
+        isActiveRef.current = true;
+
+        console.log('[LIFECYCLE] 🚀 Iniciando primeiro canal realtime');
+        setRealtimeAuthAndChannelSwapRef.current?.(supabaseClient, false);
+
+
+        const healthCheckInterval = setInterval(() => {
+            if (!isActiveRef.current || !realtimeChannel || realtimeChannel.state !== 'joined') return;
+
+            const now = Date.now();
+            if (now - lastEventTimeRef.current > HEALTH_CHECK_INTERVAL + (60 * 1000)) { 
+                console.warn('[HEALTH-CHECK] 💔 Falha no Health Check. Nenhum evento há muito tempo. Forçando reconexão.');
+                setConnectionHealthy(false);
+                handleReconnectRef.current?.(realtimeChannel);
+            }
+
+        }, HEALTH_CHECK_INTERVAL);
+
+
+        return () => {
+            console.log('[LIFECYCLE] 🧹 Limpando recursos');
+            isActiveRef.current = false;
+            hasInitializedRef.current = false; 
+            clearInterval(healthCheckInterval);
+            if (tokenRefreshTimeoutRef.current) {
+                clearTimeout(tokenRefreshTimeoutRef.current);
+            }
+            if (realtimeChannel) {
+                realtimeChannel.unsubscribe();
+            }
+            setRealtimeChannel(null);
+            setConnectionHealthy(false);
+        };
+        
+    }, [supabaseClient, isLoaded]);
+
+    useEffect(() => {
+        if (supabaseClient && realtimeChannel) {
+             console.log(`[STATUS] Conexão: ${connectionHealthy ? '✅ Saudável' : '❌ Instável'}. Auth Counter: ${realtimeAuthCounter}. Logs Socket RAW Capturados: ${realtimeEventLogs.length}`);
+        }
+    }, [connectionHealthy, realtimeAuthCounter, supabaseClient, realtimeChannel, realtimeEventLogs.length]);
+
+    useEffect(() => {
+        if (import.meta.env.DEV) { 
+            if (typeof window !== 'undefined') {
+                (window as any).supabaseDownloadLogs = downloadRealtimeLogs;
+                console.log('[DEBUG] 🌐 Função de download de logs Realtime (RAW) está disponível no console via: `supabaseDownloadLogs()`');
+
+                return () => {
+                    delete (window as any).supabaseDownloadLogs;
+                };
+            }
+        }
+    }, [downloadRealtimeLogs]);
 
     // -------------------------------------------------------------------------
     // Renderização

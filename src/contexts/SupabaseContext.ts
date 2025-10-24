@@ -9,7 +9,6 @@ import type { Database } from '../integrations/supabase/types'; // Verifique se 
 
 /**
  * TIPO: Estrutura para capturar QUALQUER mensagem do socket (Enviada ou Recebida).
- * Isso inclui eventos de protocolo (phx_join, phx_reply, heartbeat) e postgres_changes.
  */
 export type RealtimeLog = {
     timestamp: number; // Quando a mensagem foi recebida/enviada pelo cliente
@@ -21,7 +20,7 @@ export type RealtimeLog = {
         join_ref?: string;
         payload: any;
         status?: string;
-    } | any; // 'any' para cobrir o payload bruto do socket
+    } | any; 
 }
 
 /**
@@ -33,7 +32,6 @@ export interface SupabaseContextType {
     connectionHealthy: boolean;
     realtimeAuthCounter: number;
     
-    // Função principal de controle de conexão/autenticação
     recreateSupabaseClient: (isHardReset?: boolean) => SupabaseClient<Database>;
 
     // Logs RAW do Socket e função de download
@@ -45,7 +43,6 @@ export interface SupabaseContextType {
 // CRIAÇÃO DO CONTEXTO
 // =================================================================
 
-// Valor padrão inicial
 const defaultContextValue: SupabaseContextType = {
     supabaseClient: null,
     realtimeChannel: null,
@@ -56,10 +53,8 @@ const defaultContextValue: SupabaseContextType = {
     downloadRealtimeLogs: () => { console.warn('downloadRealtimeLogs called before context initialization'); },
 };
 
-// Criação e Exportação do Contexto
 export const SupabaseContext = createContext<SupabaseContextType>(defaultContextValue);
 
-// Hook de conveniência
 export const useSupabase = (): SupabaseContextType => {
     const ctx = useContext(SupabaseContext);
     if (!ctx) throw new Error('useSupabase must be used within a SupabaseProvider');
