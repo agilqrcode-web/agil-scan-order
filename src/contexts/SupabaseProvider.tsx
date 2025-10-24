@@ -177,7 +177,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         hasInitializedRef.current = false; 
 
         return newClient;
-    }, [getToken, realtimeChannel, isSignedIn]); // Adicionado isSignedIn à dependência
+    }, [getToken, realtimeChannel, isSignedIn]); 
     recreateSupabaseClientRef.current = recreateSupabaseClient;
 
 
@@ -213,8 +213,8 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         }
     }, [getToken]);
 
+    // 🛑 ARGS CORRIGIDOS AQUI!
     const attachChannelListeners = (
-        // ... (Argumentos permanecem os mesmos)
         channel: RealtimeChannel,
         client: SupabaseClient,
         setHealthy: React.Dispatch<React.SetStateAction<boolean>>,
@@ -404,6 +404,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
             const authSwapFn = setRealtimeAuthAndChannelSwapRef.current!;
             const reconnectFn = handleReconnectRef.current!;
 
+            // Chamada de attachChannelListeners COMPLETA
             attachChannelListeners(
                 newChannel, client, setConnectionHealthy, 
                 authSwapFn, 
