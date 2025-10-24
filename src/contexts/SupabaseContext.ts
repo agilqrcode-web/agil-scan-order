@@ -21,13 +21,13 @@ export type SupabaseContextType = {
     recreateSupabaseClient: (isHardReset?: boolean) => SupabaseClient<Database>;
     
     // Ferramentas de Debug (Logs RAW)
-    realtimeEventLogs: RealtimeLog[]; // O array de logs capturados
-    downloadRealtimeLogs: () => void; // Função exposta para download
+    realtimeEventLogs: RealtimeLog[]; 
+    downloadRealtimeLogs: () => void;
 };
 
 // Valor padrão do contexto
 const defaultValue: SupabaseContextType = {
-    supabaseClient: {} as SupabaseClient<Database>, // Mock para inicialização
+    supabaseClient: {} as SupabaseClient<Database>, 
     realtimeChannel: null,
     connectionHealthy: false,
     realtimeAuthCounter: 0,

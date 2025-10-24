@@ -4,41 +4,57 @@ import { useEffect, useState } from 'react';
 import { useSupabase } from '@/contexts/SupabaseContext';
 import { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
-// **NOTA:** Adapte este tipo conforme sua tabela 'orders'
-type OrderRow = { id: number; customer_name: string; status: string; /* ... outros campos */ }; 
+// Importa a interface Order principal
+import { Order } from '@/types/order'; 
 
-// Define o tipo para os dados de mudança (payload do Realtime)
+// 🚨 DEFINIÇÃO DE TIPO: 
+// O Realtime payload (RealtimePostgresChangesPayload) só contém os campos da tabela 'orders',
+// não as relações (restaurant_tables, order_items). 
+// Por isso, definimos OrderRow extraindo os campos básicos da sua interface Order.
+
+// Usa 'Omit' para remover as relações do tipo que o Realtime Payload realmente contém.
+type OrderRow = Omit<Order, 'restaurant_tables' | 'order_items'> & {
+    // Corrige a nullable/presença de campos de acordo com a tabela SQL, 
+    // mesmo que sua interface Order os tenha como required.
+    // O Realtime Payload SEMPRE terá estas chaves.
+    table_id: string | null; // Ajustado para ser nullable, pois é uma FK
+    customer_name: string | null;
+    total_amount: number | null;
+    updated_at: string | null; // Adicionando o campo 'updated_at' da sua tabela SQL
+};
+
 type OrderPayload = RealtimePostgresChangesPayload<OrderRow>;
 
 export const useRealtimeOrders = () => {
-    // Importa todos os dados do contexto, incluindo os logs para debug
     const { 
         realtimeChannel, 
         realtimeAuthCounter, 
         connectionHealthy,
         realtimeEventLogs,
-        downloadRealtimeLogs 
+        downloadLogs 
     } = useSupabase();
     
+    // O estado agora usa a tipagem do Payload
     const [lastOrderEvent, setLastOrderEvent] = useState<OrderPayload | null>(null);
     const [isLoading, setIsLoading] = useState<boolean>(true);
 
     useEffect(() => {
-        // Se o canal ou a conexão não estiver saudável, não tentamos adicionar listeners
         if (!realtimeChannel || !connectionHealthy) {
             setIsLoading(true);
             return;
         }
 
-        // --- HANDLER DE EVENTOS ---
         const handleOrderChanges = (payload: OrderPayload) => {
             console.log(`[RT-ORDERS] 🔔 Evento de Pedido Recebido: ${payload.eventType}`);
+            
+            // O payload.new e payload.old terão o tipo OrderRow (sem as relações)
+            console.log("Dados da Nova Linha (New):", payload.new); 
+            
             setLastOrderEvent(payload);
         };
         
         console.log(`[RT-HOOK] ⚓️ Adicionando listeners específicos para orders (Auth Counter: ${realtimeAuthCounter})`);
         
-        // Adiciona o listener para a tabela orders
         const listener = realtimeChannel.on(
             'postgres_changes',
             { event: '*', schema: 'public', table: 'orders' },
@@ -51,7 +67,6 @@ export const useRealtimeOrders = () => {
         return () => {
             console.log('[RT-HOOK] 🧹 Removendo listeners específicos para orders');
             
-            // Verificação de segurança (listener é uma referência ao próprio canal/objeto)
             if (listener && typeof listener.off === 'function') {
                 try {
                     listener.off(
@@ -67,7 +82,6 @@ export const useRealtimeOrders = () => {
                  console.warn('[RT-HOOK-CLEANUP] ⚠️ Não foi possível remover listener: canal ou função .off ausente.');
             }
         };
-    // Dependências: Garante que o hook re-roda após um swap de canal bem-sucedido
     }, [realtimeChannel, connectionHealthy, realtimeAuthCounter]); 
 
     return { 
@@ -75,8 +89,7 @@ export const useRealtimeOrders = () => {
         isLoading,
         isRealtimeConnected: connectionHealthy,
         authSwapCount: realtimeAuthCounter, 
-        // Retorna as ferramentas de Debug do contexto
         capturedLogs: realtimeEventLogs,
-        downloadLogs: downloadRealtimeLogs,
+        downloadLogs: downloadLogs,
     };
 };
