@@ -1,51 +1,67 @@
-// SupabaseContext.ts
+// src/contexts/SupabaseContext.ts
 import React, { createContext, useContext } from 'react';
 import type { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
-import type { Database } from '../integrations/supabase/types'; // Certifique-se de que o caminho está correto
+import type { Database } from '../integrations/supabase/types'; // Verifique se o caminho está correto
 
-// 🆕 TIPO: Estrutura para os logs de evento Realtime
+// =================================================================
+// DEFINIÇÃO DE TIPOS
+// =================================================================
+
+/**
+ * TIPO: Estrutura para capturar QUALQUER mensagem do socket (Enviada ou Recebida).
+ * Isso inclui eventos de protocolo (phx_join, phx_reply, heartbeat) e postgres_changes.
+ */
 export type RealtimeLog = {
-    timestamp: number;
-    payload: any; // O payload exato do evento postgres_changes
+    timestamp: number; // Quando a mensagem foi recebida/enviada pelo cliente
+    type: 'SENT' | 'RECEIVED'; // Se a mensagem foi enviada pelo cliente ou recebida do servidor
+    payload: {
+        topic: string;
+        event: string;
+        ref: string;
+        join_ref?: string;
+        payload: any;
+        status?: string;
+    } | any; // 'any' para cobrir o payload bruto do socket
 }
 
-// 🛑 INTERFACE CORRIGIDA: Reflete a estrutura real do Provider
+/**
+ * INTERFACE: Define a estrutura de dados e funções expostas pelo Provedor.
+ */
 export interface SupabaseContextType {
-    // Tipagem com a Database é crucial para o cliente
     supabaseClient: SupabaseClient<Database> | null; 
     realtimeChannel: RealtimeChannel | null;
     connectionHealthy: boolean;
     realtimeAuthCounter: number;
     
-    // Funções de controle que o Provider realmente expõe
+    // Função principal de controle de conexão/autenticação
     recreateSupabaseClient: (isHardReset?: boolean) => SupabaseClient<Database>;
 
-    // 🆕 Novos campos para os logs
+    // Logs RAW do Socket e função de download
     realtimeEventLogs: RealtimeLog[];
     downloadRealtimeLogs: () => void;
 }
 
-// Valor padrão inicial para o contexto
+// =================================================================
+// CRIAÇÃO DO CONTEXTO
+// =================================================================
+
+// Valor padrão inicial
 const defaultContextValue: SupabaseContextType = {
     supabaseClient: null,
     realtimeChannel: null,
     connectionHealthy: false,
     realtimeAuthCounter: 0,
-    // Implementações placeholder para evitar erros
     recreateSupabaseClient: () => { throw new Error('SupabaseClient not initialized'); },
     realtimeEventLogs: [],
     downloadRealtimeLogs: () => { console.warn('downloadRealtimeLogs called before context initialization'); },
 };
 
 // Criação e Exportação do Contexto
-// O contexto NUNCA deve ser null se o provedor usa um valor padrão
 export const SupabaseContext = createContext<SupabaseContextType>(defaultContextValue);
 
 // Hook de conveniência
 export const useSupabase = (): SupabaseContextType => {
     const ctx = useContext(SupabaseContext);
-    // A verificação de null aqui é tecnicamente desnecessária se o valor padrão for bom,
-    // mas é um bom padrão para garantir que o hook seja usado dentro do Provider.
     if (!ctx) throw new Error('useSupabase must be used within a SupabaseProvider');
     return ctx;
 };
