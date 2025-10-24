@@ -1,37 +1,35 @@
-// src/hooks/useRealtimeOrders.ts (Código COMPLETO e FINAL)
+// src/hooks/useRealtimeOrders.ts
 
 import { useEffect, useState } from 'react';
 import { useSupabase } from '@/contexts/SupabaseContext';
 import { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
-// **NOTA:** Substitua 'any' pelo tipo real da sua linha da tabela 'orders'
+// **NOTA:** Adapte este tipo conforme sua tabela 'orders'
 type OrderRow = { id: number; customer_name: string; status: string; /* ... outros campos */ }; 
 
-// Define o tipo para os dados de mudança (adapte conforme sua tabela)
+// Define o tipo para os dados de mudança (payload do Realtime)
 type OrderPayload = RealtimePostgresChangesPayload<OrderRow>;
 
 export const useRealtimeOrders = () => {
-    // Inclui todas as informações do contexto para logs/debug
-    const { realtimeChannel, realtimeAuthCounter, connectionHealthy, realtimeEventLogs, downloadRealtimeLogs } = useSupabase();
+    // Importa todos os dados do contexto, incluindo os logs para debug
+    const { 
+        realtimeChannel, 
+        realtimeAuthCounter, 
+        connectionHealthy,
+        realtimeEventLogs,
+        downloadRealtimeLogs 
+    } = useSupabase();
     
     const [lastOrderEvent, setLastOrderEvent] = useState<OrderPayload | null>(null);
     const [isLoading, setIsLoading] = useState<boolean>(true);
 
     useEffect(() => {
-        // 1. Condição de Bloqueio: Se o canal não está disponível (Provider ainda está inicializando/quebrando), 
-        // apenas define loading e aguarda.
-        if (!realtimeChannel) {
+        // Se o canal ou a conexão não estiver saudável, não tentamos adicionar listeners
+        if (!realtimeChannel || !connectionHealthy) {
             setIsLoading(true);
             return;
         }
 
-        // 2. Condição de Aguardar: Se a conexão está saudável, prosseguimos. Caso contrário, 
-        // o Provider fará a reconexão. O hook espera.
-        if (!connectionHealthy) {
-             setIsLoading(true);
-             return;
-        }
-        
         // --- HANDLER DE EVENTOS ---
         const handleOrderChanges = (payload: OrderPayload) => {
             console.log(`[RT-ORDERS] 🔔 Evento de Pedido Recebido: ${payload.eventType}`);
@@ -40,7 +38,7 @@ export const useRealtimeOrders = () => {
         
         console.log(`[RT-HOOK] ⚓️ Adicionando listeners específicos para orders (Auth Counter: ${realtimeAuthCounter})`);
         
-        // 3. Adiciona o listener
+        // Adiciona o listener para a tabela orders
         const listener = realtimeChannel.on(
             'postgres_changes',
             { event: '*', schema: 'public', table: 'orders' },
@@ -53,7 +51,7 @@ export const useRealtimeOrders = () => {
         return () => {
             console.log('[RT-HOOK] 🧹 Removendo listeners específicos para orders');
             
-            // Usamos a referência 'listener' (que é o próprio canal) e verificamos a função 'off'
+            // Verificação de segurança (listener é uma referência ao próprio canal/objeto)
             if (listener && typeof listener.off === 'function') {
                 try {
                     listener.off(
@@ -66,18 +64,19 @@ export const useRealtimeOrders = () => {
                     console.error('[RT-HOOK-CLEANUP] Falha ao remover listener de orders:', error);
                 }
             } else {
-                 console.warn('[RT-HOOK-CLEANUP] ⚠️ Não foi possível remover listener: função .off ausente no canal.');
+                 console.warn('[RT-HOOK-CLEANUP] ⚠️ Não foi possível remover listener: canal ou função .off ausente.');
             }
         };
-    // Re-roda sempre que o canal muda, a saúde muda, ou o contador de Auth muda (após refresh/swap)
-    }, [realtimeChannel, connectionHealthy, realtimeAuthCounter]); 
+    // Dependências: Garante que o hook re-roda após um swap de canal bem-sucedido
+    }, [realtimeChannel, connectionHealthy, realtimeAuthCounter]); 
 
-    return { 
+    return { 
         lastOrderEvent,
         isLoading,
         isRealtimeConnected: connectionHealthy,
-        authSwapCount: realtimeAuthCounter,
-        capturedLogs: realtimeEventLogs, // Incluindo logs para debug no componente
+        authSwapCount: realtimeAuthCounter, 
+        // Retorna as ferramentas de Debug do contexto
+        capturedLogs: realtimeEventLogs,
         downloadLogs: downloadRealtimeLogs,
     };
 };

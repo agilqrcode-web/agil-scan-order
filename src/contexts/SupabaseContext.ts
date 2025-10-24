@@ -1,62 +1,47 @@
-// src/contexts/SupabaseContext.ts
+// src/contexts/SupabaseContext.tsx
+
 import React, { createContext, useContext } from 'react';
-import type { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
-import type { Database } from '../integrations/supabase/types'; // Verifique se o caminho está correto
+import { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
+import type { Database } from '../integrations/supabase/types';
 
-// =================================================================
-// DEFINIÇÃO DE TIPOS
-// =================================================================
-
-/**
- * TIPO: Estrutura para capturar QUALQUER mensagem do socket (Enviada ou Recebida).
- */
+// Tipo para o log RAW (mensagens do WebSocket)
 export type RealtimeLog = {
-    timestamp: number; // Quando a mensagem foi recebida/enviada pelo cliente
+    timestamp: number;
     type: 'SENT' | 'RECEIVED'; // Se a mensagem foi enviada pelo cliente ou recebida do servidor
-    payload: {
-        topic: string;
-        event: string;
-        ref: string;
-        join_ref?: string;
-        payload: any;
-        status?: string;
-    } | any; 
-}
+    payload: any;
+};
 
-/**
- * INTERFACE: Define a estrutura de dados e funções expostas pelo Provedor.
- */
-export interface SupabaseContextType {
-    supabaseClient: SupabaseClient<Database> | null; 
+export type SupabaseContextType = {
+    supabaseClient: SupabaseClient<Database>;
     realtimeChannel: RealtimeChannel | null;
     connectionHealthy: boolean;
     realtimeAuthCounter: number;
     
+    // Funções de Gerenciamento
     recreateSupabaseClient: (isHardReset?: boolean) => SupabaseClient<Database>;
+    
+    // Ferramentas de Debug (Logs RAW)
+    realtimeEventLogs: RealtimeLog[]; // O array de logs capturados
+    downloadRealtimeLogs: () => void; // Função exposta para download
+};
 
-    // Logs RAW do Socket e função de download
-    realtimeEventLogs: RealtimeLog[];
-    downloadRealtimeLogs: () => void;
-}
-
-// =================================================================
-// CRIAÇÃO DO CONTEXTO
-// =================================================================
-
-const defaultContextValue: SupabaseContextType = {
-    supabaseClient: null,
+// Valor padrão do contexto
+const defaultValue: SupabaseContextType = {
+    supabaseClient: {} as SupabaseClient<Database>, // Mock para inicialização
     realtimeChannel: null,
     connectionHealthy: false,
     realtimeAuthCounter: 0,
-    recreateSupabaseClient: () => { throw new Error('SupabaseClient not initialized'); },
+    recreateSupabaseClient: () => ({} as SupabaseClient<Database>),
     realtimeEventLogs: [],
-    downloadRealtimeLogs: () => { console.warn('downloadRealtimeLogs called before context initialization'); },
+    downloadRealtimeLogs: () => console.warn('SupabaseProvider not mounted yet.'),
 };
 
-export const SupabaseContext = createContext<SupabaseContextType>(defaultContextValue);
+export const SupabaseContext = createContext<SupabaseContextType>(defaultValue);
 
-export const useSupabase = (): SupabaseContextType => {
-    const ctx = useContext(SupabaseContext);
-    if (!ctx) throw new Error('useSupabase must be used within a SupabaseProvider');
-    return ctx;
+export const useSupabase = () => {
+    const context = useContext(SupabaseContext);
+    if (!context) {
+        throw new Error('useSupabase must be used within a SupabaseProvider');
+    }
+    return context;
 };
