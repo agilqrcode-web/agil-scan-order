@@ -1,73 +1,61 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createClient, SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
-import { useAuth, useSession } from '@clerk/clerk-react';
+import { useAuth } from '@clerk/clerk-react';
 import { SupabaseContext } from "@/contexts/SupabaseContext";
 import { Spinner } from '@/components/ui/spinner';
 import type { Database } from '../integrations/supabase/types';
 
-// Variáveis de Ambiente
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL!;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY!;
 const REALTIME_CHANNEL_NAME = 'public:orders';
 
-// =============================================================================
-// COMPONENTE PRINCIPAL: SupabaseProvider (Versão Simplificada e Robusta)
-// =============================================================================
+// --- SINGLETON PATTERN ---
+// O cliente e o canal são criados uma única vez quando o módulo é carregado.
+// Isso os torna resilientes a remontagens do componente React.
+console.log('[PROVIDER-INIT] ⚙️ Criando instância singleton do cliente Supabase e do canal Realtime.');
+const supabaseClientInstance = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+const realtimeChannelInstance = supabaseClientInstance.channel(REALTIME_CHANNEL_NAME);
+// --- FIM DO SINGLETON PATTERN ---
 
 export function SupabaseProvider({ children }: { children: React.ReactNode }) {
-    const { getToken, isLoaded } = useAuth();
-    const { session } = useSession();
+    const { getToken, isLoaded, isSignedIn } = useAuth();
 
-    const [supabaseClient, setSupabaseClient] = useState<SupabaseClient<Database> | null>(null);
-    const [realtimeChannel, setRealtimeChannel] = useState<RealtimeChannel | null>(null);
+    // Os estados agora apenas mantêm a referência para as instâncias singleton.
+    const [client] = useState<SupabaseClient<Database> | null>(supabaseClientInstance);
+    const [channel] = useState<RealtimeChannel | null>(realtimeChannelInstance);
 
-    const createSupabaseClient = useCallback(() => {
-        console.log('[PROVIDER] ⚙️ Criando nova instância do cliente Supabase e do canal Realtime.');
-        const client = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
-        const channel = client.channel(REALTIME_CHANNEL_NAME);
-        
-        setSupabaseClient(client);
-        setRealtimeChannel(channel);
-    }, []);
-
-    // Efeito para criar o cliente Supabase na montagem inicial
+    // Efeito para autenticar a conexão Realtime.
+    // Roda apenas quando o status de login muda ou quando o Clerk termina de carregar.
     useEffect(() => {
-        if (!supabaseClient) {
-            createSupabaseClient();
-        }
-    }, [supabaseClient, createSupabaseClient]);
-
-    // Efeito para autenticar a conexão Realtime quando a sessão do Clerk muda
-    useEffect(() => {
-        if (!supabaseClient || !isLoaded) {
+        if (!client || !isLoaded) {
             if (!isLoaded) console.log('[PROVIDER-AUTH] ⏳ Aguardando Clerk carregar...');
             return;
         }
 
         const setAuth = async () => {
-            if (session) {
-                console.log('%c[PROVIDER-AUTH] 🔑 Usuário logado. Obtendo token e autenticando Realtime...', 'color: #9c27b0;');
+            if (isSignedIn) {
+                console.log('%c[PROVIDER-AUTH] 🔑 Usuário logado. Obtendo token e autenticando Realtime...', 'color: #ff9800;');
                 const token = await getToken({ template: 'supabase' });
                 if (token) {
-                    await supabaseClient.realtime.setAuth(token);
-                    console.log('%c[PROVIDER-AUTH] ✅ Realtime autenticado.', 'color: #9c27b0; font-weight: bold;');
+                    // A SDK do Supabase é inteligente e só enviará o novo token se ele for diferente do anterior.
+                    await client.realtime.setAuth(token);
+                    console.log('%c[PROVIDER-AUTH] ✅ Realtime autenticado.', 'color: #ff9800; font-weight: bold;');
                 } else {
                     console.warn('[PROVIDER-AUTH] ⚠️ Token do Clerk não obtido mesmo com sessão ativa.');
                 }
             } else {
                 console.log('[PROVIDER-AUTH] 👤 Usuário deslogado. Limpando autenticação do Realtime.');
-                // Limpa a autenticação se o usuário estiver deslogado
-                await supabaseClient.realtime.setAuth(null);
+                await client.realtime.setAuth(null);
             }
         };
 
         setAuth();
 
-    }, [isLoaded, session, getToken, supabaseClient]);
+    // DEPENDÊNCIAS ESTÁVEIS: Este efeito agora só roda quando o status de login realmente muda.
+    }, [isLoaded, isSignedIn, getToken, client]);
 
 
-    // Renderização
-    if (!isLoaded || !supabaseClient || !realtimeChannel) {
+    if (!isLoaded || !client || !channel) {
         return (
             <div className="flex items-center justify-center min-h-screen">
                 <Spinner />
@@ -76,7 +64,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     }
 
     return (
-        <SupabaseContext.Provider value={{ supabaseClient, realtimeChannel }}>
+        <SupabaseContext.Provider value={{ supabaseClient: client, realtimeChannel: channel }}>
             {children}
         </SupabaseContext.Provider>
     );
