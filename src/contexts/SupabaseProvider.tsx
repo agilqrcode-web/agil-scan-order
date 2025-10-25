@@ -331,7 +331,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
             // 1. OBTENÇÃO DO TOKEN E DECISÃO DO CANAL (Private/Public)
             if (isSignedIn && !FORCE_PUBLIC_CHANNEL) {
                 newToken = await getTokenWithValidation();
-                channelName = 'private:orders'; 
+                channelName = 'public:orders'; 
             } else {
                 channelName = 'public:orders'; 
             }
