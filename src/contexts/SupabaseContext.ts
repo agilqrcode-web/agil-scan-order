@@ -1,5 +1,4 @@
 // src/contexts/SupabaseContext.tsx
-
 import React, { createContext, useContext } from 'react';
 import { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 import type { Database } from '../integrations/supabase/types';
@@ -7,31 +6,30 @@ import type { Database } from '../integrations/supabase/types';
 // Tipo para o log RAW (mensagens do WebSocket)
 export type RealtimeLog = {
     timestamp: number;
-    type: 'SENT' | 'RECEIVED'; // Se a mensagem foi enviada pelo cliente ou recebida do servidor
+    type: 'SENT' | 'RECEIVED';
     payload: any;
 };
 
 export type SupabaseContextType = {
-    supabaseClient: SupabaseClient<Database>;
+    supabaseClient: SupabaseClient<Database> | null;
     realtimeChannel: RealtimeChannel | null;
     connectionHealthy: boolean;
     realtimeAuthCounter: number;
-    
+
     // Funções de Gerenciamento
-    recreateSupabaseClient: (isHardReset?: boolean) => SupabaseClient<Database>;
-    
+    recreateSupabaseClient: (isHardReset?: boolean) => Promise<SupabaseClient<Database> | null>;
+
     // Ferramentas de Debug (Logs RAW)
-    realtimeEventLogs: RealtimeLog[]; 
+    realtimeEventLogs: RealtimeLog[];
     downloadRealtimeLogs: () => void;
 };
 
-// Valor padrão do contexto
 const defaultValue: SupabaseContextType = {
-    supabaseClient: {} as SupabaseClient<Database>, 
+    supabaseClient: null,
     realtimeChannel: null,
     connectionHealthy: false,
     realtimeAuthCounter: 0,
-    recreateSupabaseClient: () => ({} as SupabaseClient<Database>),
+    recreateSupabaseClient: async () => null,
     realtimeEventLogs: [],
     downloadRealtimeLogs: () => console.warn('SupabaseProvider not mounted yet.'),
 };

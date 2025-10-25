@@ -1,29 +1,28 @@
-import { useEffect, useState, useCallback } from 'react';
+// src/hooks/useRealtimeOrders.ts
+import { useEffect, useState } from 'react';
 import { useSupabase } from '@/contexts/SupabaseContext';
-import { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import type { Database } from '../integrations/supabase/types';
+import { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
-// Tipagem específica para o evento de Pedido
 type OrderRow = Database['public']['Tables']['orders']['Row'];
 type OrderEvent = RealtimePostgresChangesPayload<{
-    table: 'orders',
-    schema: 'public',
-    eventType: 'INSERT' | 'UPDATE' | 'DELETE',
-    old: Partial<OrderRow>,
-    new: Partial<OrderRow>
+    table: 'orders';
+    schema: 'public';
+    eventType: 'INSERT' | 'UPDATE' | 'DELETE';
+    old: Partial<OrderRow>;
+    new: Partial<OrderRow>;
 }>;
 
-// Função dummy para manipular o estado local/global
 const processOrderEvent = (event: OrderEvent) => {
     switch (event.eventType) {
         case 'INSERT':
-            console.log(`%c[RT-ORDERS] 🔔 Novo Pedido Recebido: ${event.new.id}`, 'color: #1a9c36;');
+            console.log(`[RT-ORDERS] 🔔 Novo Pedido Recebido: ${event.new?.id}`);
             break;
         case 'UPDATE':
-            console.log(`%c[RT-ORDERS] 🔁 Pedido Atualizado: ${event.new.id} - Status: ${event.new.status}`, 'color: #9c731a;');
+            console.log(`[RT-ORDERS] 🔁 Pedido Atualizado: ${event.new?.id} - Status: ${event.new?.status}`);
             break;
         case 'DELETE':
-            console.log(`%c[RT-ORDERS] 🗑️ Pedido Deletado: ${event.old.id}`, 'color: #c90000;');
+            console.log(`[RT-ORDERS] 🗑️ Pedido Deletado: ${event.old?.id}`);
             break;
         default:
             console.warn('[RT-ORDERS] ❓ Evento desconhecido:', event.eventType);
@@ -31,8 +30,8 @@ const processOrderEvent = (event: OrderEvent) => {
 };
 
 export const useRealtimeOrders = () => {
-    const { supabaseClient, realtimeChannel, realtimeAuthCounter } = useSupabase();
-    const [orders, setOrders] = useState<OrderRow[]>([]); 
+    const { realtimeChannel, realtimeAuthCounter } = useSupabase();
+    const [orders, setOrders] = useState<OrderRow[]>([]);
 
     useEffect(() => {
         if (!realtimeChannel) {
@@ -40,36 +39,28 @@ export const useRealtimeOrders = () => {
             return;
         }
 
-        const channel = realtimeChannel;
-        
-        console.log(`[RT-HOOK] ⚓️ Adicionando listeners específicos para orders (Auth Counter: ${realtimeAuthCounter})`);
-
-        const handleOrdersChange = (payload: OrderEvent) => {
-            console.log(`%c[RT-ORDERS] 🔔 Evento de Pedido Recebido: ${payload.eventType}`, 'color: #3f51b5;');
-            // Processa e atualiza o estado local/global
+        const handler = (payload: OrderEvent) => {
+            console.log('[RT-ORDERS] Evento recebido:', payload.eventType);
             processOrderEvent(payload);
+            // Atualizações locais podem ser aplicadas aqui se desejar:
+            // setOrders(prev => ...);
         };
 
-        // 1. Adiciona o Listener ESPECÍFICO
-        channel.on(
-            'postgres_changes',
-            { event: '*', schema: 'public', table: 'orders' },
-            handleOrdersChange as any 
-        );
+        const params = { event: '*', schema: 'public', table: 'orders' } as const;
 
-        // 2. Cleanup Function
+        // Adiciona listener
+        realtimeChannel.on('postgres_changes', params, handler as any);
+
+        // Cleanup garante remoção do listener específico
         return () => {
-            console.log('[RT-HOOK] 🧹 Removendo listeners específicos para orders.');
             try {
-                // A remoção explícita é a forma mais limpa de garantir que não fiquem listeners órfãos.
-                // channel.off('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, handleOrdersChange as any);
-            } catch (error) {
-                // ... (Tratamento de erro se off falhar)
+                realtimeChannel.off('postgres_changes', params, handler as any);
+                console.log('[RT-HOOK] 🧹 Listener de orders removido com sucesso.');
+            } catch (e) {
+                console.warn('[RT-HOOK] ⚠️ Falha ao remover listener (ignorado):', e);
             }
         };
-
-    // DEPENDÊNCIAS: Garante a reinscrição em cada troca de canal/autenticação
-    }, [supabaseClient, realtimeChannel, realtimeAuthCounter]);
+    }, [realtimeChannel, realtimeAuthCounter]);
 
     return { orders };
 };
