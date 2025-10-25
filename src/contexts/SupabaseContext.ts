@@ -13,21 +13,8 @@ export interface RealtimeLog {
 }
 
 export interface SupabaseContextType {
-    supabaseClient: SupabaseClient<Database>;
+    supabaseClient: SupabaseClient<Database> | null;
     realtimeChannel: RealtimeChannel | null;
-    connectionHealthy: boolean;
-    /**
-     * Contador que incrementa a cada troca/re-autenticação bem-sucedida do canal Realtime.
-     * Usado pelos hooks consumidores (ex: useRealtimeOrders) para saber quando se reincrever.
-     */
-    realtimeAuthCounter: number; 
-    /**
-     * Função para recriar o cliente Supabase e o WebSocket do zero.
-     * @param isHardReset Se true, força o reset total.
-     */
-    recreateSupabaseClient: (isHardReset?: boolean) => SupabaseClient<Database>;
-    realtimeEventLogs: RealtimeLog[];
-    downloadRealtimeLogs: () => void;
 }
 
 // =============================================================================

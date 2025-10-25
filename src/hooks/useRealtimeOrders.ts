@@ -1,79 +1,82 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useSupabase } from '@/contexts/SupabaseContext';
-import { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
+import { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import type { Database } from '../integrations/supabase/types';
+import { toast } from 'sonner';
 
 // Tipagem específica para o evento de Pedido
 type OrderRow = Database['public']['Tables']['orders']['Row'];
-type OrderEvent = RealtimePostgresChangesPayload<{
-    table: 'orders',
-    schema: 'public',
-    eventType: 'INSERT' | 'UPDATE' | 'DELETE',
-    old: Partial<OrderRow>,
-    new: Partial<OrderRow>
-}>;
+type OrderEvent = RealtimePostgresChangesPayload<OrderRow>;
 
-// Função dummy para manipular o estado local/global (Lógica da Aplicação)
-const processOrderEvent = (event: OrderEvent) => {
-    // 💡 Substitua esta função pela sua lógica real de atualização de estado/cache.
-    switch (event.eventType) {
-        case 'INSERT':
-            console.log(`%c[RT-ORDERS] 🔔 Novo Pedido Recebido: ${event.new.id}`, 'color: #1a9c36;');
-            break;
-        case 'UPDATE':
-            console.log(`%c[RT-ORDERS] 🔁 Pedido Atualizado: ${event.new.id} - Status: ${event.new.status}`, 'color: #9c731a;');
-            break;
-        case 'DELETE':
-            console.log(`%c[RT-ORDERS] 🗑️ Pedido Deletado: ${event.old.id}`, 'color: #c90000;');
-            break;
-        default:
-            console.warn('[RT-ORDERS] ❓ Evento desconhecido:', event.eventType);
-    }
-};
-
+/**
+ * Hook customizado para escutar eventos de novos pedidos em tempo real.
+ * 
+ * Este hook implementa o "Princípio Arquitetural #7":
+ * 1. Obtém o canal Realtime do contexto.
+ * 2. Registra um listener para eventos de INSERT na tabela 'orders'.
+ * 3. **Após registrar o listener**, se inscreve no canal com `subscribe()`.
+ * 4. A única responsabilidade do listener é invalidar a query de notificações, 
+ *    delegando a busca de dados ao React Query (Princípio #6).
+ * 5. Na desmontagem, se desinscreve do canal com `unsubscribe()`.
+ */
 export const useRealtimeOrders = () => {
-    // Obter o canal e o contador de autenticação do contexto
-    const { realtimeChannel, realtimeAuthCounter } = useSupabase();
-    const [orders, setOrders] = useState<OrderRow[]>([]); 
+    const { realtimeChannel } = useSupabase();
+    const queryClient = useQueryClient();
 
     useEffect(() => {
-        const channel = realtimeChannel;
-
-        if (!channel) {
-            console.warn('[RT-HOOK] ⚠️ Canal Realtime não está pronto para inscrição de listeners.');
+        if (!realtimeChannel) {
+            console.warn('[RT-HOOK] ⚠️ Canal Realtime ainda não disponível.');
             return;
         }
-        
-        console.log(`[RT-HOOK] ⚓️ Adicionando listeners específicos para orders (Auth Counter: ${realtimeAuthCounter})`);
 
-        const handleOrdersChange = (payload: OrderEvent) => {
-            console.log(`%c[RT-ORDERS] 🔔 Evento de Pedido Recebido: ${payload.eventType} (Canal: ${channel.topic})`, 'color: #3f51b5;');
-            // Processa e atualiza o estado local/global
-            processOrderEvent(payload);
+        console.log(`[RT-HOOK] ⚓️ Preparando para escutar eventos no canal: ${realtimeChannel.topic}`);
+
+        const handleNewOrder = (payload: OrderEvent) => {
+            console.log('%c[RT-HOOK] 🔔 Novo Pedido Recebido! Payload:', 'color: #1a9c36; font-weight: bold;', payload);
+            
+            // Dispara um toast para notificar o usuário visualmente
+            toast.success('Novo pedido recebido!', {
+                description: `Um novo pedido foi registrado e adicionado à sua lista.`,
+                action: {
+                    label: 'Ver Pedidos',
+                    onClick: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+                },
+            });
+
+            // Invalida a query de notificações para forçar um refetch.
+            // Esta é a única responsabilidade do hook, conforme o Princípio #6.
+            queryClient.invalidateQueries({ queryKey: ['notifications'] });
         };
 
-        // 1. Adiciona o Listener ESPECÍFICO para a tabela 'orders'
-        channel.on(
+        // 1. Registra o listener de eventos ANTES de se inscrever.
+        const listener = realtimeChannel.on(
             'postgres_changes',
-            { event: '*', schema: 'public', table: 'orders' },
-            handleOrdersChange as any 
+            { event: 'INSERT', schema: 'public', table: 'orders' },
+            handleNewOrder as any
         );
 
-        // 2. Função de Limpeza (Cleanup)
+        // 2. Se inscreve no canal APÓS registrar o listener.
+        realtimeChannel.subscribe((status, err) => {
+            if (status === 'SUBSCRIBED') {
+                console.log(`%c[RT-HOOK] ✅ Inscrito com sucesso no canal: ${realtimeChannel.topic}`, 'color: #1a9c36; font-weight: bold;');
+            } else if (status === 'CHANNEL_ERROR') {
+                console.error(`%c[RT-HOOK] ❌ Falha na inscrição do canal: ${realtimeChannel.topic}`, 'color: #e53935; font-weight: bold;', err);
+            } else {
+                console.log(`[RT-HOOK] ℹ️ Status do canal: ${status}`);
+            }
+        });
+
+        // 3. Função de Limpeza (Cleanup)
         return () => {
-            console.log(`[RT-HOOK] 🧹 Removendo listeners de orders do canal: ${channel.topic} (Auth Counter: ${realtimeAuthCounter})`);
-            try {
-                // Remove o listener de forma explícita ao desmontar ou trocar de canal
-                // Nota: O método .off é menos confiável que .removeChannel, mas é a única opção para listeners específicos.
-                // O cleanup principal de canais é feito no Provider no momento do swap/recreate.
-                // Aqui apenas removemos o callback específico, se o canal ainda existir.
-            } catch (error) {
-                 console.error('[RT-HOOK-CLEANUP] Falha ao tentar limpar listener (Pode ser ignorado se o canal foi removido):', error);
+            if (realtimeChannel) {
+                console.log(`[RT-HOOK] 🧹 Desinscrevendo do canal: ${realtimeChannel.topic}`);
+                realtimeChannel.unsubscribe();
+                // Opcional: remover o listener específico se a instância do canal for persistir
+                // realtimeChannel.off('postgres_changes', listener);
             }
         };
 
-    // DEPENDÊNCIAS: Garante a reinscrição em cada troca de canal/autenticação
-    }, [realtimeChannel, realtimeAuthCounter]);
-
-    return { orders };
+    // A dependência é apenas o objeto do canal. O hook re-executará se o canal for recriado.
+    }, [realtimeChannel, queryClient]);
 };
