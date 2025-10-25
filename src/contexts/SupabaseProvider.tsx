@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { createClient, SupabaseClient, RealtimeChannel, RealtimeSubscriptionState } from '@supabase/supabase-js';
+// CORREÇÃO DE BUILD: 'RealtimeSubscriptionState' foi removido desta importação.
+import { createClient, SupabaseClient, RealtimeChannel } from '@supabase/supabase-js'; 
 import { useAuth } from '@clerk/clerk-react';
 import { SupabaseContext, SupabaseContextType, RealtimeLog } from "@/contexts/SupabaseContext"; 
 import { Spinner } from '@/components/ui/spinner';
@@ -10,7 +11,7 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL!;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY!;
 
 // =============================================================================
-// ⚙️ CONFIGURAÇÕES DE PERFORMANCE E RESILIÊNCIA (Ajustes)
+// ⚙️ CONFIGURAÇÕES DE PERFORMANCE E RESILIÊNCIA (Ajustes de Timing)
 // =============================================================================
 
 const REFRESH_MARGIN_MS = 5 * 60 * 1000; // 5 minutos de margem
@@ -178,11 +179,11 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
             tokenRefreshTimeoutRef.current = null;
         }
 
-        // Usa a função removeChannel para limpar canais existentes no cliente antigo
+        // CORREÇÃO DE BUILD APLICADA AQUI: Usando string literal para o estado do canal
         if (supabaseClient) { 
-            // Supabase.js v2+ pode ter canais em memória, melhor usar .removeChannel
             supabaseClient.getChannels().forEach(channel => {
-                if (channel.state === RealtimeSubscriptionState.Subscribed || channel.state === RealtimeSubscriptionState.Joining) {
+                // Os estados possíveis são: 'subscribed', 'joining', 'closed', 'errored'
+                if (channel.state === 'subscribed' || channel.state === 'joining') {
                     console.log(`[PROVIDER-INIT] 🧹 Removendo canal ativo: ${channel.topic}`);
                     supabaseClient.removeChannel(channel);
                 }
@@ -208,7 +209,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     }, [getToken, supabaseClient, isSignedIn, handleRealtimeMessage]); 
     recreateSupabaseClientRef.current = recreateSupabaseClient;
 
-    // Função para obter o token do Clerk com validação e log de expiração
+    // Função para obter o token do Clerk com validação e log de expiração (Mantida)
     const getTokenWithValidation = useCallback(async () => {
         try {
              const token = await getToken({ template: 'supabase' });
@@ -483,7 +484,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         setRealtimeEventLogsRef.current = setRealtimeEventLogs;
     }, [setRealtimeEventLogs]); 
 
-    // Função de download de logs (Placeholder)
+    // Função de download de logs
     const downloadRealtimeLogs = useCallback(() => {
         const jsonString = JSON.stringify(realtimeEventLogs, null, 2);
         const blob = new Blob([jsonString], { type: 'application/json' });
