@@ -22,65 +22,81 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     const [channel] = useState<RealtimeChannel | null>(realtimeChannelInstance);
     const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-    const scheduleTokenRefresh = useCallback((token: string) => {
-        if (refreshTimeoutRef.current) {
-            clearTimeout(refreshTimeoutRef.current);
+    const syncAuthAndSchedule = useCallback(async () => {
+        if (!client || !isLoaded || !isSignedIn) {
+            return; // Guarda para garantir que temos tudo o que precisamos
         }
 
-        try {
-            const jwtPayload = JSON.parse(atob(token.split('.')[1]));
-            const expiresAt = jwtPayload.exp * 1000;
-            const refreshIn = expiresAt - Date.now() - TOKEN_REFRESH_MARGIN_MS;
+        console.log('%c[AUTH-SYNC] 🔄 Sincronizando token...', 'color: purple;');
+        const token = await getToken({ template: 'supabase' });
 
-            if (refreshIn > 0) {
-                console.log(`%c[SCHEDULER] 📅 Agendando próxima renovação de token em ${Math.round(refreshIn / 1000 / 60)} minutos.`, 'color: green;');
-                refreshTimeoutRef.current = setTimeout(async () => {
-                    console.log('%c[SCHEDULER] ⏳ Hora de renovar! Obtendo novo token... ', 'color: green; font-weight: bold;');
-                    const newToken = await getToken({ template: 'supabase' });
-                    if (newToken && client) {
-                        await client.realtime.setAuth(newToken);
-                        console.log('%c[SCHEDULER] ✅ Token renovado e sincronizado com Supabase.', 'color: green; font-weight: bold;');
-                        scheduleTokenRefresh(newToken); // Re-agenda a próxima renovação
-                    }
-                }, refreshIn);
+        if (token) {
+            await client.realtime.setAuth(token);
+            console.log('%c[AUTH-SYNC] ✅ Token sincronizado com Supabase.', 'color: purple; font-weight: bold;');
+
+            if (refreshTimeoutRef.current) {
+                clearTimeout(refreshTimeoutRef.current);
             }
-        } catch (error) {
-            console.error('[SCHEDULER] ❌ Erro ao decodificar token e agendar renovação:', error);
-        }
-    }, [getToken, client]);
 
-    useEffect(() => {
-        if (!client || !isLoaded) {
-            return;
-        }
+            try {
+                const jwtPayload = JSON.parse(atob(token.split('.')[1]));
+                const expiresAt = jwtPayload.exp * 1000;
+                const refreshIn = expiresAt - Date.now() - TOKEN_REFRESH_MARGIN_MS;
 
-        const setAuthAndSchedule = async () => {
-            if (isSignedIn) {
-                console.log('%c[PROVIDER-AUTH] 🔑 Sessão ativa. Obtendo token inicial e agendando renovação...', 'color: #ff9800;');
-                const token = await getToken({ template: 'supabase' });
-                if (token) {
-                    await client.realtime.setAuth(token);
-                    console.log('%c[PROVIDER-AUTH] ✅ Realtime autenticado.', 'color: #ff9800; font-weight: bold;');
-                    scheduleTokenRefresh(token);
+                if (refreshIn > 0) {
+                    console.log(`%c[SCHEDULER] 📅 Agendando próxima renovação em ${Math.round(refreshIn / 1000 / 60)} minutos.`, 'color: green;');
+                    refreshTimeoutRef.current = setTimeout(syncAuthAndSchedule, refreshIn);
                 }
-            } else {
+            } catch (error) {
+                console.error('[SCHEDULER] ❌ Erro ao agendar renovação:', error);
+            }
+        }
+    }, [client, isLoaded, isSignedIn, getToken]);
+
+    // Efeito 1: Lida com a mudança de estado de login (login/logout)
+    useEffect(() => {
+        if (isLoaded) {
+            if (!isSignedIn) {
                 console.log('[PROVIDER-AUTH] 👤 Usuário deslogado. Limpando autenticação e agendamento.');
-                await client.realtime.setAuth(null);
+                client?.realtime.setAuth(null);
                 if (refreshTimeoutRef.current) {
                     clearTimeout(refreshTimeoutRef.current);
                 }
             }
-        };
-
-        setAuthAndSchedule();
-
-        // Cleanup na desmontagem do componente
+        }
         return () => {
             if (refreshTimeoutRef.current) {
                 clearTimeout(refreshTimeoutRef.current);
             }
         };
-    }, [isLoaded, isSignedIn, getToken, client, scheduleTokenRefresh]);
+    }, [isLoaded, isSignedIn, client]);
+
+    // Efeito 2: A Correção Definitiva para reconexões (hibernação, etc.)
+    useEffect(() => {
+        if (!client) return;
+        const socket = client.realtime.socket;
+        if (!socket) return;
+
+        const handleReconnect = () => {
+            console.log('%c[SOCKET-LIFECYCLE] 🔌 Conexão aberta/restabelecida, re-sincronizando token.', 'color: blue; font-weight: bold;');
+            syncAuthAndSchedule();
+        };
+
+        socket.on('open', handleReconnect);
+        console.log('[SOCKET-LIFECYCLE] ✅ Listener para o evento "open" do socket foi adicionado.');
+
+        // Força a conexão inicial se ainda não estiver conectado
+        if (!socket.isConnected()) {
+            client.realtime.connect();
+        }
+
+        return () => {
+            if (socket) {
+                socket.off('open', handleReconnect);
+                console.log('[SOCKET-LIFECYCLE] 🧹 Listener do evento "open" do socket foi removido.');
+            }
+        };
+    }, [client, syncAuthAndSchedule]);
 
     if (!isLoaded || !client || !channel) {
         return (
