@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createClient, SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
-import { useAuth } from '@clerk/clerk-react';
+import { useAuth, useSession } from '@clerk/clerk-react';
 import { SupabaseContext } from "@/contexts/SupabaseContext";
 import { Spinner } from '@/components/ui/spinner';
 import type { Database } from '../integrations/supabase/types';
@@ -19,13 +19,11 @@ const realtimeChannelInstance = supabaseClientInstance.channel(REALTIME_CHANNEL_
 
 export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     const { getToken, isLoaded, isSignedIn } = useAuth();
+    const { session } = useSession(); // Usado para obter um gatilho de renovação confiável
 
-    // Os estados agora apenas mantêm a referência para as instâncias singleton.
     const [client] = useState<SupabaseClient<Database> | null>(supabaseClientInstance);
     const [channel] = useState<RealtimeChannel | null>(realtimeChannelInstance);
 
-    // Efeito para autenticar a conexão Realtime.
-    // Roda apenas quando o status de login muda ou quando o Clerk termina de carregar.
     useEffect(() => {
         if (!client || !isLoaded) {
             if (!isLoaded) console.log('[PROVIDER-AUTH] ⏳ Aguardando Clerk carregar...');
@@ -34,14 +32,11 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
         const setAuth = async () => {
             if (isSignedIn) {
-                console.log('%c[PROVIDER-AUTH] 🔑 Usuário logado. Obtendo token e autenticando Realtime...', 'color: #ff9800;');
+                console.log('%c[PROVIDER-AUTH] 🔑 Sessão ativa. Sincronizando token com o Realtime...', 'color: #ff9800;');
                 const token = await getToken({ template: 'supabase' });
                 if (token) {
-                    // A SDK do Supabase é inteligente e só enviará o novo token se ele for diferente do anterior.
                     await client.realtime.setAuth(token);
-                    console.log('%c[PROVIDER-AUTH] ✅ Realtime autenticado.', 'color: #ff9800; font-weight: bold;');
-                } else {
-                    console.warn('[PROVIDER-AUTH] ⚠️ Token do Clerk não obtido mesmo com sessão ativa.');
+                    console.log('%c[PROVIDER-AUTH] ✅ Realtime autenticado/sincronizado.', 'color: #ff9800; font-weight: bold;');
                 }
             } else {
                 console.log('[PROVIDER-AUTH] 👤 Usuário deslogado. Limpando autenticação do Realtime.');
@@ -51,9 +46,12 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
         setAuth();
 
-    // DEPENDÊNCIAS ESTÁVEIS: Este efeito agora só roda quando o status de login realmente muda.
-    }, [isLoaded, isSignedIn, getToken, client]);
-
+    // A CORREÇÃO CRÍTICA:
+    // Dependemos de `session?.expireAt`, que muda especificamente quando o Clerk
+    // emite um novo token com uma nova data de expiração. Isso fornece um gatilho
+    // confiável para re-executar o efeito e chamar `setAuth` com o novo token.
+    // Usamos `.getTime()` para passar um valor primitivo (número) para o array de dependências.
+    }, [isLoaded, isSignedIn, session?.expireAt?.getTime(), getToken, client]);
 
     if (!isLoaded || !client || !channel) {
         return (
